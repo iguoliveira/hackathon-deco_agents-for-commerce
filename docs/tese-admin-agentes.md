@@ -12,21 +12,95 @@ Este documento foi escrito **antes** da spec de vocês e descreve um desenho **m
 
 **A spec aprovada é [`tese-agente-vendas-ia.md`](tese-agente-vendas-ia.md).** Onde os dois divergirem, a spec ganha. Em particular, ela exclui explicitamente (`explicit_exclusions`) a escrita programática de bloco CMS — que é a fundação de boa parte deste documento.
 
+> **Atualizado na revisão 3 da spec.** A tabela abaixo foi revista: parte do que estava
+> marcado como "fora do escopo" foi **adotado** na spec aprovada, e a exclusão de escrita
+> de bloco CMS deixou de ser um bloqueio para virar uma **configuração de autonomia**.
+
 | Deste documento | Situação na v1 |
 |---|---|
-| Proposta com `before`/`after` de bloco (§6) | **Fora do escopo** — sem escrita de bloco CMS |
-| Aprovar / publicar como A/B / reverter (§8) | **Fora do escopo** |
-| Níveis de autonomia (§4) | **Fora do escopo** — o agente é síncrono e read-only |
-| Preview via `/deco/render` (§5) | **Fora do escopo** como fluxo de aprovação |
-| Frota de 3 agentes (§12) | **Um** agente na v1: recomendação conversacional |
-| Admin como superfície da frota (§2) | Vira `/admin/agent-dashboard`: ranking de tópicos, zero-result, conversão |
-| Honestidade sobre métricas (§11) | **Vale integralmente** — aplica-se ao dashboard aprovado |
-| Guardrails e zonas proibidas (§10) | **Vale integralmente** — virou `explicit_exclusions` na spec |
+| Artefato único + gate de autonomia (§3) | **Adotado integralmente** na spec (`admin_surface.decision`) |
+| Proposta com `before`/`after` e `evidence` (§6) | **Adotado** — `before` é o que torna o undo gratuito |
+| Níveis de autonomia (§4) | **Adotado, reduzido a dois**: `sugerir` (default) e `autonomo` (opt-in do lojista) |
+| Aprovar / reverter (§8) | **Dentro do escopo** — ver caminhos de aplicação na spec |
+| Publicar como A/B (§8) | **Fora do escopo na v1** — ver nota sobre `auto-ab` abaixo |
+| Preview via `/deco/render` (§5) | Opcional; cortável. O plano B (bloco `Preview`) é o caminho seguro |
+| Frota de 3 agentes (§12) | **Dois** na v1: busca conversacional + coleções sugeridas |
+| Admin como superfície da frota (§2) | Vira **section CMS** em página não indexada, não rota `/admin/*` |
+| Honestidade sobre métricas (§11) | **Vale integralmente** — conversão saiu do dashboard |
+| Guardrails e zonas proibidas (§10) | **Vale integralmente** |
 | Teto de esforço do admin (§8) | **Vale integralmente** |
+| Sequência de construção — Merchandiser primeiro (§12) | **Substituída** — ver nota 5 abaixo |
 
-As primitivas técnicas citadas aqui foram reverificadas neste repo e **existem** (`src/routes/deco/render.ts`, `.deco/blocks/Teste AB.json` com o matcher `random.ts`, `PLP Loader.json`, `DECO_KV` bindado, sem `triggers.crons` ainda). Ou seja: o caminho descrito é viável — foi descartado na v1 por **risco de cronograma**, não por impossibilidade. É exatamente assim que ele deve ser apresentado no pitch: próximo passo assumido, não limitação escondida.
+O padrão de execução do que **está** aprovado vive na spec
+[`tese-agente-vendas-ia.md`](tese-agente-vendas-ia.md).
 
-O padrão de execução do que **está** aprovado vive em [`.claude/skills/store-agent/SKILL.md`](../.claude/skills/store-agent/SKILL.md).
+---
+
+## Reconciliação técnica (revisão 3)
+
+**Escopo desta seção:** corrigir afirmações do *corpo deste documento* que não se
+sustentam contra o repo. Onde uma decisão técnica foi tomada, ela vive na spec e aqui
+fica só o ponteiro — para não existirem duas versões da mesma decisão divergindo com o
+tempo. Este documento é **não-normativo**: ele responde *por que* a frota importa; a spec
+responde *o que* construir.
+
+### 1. Verificação das primitivas (§2, §9)
+
+| Afirmação | Status |
+|---|---|
+| `src/routes/deco/render.ts` | ✅ existe |
+| `.deco/blocks/Teste AB.json` com matcher `random.ts` | ✅ existe, exatamente como citado |
+| `PLP Loader.json` | ✅ existe |
+| `DECO_KV` bindado | ✅ `wrangler.jsonc:36-43` |
+| sem `triggers.crons` | ✅ correto — nem trigger, nem handler `scheduled` |
+| `.claude/skills/store-agent/SKILL.md` | ❌ **não existe** — diretório ausente e não está no `.gitignore` |
+
+O último era um link do cabeçalho e foi removido. `render.ts` existe mas é uma linha
+delegando para `decoRenderRouteConfig()` sem argumentos — a pendência do §5 (aceita props
+inline?) **não é respondível a partir deste repo**, a resposta está dentro de
+`@decocms/tanstack`. O plano B do §5 é o caminho seguro e a convenção já existe
+(`.deco/blocks/Preview %2Fsections%2F....json`).
+
+### 2. Correções que viraram decisão na spec
+
+Três afirmações do corpo deste documento estavam erradas ou incompletas. As três foram
+corrigidas **e decididas** na spec — não repito o conteúdo aqui:
+
+| Afirmação neste doc | Correção | Onde a decisão vive |
+|---|---|---|
+| §9: "KV dá conta; só migrar para D1 se precisar cruzar métrica em query" | Certo para Propostas, errado para o log de buscas — que é exatamente a exceção prevista. Os dois convivem, com namespace próprio. | spec → `build_sequence.phase_0_unblock` |
+| §8/Pendências: "Aprovar vira commit direto ou PR" | O Worker não escreve arquivo, mas **cria commit e PR pela API do GitHub**. Deixa de ser decisão de implementação e vira o seletor de autonomia do §4. | spec → `admin_surface.apply_paths` e `worker_capability_note` |
+| §2: "um agente que escreve `.deco/blocks/*.json` edita a loja de verdade" | Verdade, mas escrever conteúdo direto no `DECO_KV` cria drift: o próximo deploy sobrescreve em silêncio, porque o git continua sendo a fonte da verdade. | spec → `admin_surface.drift_warning` |
+
+### 3. Sequência de construção (§12) — substituída
+
+O §12 afirma que o Merchandiser é construído primeiro por exercitar o pipeline inteiro. A
+spec aprovada tem o **agente de busca** como o primeiro, e é ele que gera o
+`AgentQueryLog` do qual o agente de coleções depende. A ordem do §12 está vencida —
+quem ler aquela seção isolada começa pelo agente errado.
+
+### 4. `auto-ab` (§4) — a capacidade existe, a demonstração não
+
+O nível é conceitualmente o mais forte do documento, e o matcher realmente é uma linha.
+Mas "promove ou descarta sozinho conforme resultado" exige **conversão medida**, e o §11
+deste mesmo documento reconhece que a loja demo não tem tráfego real. O que falta não é
+infra de experimentação — é o sinal que fecha o loop.
+
+Duas saídas honestas: apresentar como capacidade arquitetural com o critério de promoção
+declarado mas não exercido, ou rodar com evento sintético e o selo de "dados simulados"
+que o §11 já prevê. O que não dá é deixar ambíguo — é exatamente onde um avaliador cutuca.
+Por isso `auto-ab` ficou fora da v1 e a spec reduziu os níveis a `sugerir` e `autonomo`.
+
+### 5. Autonomia — a tese do §3/§4 foi adotada
+
+`agent.autonomy` é configuração persistida por agente, alterável em runtime, exatamente
+como este documento propõe. A v1 reduz os quatro níveis a dois (`sugerir`, `autonomo`) e
+sai de fábrica em `sugerir`.
+
+O motivo de `autonomo` não ser o default é de conteúdo, não técnico, e a decisão de
+assumir esse risco é do dono da loja — por isso é seletor, não valor fixo no código.
+Níveis, caminhos de aplicação e o risco em si: spec → `admin_surface.autonomy_level` e
+`risks.autonomous_content_from_user_text`.
 
 ---
 
@@ -220,7 +294,7 @@ Escopo deliberadamente pequeno. Cada tela existe porque aparece no pitch.
 
 1. **Fila de propostas** — o que cada agente quer mudar, agrupado por agente, com o "porquê" em linguagem natural em destaque. É a home.
 2. **Diff + preview lado a lado** — o JSON antes/depois e a loja renderizada da variante. **É a tela onde o trabalho do agente fica visível** — a única que merece capricho visual.
-3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" vira commit ou PR no `.deco/blocks/*.json`; "A/B" cria o matcher com 50% de tráfego.
+3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" vira commit ou PR no `.deco/blocks/*.json` **via GitHub API** (o Worker não escreve arquivo — reconciliação §2), ou grava em D1 para a section ler direto, sem tocar em bloco; "A/B" cria o matcher com 50% de tráfego (fora da v1 — reconciliação §4).
 4. **Timeline de decisões** — o que foi publicado, por quem (humano ou agente), quando, qual resultado, e **reverter em um clique**.
 
 Mais o **seletor de autonomia** e o **dry run** presentes no card de cada agente.
@@ -244,13 +318,13 @@ O corolário positivo: quanto mais o admin for genérico sobre a Proposta (§6),
 | Necessidade | Como resolve aqui | Status |
 |---|---|---|
 | Agendamento | `"triggers": { "crons": [...] }` em `wrangler.jsonc` + handler `scheduled` que despacha por agente | Config trivial, ainda não existe |
-| Persistência | `DECO_KV` (já bindado). Chaves `proposal:<agent>:<ts>:<id>`, `run:<agent>:<ts>`. `list` por prefixo cobre fila e timeline | Binding pronto |
-| Aplicar mudança | Escrever `.deco/blocks/*.json` → commit direto ou PR | Fonte da verdade documentada em `AGENTS.md` |
+| Persistência | KV com chaves `proposal:<agent>:<ts>:<id>` e `run:<agent>:<ts>`; `list` por prefixo cobre fila e timeline. Em **namespace próprio**, não no `DECO_KV` do framework — reconciliação §2 | Binding a criar |
+| Aplicar mudança | GitHub REST API → commit ou PR em `.deco/blocks/*.json`. **Não** por filesystem — ver reconciliação §2 | Fonte da verdade documentada em `AGENTS.md` |
 | A/B | Criar bloco matcher `website/matchers/random.ts` com `traffic: 0.5` | Padrão já existe (`Teste AB.json`) |
 | Preview | `iframe` → `/deco/render` | ⚠️ contrato a verificar (§5) |
 | Rollback | Reescrever o `before` guardado na Proposta | Sai de graça do §3 |
 
-**Nota sobre D1:** KV dá conta na escala de demo. Só migrar para D1 se for preciso cruzar métrica com proposta em query — não é necessário para a primeira versão.
+**Nota sobre D1 (revista):** KV dá conta das Propostas; o log de buscas precisa de D1. Os dois convivem, com namespace próprio. Detalhe e decisão: reconciliação §2.
 
 ---
 
@@ -303,8 +377,13 @@ O Merchandiser primeiro, ponta a ponta, com o mínimo de admin que ele exigir. I
 
 ## Pendências para a fase de implementação
 
-- [ ] Verificar o contrato de `decoRenderRouteConfig` (aceita props inline?) — define o caminho da preview
-- [ ] Fechar o schema final de Proposta e de Workflow
-- [ ] Definir mapa de rotas do admin
-- [ ] Definir formato do log de evidência (de onde cada métrica é lida)
-- [ ] Decidir: commit direto vs. PR como comportamento padrão de "Aprovar"
+Tarefas de implementação da v1 **não** vivem aqui — estão no `build_sequence` da spec.
+O que segue é o que continua em aberto no desenho mais amplo deste documento.
+
+- [x] Schema de Proposta — fechado na spec. **Workflow (§7) segue em aberto.**
+- [x] Mapa de rotas do admin — não há rotas; virou section CMS (spec → `admin_surface.decision`).
+- [x] Commit direto vs. PR — ambos possíveis; virou o seletor de autonomia (reconciliação §2).
+- [ ] Contrato de `decoRenderRouteConfig` (aceita props inline?) — define o caminho da preview do §5. Não é respondível a partir deste repo: a resposta está em `@decocms/tanstack`. O plano B (bloco `Preview` descartável) destrava sem essa verificação.
+- [ ] Formato do log de evidência (§6) — de onde cada métrica é lida, para a regra de procedência clicável valer na frota inteira.
+- [ ] Schema de Workflow (§7) e o dispatcher de triggers por evento.
+- [ ] Critério de promoção do `auto-ab` (§4) — ver reconciliação §4.
