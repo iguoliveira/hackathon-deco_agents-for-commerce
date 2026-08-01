@@ -4,7 +4,7 @@ A [deco.cx](https://deco.cx) storefront built on **TanStack Start + React 19 + C
 
 This is a **site repo** — it consumes the [`@decocms/start`](https://www.npmjs.com/package/@decocms/start) framework (CMS bridge, admin protocol, worker entry, edge caching) and [`@decocms/apps`](https://www.npmjs.com/package/@decocms/apps) (commerce loaders/actions). UI, sections, and routes live here.
 
-## Stack
+## Stack333333
 
 
 
