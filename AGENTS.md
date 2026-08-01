@@ -40,3 +40,26 @@ but are silently discarded on the next regeneration/production build:
 - Cite files as `path:line` when explaining code.
 - Run `npm run typecheck` after TypeScript changes.
 - `npm run format` (Prettier) before committing `src/**` changes.
+
+## Building the store agents
+
+Read `.claude/skills/agent-creator/SKILL.md` before creating or editing anything
+under `src/platform/agent/` or `src/platform/analytics/`. Claude Code loads it
+automatically (also invocable as `/agent-creator <scope>`); other tools need it
+read manually.
+
+It carries the team's shared contract — `StructuredFilters`, `AgentQueryLog`,
+`TopicRanking` — plus the `platform/<domain>` convention, the per-step model
+policy, the fallback rules, and the scope exclusions. Three different consumers
+(agent, admin dashboard, TrendingCollections section) read the same shapes, so
+diverging from it breaks integration rather than just style.
+
+The approved spec is `docs/tese-agente-vendas-ia.md`; where the two disagree,
+the spec wins. `docs/tese-admin-agentes.md` describes a broader design that is
+**not** the v1 plan — treat it as vision/pitch material only.
+
+Validate a domain before opening a PR:
+
+```sh
+node .claude/skills/agent-creator/scripts/validate-domain.mjs src/platform/agent
+```

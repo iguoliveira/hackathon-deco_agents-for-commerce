@@ -26,7 +26,7 @@ Este documento foi escrito **antes** da spec de vocês e descreve um desenho **m
 
 As primitivas técnicas citadas aqui foram reverificadas neste repo e **existem** (`src/routes/deco/render.ts`, `.deco/blocks/Teste AB.json` com o matcher `random.ts`, `PLP Loader.json`, `DECO_KV` bindado, sem `triggers.crons` ainda). Ou seja: o caminho descrito é viável — foi descartado na v1 por **risco de cronograma**, não por impossibilidade. É exatamente assim que ele deve ser apresentado no pitch: próximo passo assumido, não limitação escondida.
 
-O padrão de execução do que **está** aprovado vive em [`.claude/skills/store-agent/SKILL.md`](../.claude/skills/store-agent/SKILL.md).
+O padrão de execução do que **está** aprovado vive em [`.claude/skills/agent-creator/SKILL.md`](../.claude/skills/agent-creator/SKILL.md).
 
 ---
 
