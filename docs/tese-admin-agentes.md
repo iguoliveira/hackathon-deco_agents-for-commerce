@@ -12,9 +12,12 @@ Este documento foi escrito **antes** da spec de vocês e descreve um desenho **m
 
 **A spec aprovada é [`tese-agente-vendas-ia.md`](tese-agente-vendas-ia.md).** Onde os dois divergirem, a spec ganha. Em particular, ela exclui explicitamente (`explicit_exclusions`) a escrita programática de bloco CMS — que é a fundação de boa parte deste documento.
 
-> **Atualizado na revisão 3 da spec.** A tabela abaixo foi revista: parte do que estava
+> **Atualizado na revisão 5 da spec.** A tabela abaixo foi revista: parte do que estava
 > marcado como "fora do escopo" foi **adotado** na spec aprovada, e a exclusão de escrita
 > de bloco CMS deixou de ser um bloqueio para virar uma **configuração de autonomia**.
+> A camada de persistência é **SQLite** (binding D1, local-only) — a revisão 4 tinha
+> passado por arquivos JSON, que não sobreviveram ao contato com a agregação; ver
+> item 6 da reconciliação.
 
 | Deste documento | Situação na v1 |
 |---|---|
@@ -50,7 +53,7 @@ responde *o que* construir.
 | `src/routes/deco/render.ts` | ✅ existe |
 | `.deco/blocks/Teste AB.json` com matcher `random.ts` | ✅ existe, exatamente como citado |
 | `PLP Loader.json` | ✅ existe |
-| `DECO_KV` bindado | ✅ `wrangler.jsonc:36-43` — bind do framework; a partir da revisão 4 da spec, os dados do agente **não** usam esse binding (nem KV, nem D1) — vão para JSON, ver item 6 abaixo |
+| `DECO_KV` bindado | ✅ existe — bind do framework, usado pelo fast deploy. Os dados do agente **não** passam por ele. A partir da revisão 5 da spec eles vivem em SQLite (binding `CATALOG_DB`, também no `wrangler.jsonc`), ver item 6 abaixo |
 | sem `triggers.crons` | ✅ correto — nem trigger, nem handler `scheduled` |
 | skill do padrão de execução | ⚠️ o link apontava para `store-agent/SKILL.md`, que nunca existiu. Corrigido para [`agent-creator`](../.claude/skills/agent-creator/SKILL.md), criado pelo time depois deste doc |
 
@@ -67,8 +70,8 @@ corrigidas **e decididas** na spec — não repito o conteúdo aqui:
 
 | Afirmação neste doc | Correção | Onde a decisão vive |
 |---|---|---|
-| §9: "KV dá conta; só migrar para D1 se precisar cruzar métrica em query" | Superada na revisão 4 da spec: nem KV nem D1 entram — Propostas e log de buscas viram arquivos JSON (`data/proposals.json`, `data/agent-query-log.json`), agregados em memória. Ver item 6 abaixo. | spec → `build_sequence.phase_0_unblock` |
-| §8/Pendências: "Aprovar vira commit direto ou PR" | Também superada: a v1 não escreve `.deco/blocks/*.json` nem chama a API do GitHub. "Aprovar" grava a Proposta em `data/proposals.json`, e a section lê de lá. Commit/PR via GitHub API continuam sendo capacidade real do stack, mas ficam fora do que a v1 constrói — ver item 6. | spec → `admin_surface.apply_paths` |
+| §9: "KV dá conta; só migrar para D1 se precisar cruzar métrica em query" | Corrigida em duas etapas. A revisão 4 tirou KV e D1 e pôs JSON; a revisão 5 voltou para SQLite (D1) — o instinto original de "vai precisar cruzar métrica em query" estava certo, era o meio (KV) que estava errado. Propostas e log de buscas são tabelas. Ver item 6 abaixo. | spec → `persistence` |
+| §8/Pendências: "Aprovar vira commit direto ou PR" | Também superada: a v1 não escreve `.deco/blocks/*.json` nem chama a API do GitHub. "Aprovar" faz UPDATE na tabela `proposals`, e a section lê de lá. Commit/PR via GitHub API continuam sendo capacidade real do stack, mas ficam fora do que a v1 constrói — ver item 6. | spec → `admin_surface.apply_paths` |
 | §2: "um agente que escreve `.deco/blocks/*.json` edita a loja de verdade" | Verdade como capacidade do stack, mas a v1 não exercita esse caminho — o agente não toca `.deco/blocks/*.json` nem `DECO_KV`. O risco de drift descrito aqui (deploy sobrescrevendo a mudança) não se aplica à v1 por isso, não porque foi mitigado. | spec → `admin_surface.apply_paths` |
 
 ### 3. Sequência de construção (§12) — substituída
@@ -101,23 +104,37 @@ assumir esse risco é do dono da loja — por isso é seletor, não valor fixo n
 Níveis, caminhos de aplicação e o risco em si: spec → `admin_surface.autonomy_level` e
 `risks.autonomous_content_from_user_text`.
 
-### 6. Persistência simplificada para JSON (revisão 4 da spec)
+### 6. Persistência: SQLite local (revisão 5 da spec)
 
 Este documento, em vários pontos (§6, §9), descreve KV e D1 como a camada de
-persistência, e Shopify como a fonte do catálogo. A revisão 4 da spec aprovada
-**abandona os três**: o objetivo do que está sendo construído é demonstrar o
-comportamento dos agentes, não montar infraestrutura real de persistência ou
-integração de comércio. Catálogo, log de buscas e Propostas agora vivem em
-arquivos JSON estáticos/gerados (`data/catalog.json`, `data/agent-query-log.json`,
-`data/proposals.json`), com o mesmo formato que a loader e as sections já esperam —
-então nenhum componente downstream muda.
+persistência, e Shopify como a fonte do catálogo. A spec aprovada **abandona o
+Shopify e o KV**, e chegou ao formato atual em duas etapas:
+
+- **Revisão 4** trocou tudo por arquivos JSON estáticos, com o argumento de que o
+  objetivo é demonstrar comportamento de agente, não montar infra.
+- **Revisão 5** trocou o JSON por **SQLite**, mantendo aquele argumento intacto.
+  O que mudou foi o diagnóstico: JSON plano não é uma boa forma para as duas
+  coisas que este sistema mais faz — **agregar** (o ranking de tópicos vira
+  `Array.reduce` à mão em vez de `GROUP BY`) e **escrever concorrentemente**
+  (`logAgentQuery` roda a cada busca, e reescrever o arquivo inteiro perde
+  escrita). SQLite resolve os dois sem trazer serviço novo.
+
+Vale desfazer uma confusão de nome: **D1 é SQLite**. Não é um banco diferente com
+API parecida — é o SQLite gerenciado da Cloudflare, rodando como binding do próprio
+Worker. Localmente ele é um arquivo `.sqlite` comum em `.wrangler/state/v3/d1/`,
+que se abre em qualquer cliente. Nenhum banco remoto foi provisionado.
+
+O catálogo já está construído nesse formato (`db/migrations/0001_catalog.sql`,
+`src/platform/catalog/`) e a vitrine da home renderiza a partir dele. As tabelas do
+agente (`agent_query_log`, `topic_rankings`, `proposals`, `query_cache`) ainda não
+existem — cada uma entra na fase que a consome.
 
 Consequência direta para as três telas do §8 e para o §9: onde este documento cita
-KV, D1, ou escrita em `.deco/blocks/*.json` via GitHub API, a v1 lê e escreve nesses
-arquivos JSON. O caminho de commit/PR direto na loja continua existindo como
-capacidade do stack (Worker chamando a API do GitHub), mas é infraestrutura que a
-v1 não constrói — não muda a tese do §3/§4 (o gate de autonomia), só o mecanismo de
-`apply` por trás dele.
+KV, D1-como-alternativa-futura, ou escrita em `.deco/blocks/*.json` via GitHub API, a
+v1 lê e escreve nessas tabelas. O caminho de commit/PR direto na loja continua
+existindo como capacidade do stack (Worker chamando a API do GitHub), mas é
+infraestrutura que a v1 não constrói — não muda a tese do §3/§4 (o gate de
+autonomia), só o mecanismo de `apply` por trás dele.
 
 ---
 
@@ -255,7 +272,7 @@ Tudo no admin é uma view sobre este objeto. Definir ele bem é o que faz o rest
   // Procedência — todo número tem que ser clicável
   "evidence": [
     { "metric": "ctr", "value": 0.042, "window": "7d", "source": "analytics.plp" },
-    { "metric": "stock_age_days", "value": 21, "source": "data/catalog.json" }
+    { "metric": "stock_age_days", "value": 21, "source": "sqlite:variants" }
   ],
 
   "estimated_impact": { "metric": "plp_conversion", "delta": "+0.8%", "confidence": 0.74 },
@@ -311,7 +328,7 @@ Escopo deliberadamente pequeno. Cada tela existe porque aparece no pitch.
 
 1. **Fila de propostas** — o que cada agente quer mudar, agrupado por agente, com o "porquê" em linguagem natural em destaque. É a home.
 2. **Diff + preview lado a lado** — o JSON antes/depois e a loja renderizada da variante. **É a tela onde o trabalho do agente fica visível** — a única que merece capricho visual.
-3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" grava a Proposta em JSON (`data/proposals.json`) e a section lê direto de lá, sem tocar em bloco nem exigir deploy; commit/PR no `.deco/blocks/*.json` via GitHub API continua existindo como capacidade do stack, mas fica fora do que a v1 constrói (item 6 da reconciliação). "A/B" cria o matcher com 50% de tráfego (fora da v1 — reconciliação §4).
+3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" faz `UPDATE` na tabela `proposals` (SQLite) e a section lê direto de lá, sem tocar em bloco nem exigir deploy; commit/PR no `.deco/blocks/*.json` via GitHub API continua existindo como capacidade do stack, mas fica fora do que a v1 constrói (item 6 da reconciliação). "A/B" cria o matcher com 50% de tráfego (fora da v1 — reconciliação §4).
 4. **Timeline de decisões** — o que foi publicado, por quem (humano ou agente), quando, qual resultado, e **reverter em um clique**.
 
 Mais o **seletor de autonomia** e o **dry run** presentes no card de cada agente.
@@ -335,8 +352,8 @@ O corolário positivo: quanto mais o admin for genérico sobre a Proposta (§6),
 | Necessidade | Como resolve aqui | Status |
 |---|---|---|
 | Agendamento | `"triggers": { "crons": [...] }` em `wrangler.jsonc` + handler `scheduled` que despacha por agente | Config trivial, ainda não existe |
-| Persistência | Arquivos JSON (`data/proposals.json`, `data/agent-query-log.json`, `data/topic-rankings.json`), lidos e escritos inteiros pelo Worker — sem binding de KV ou D1. Fila e timeline vêm de percorrer o array. Reconciliação item 6 | A criar |
-| Aplicar mudança | Escrita direta em `data/proposals.json`, lida pela section no próximo request — sem deploy. Commit/PR via GitHub API em `.deco/blocks/*.json` é capacidade real do stack, mas fora do que a v1 constrói — reconciliação item 6 | JSON já é a fonte de dados da v1 |
+| Persistência | SQLite via binding D1 `CATALOG_DB`, local-only. Fila e timeline saem de um `SELECT ... ORDER BY` na tabela `proposals`, não de percorrer array. Reconciliação item 6 | Catálogo ✅ construído; tabelas do agente a criar |
+| Aplicar mudança | `UPDATE proposals SET status = 'applied'`, lido pela section no próximo request — sem deploy. Commit/PR via GitHub API em `.deco/blocks/*.json` é capacidade real do stack, mas fora do que a v1 constrói — reconciliação item 6 | SQLite já é a fonte de dados da v1 |
 | A/B | Criar bloco matcher `website/matchers/random.ts` com `traffic: 0.5` | Padrão já existe (`Teste AB.json`) |
 | Preview | `iframe` → `/deco/render` | ⚠️ contrato a verificar (§5) |
 | Rollback | Reescrever o `before` guardado na Proposta | Sai de graça do §3 |
