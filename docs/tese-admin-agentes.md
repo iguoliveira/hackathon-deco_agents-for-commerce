@@ -50,7 +50,7 @@ responde *o que* construir.
 | `src/routes/deco/render.ts` | ✅ existe |
 | `.deco/blocks/Teste AB.json` com matcher `random.ts` | ✅ existe, exatamente como citado |
 | `PLP Loader.json` | ✅ existe |
-| `DECO_KV` bindado | ✅ `wrangler.jsonc:36-43` |
+| `DECO_KV` bindado | ✅ `wrangler.jsonc:36-43` — bind do framework; a partir da revisão 4 da spec, os dados do agente **não** usam esse binding (nem KV, nem D1) — vão para JSON, ver item 6 abaixo |
 | sem `triggers.crons` | ✅ correto — nem trigger, nem handler `scheduled` |
 | skill do padrão de execução | ⚠️ o link apontava para `store-agent/SKILL.md`, que nunca existiu. Corrigido para [`agent-creator`](../.claude/skills/agent-creator/SKILL.md), criado pelo time depois deste doc |
 
@@ -67,9 +67,9 @@ corrigidas **e decididas** na spec — não repito o conteúdo aqui:
 
 | Afirmação neste doc | Correção | Onde a decisão vive |
 |---|---|---|
-| §9: "KV dá conta; só migrar para D1 se precisar cruzar métrica em query" | Certo para Propostas, errado para o log de buscas — que é exatamente a exceção prevista. Os dois convivem, com namespace próprio. | spec → `build_sequence.phase_0_unblock` |
-| §8/Pendências: "Aprovar vira commit direto ou PR" | O Worker não escreve arquivo, mas **cria commit e PR pela API do GitHub**. Deixa de ser decisão de implementação e vira o seletor de autonomia do §4. | spec → `admin_surface.apply_paths` e `worker_capability_note` |
-| §2: "um agente que escreve `.deco/blocks/*.json` edita a loja de verdade" | Verdade, mas escrever conteúdo direto no `DECO_KV` cria drift: o próximo deploy sobrescreve em silêncio, porque o git continua sendo a fonte da verdade. | spec → `admin_surface.drift_warning` |
+| §9: "KV dá conta; só migrar para D1 se precisar cruzar métrica em query" | Superada na revisão 4 da spec: nem KV nem D1 entram — Propostas e log de buscas viram arquivos JSON (`data/proposals.json`, `data/agent-query-log.json`), agregados em memória. Ver item 6 abaixo. | spec → `build_sequence.phase_0_unblock` |
+| §8/Pendências: "Aprovar vira commit direto ou PR" | Também superada: a v1 não escreve `.deco/blocks/*.json` nem chama a API do GitHub. "Aprovar" grava a Proposta em `data/proposals.json`, e a section lê de lá. Commit/PR via GitHub API continuam sendo capacidade real do stack, mas ficam fora do que a v1 constrói — ver item 6. | spec → `admin_surface.apply_paths` |
+| §2: "um agente que escreve `.deco/blocks/*.json` edita a loja de verdade" | Verdade como capacidade do stack, mas a v1 não exercita esse caminho — o agente não toca `.deco/blocks/*.json` nem `DECO_KV`. O risco de drift descrito aqui (deploy sobrescrevendo a mudança) não se aplica à v1 por isso, não porque foi mitigado. | spec → `admin_surface.apply_paths` |
 
 ### 3. Sequência de construção (§12) — substituída
 
@@ -100,6 +100,24 @@ O motivo de `autonomo` não ser o default é de conteúdo, não técnico, e a de
 assumir esse risco é do dono da loja — por isso é seletor, não valor fixo no código.
 Níveis, caminhos de aplicação e o risco em si: spec → `admin_surface.autonomy_level` e
 `risks.autonomous_content_from_user_text`.
+
+### 6. Persistência simplificada para JSON (revisão 4 da spec)
+
+Este documento, em vários pontos (§6, §9), descreve KV e D1 como a camada de
+persistência, e Shopify como a fonte do catálogo. A revisão 4 da spec aprovada
+**abandona os três**: o objetivo do que está sendo construído é demonstrar o
+comportamento dos agentes, não montar infraestrutura real de persistência ou
+integração de comércio. Catálogo, log de buscas e Propostas agora vivem em
+arquivos JSON estáticos/gerados (`data/catalog.json`, `data/agent-query-log.json`,
+`data/proposals.json`), com o mesmo formato que a loader e as sections já esperam —
+então nenhum componente downstream muda.
+
+Consequência direta para as três telas do §8 e para o §9: onde este documento cita
+KV, D1, ou escrita em `.deco/blocks/*.json` via GitHub API, a v1 lê e escreve nesses
+arquivos JSON. O caminho de commit/PR direto na loja continua existindo como
+capacidade do stack (Worker chamando a API do GitHub), mas é infraestrutura que a
+v1 não constrói — não muda a tese do §3/§4 (o gate de autonomia), só o mecanismo de
+`apply` por trás dele.
 
 ---
 
@@ -237,7 +255,7 @@ Tudo no admin é uma view sobre este objeto. Definir ele bem é o que faz o rest
   // Procedência — todo número tem que ser clicável
   "evidence": [
     { "metric": "ctr", "value": 0.042, "window": "7d", "source": "analytics.plp" },
-    { "metric": "stock_age_days", "value": 21, "source": "shopify.inventory" }
+    { "metric": "stock_age_days", "value": 21, "source": "data/catalog.json" }
   ],
 
   "estimated_impact": { "metric": "plp_conversion", "delta": "+0.8%", "confidence": 0.74 },
@@ -293,7 +311,7 @@ Escopo deliberadamente pequeno. Cada tela existe porque aparece no pitch.
 
 1. **Fila de propostas** — o que cada agente quer mudar, agrupado por agente, com o "porquê" em linguagem natural em destaque. É a home.
 2. **Diff + preview lado a lado** — o JSON antes/depois e a loja renderizada da variante. **É a tela onde o trabalho do agente fica visível** — a única que merece capricho visual.
-3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" vira commit ou PR no `.deco/blocks/*.json` **via GitHub API** (o Worker não escreve arquivo — reconciliação §2), ou grava em D1 para a section ler direto, sem tocar em bloco; "A/B" cria o matcher com 50% de tráfego (fora da v1 — reconciliação §4).
+3. **Decisão** — Aprovar / Rejeitar / Publicar como A/B. "Aprovar" grava a Proposta em JSON (`data/proposals.json`) e a section lê direto de lá, sem tocar em bloco nem exigir deploy; commit/PR no `.deco/blocks/*.json` via GitHub API continua existindo como capacidade do stack, mas fica fora do que a v1 constrói (item 6 da reconciliação). "A/B" cria o matcher com 50% de tráfego (fora da v1 — reconciliação §4).
 4. **Timeline de decisões** — o que foi publicado, por quem (humano ou agente), quando, qual resultado, e **reverter em um clique**.
 
 Mais o **seletor de autonomia** e o **dry run** presentes no card de cada agente.
@@ -317,13 +335,11 @@ O corolário positivo: quanto mais o admin for genérico sobre a Proposta (§6),
 | Necessidade | Como resolve aqui | Status |
 |---|---|---|
 | Agendamento | `"triggers": { "crons": [...] }` em `wrangler.jsonc` + handler `scheduled` que despacha por agente | Config trivial, ainda não existe |
-| Persistência | KV com chaves `proposal:<agent>:<ts>:<id>` e `run:<agent>:<ts>`; `list` por prefixo cobre fila e timeline. Em **namespace próprio**, não no `DECO_KV` do framework — reconciliação §2 | Binding a criar |
-| Aplicar mudança | GitHub REST API → commit ou PR em `.deco/blocks/*.json`. **Não** por filesystem — ver reconciliação §2 | Fonte da verdade documentada em `AGENTS.md` |
+| Persistência | Arquivos JSON (`data/proposals.json`, `data/agent-query-log.json`, `data/topic-rankings.json`), lidos e escritos inteiros pelo Worker — sem binding de KV ou D1. Fila e timeline vêm de percorrer o array. Reconciliação item 6 | A criar |
+| Aplicar mudança | Escrita direta em `data/proposals.json`, lida pela section no próximo request — sem deploy. Commit/PR via GitHub API em `.deco/blocks/*.json` é capacidade real do stack, mas fora do que a v1 constrói — reconciliação item 6 | JSON já é a fonte de dados da v1 |
 | A/B | Criar bloco matcher `website/matchers/random.ts` com `traffic: 0.5` | Padrão já existe (`Teste AB.json`) |
 | Preview | `iframe` → `/deco/render` | ⚠️ contrato a verificar (§5) |
 | Rollback | Reescrever o `before` guardado na Proposta | Sai de graça do §3 |
-
-**Nota sobre D1 (revista):** KV dá conta das Propostas; o log de buscas precisa de D1. Os dois convivem, com namespace próprio. Detalhe e decisão: reconciliação §2.
 
 ---
 
