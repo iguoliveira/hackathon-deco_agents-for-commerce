@@ -62,6 +62,26 @@ export default defineConfig({
         }
       },
     },
+    // `cloudflare:workers` só existe no runtime do Worker. O catálogo o importa
+    // (src/platform/catalog/catalog.d1.ts) e chega ao grafo do client pelos
+    // dynamic imports de loaders em setup.ts — Rollup então falha o build com
+    // "Failed to resolve import". Os loaders nunca executam no browser, então no
+    // client o módulo vira um stub: se alguma vez for carregado, `env.CATALOG_DB`
+    // é undefined e `getDb()` já trata isso devolvendo lista vazia.
+    {
+      name: "deco-stub-cloudflare-workers",
+      enforce: "pre" as const,
+      resolveId(id, _importer, options) {
+        if (!options?.ssr && id === "cloudflare:workers") {
+          return "\0stub:cloudflare-workers";
+        }
+      },
+      load(id) {
+        if (id === "\0stub:cloudflare-workers") {
+          return "export const env = {};";
+        }
+      },
+    },
   ],
   build: {
     sourcemap: "hidden",

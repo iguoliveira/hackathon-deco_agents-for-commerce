@@ -1,0 +1,192 @@
+/**
+ * Ações do domínio catálogo. É o que loaders e sections consomem — a camada
+ * acima nunca fala com D1 nem vê linha de SQL.
+ */
+
+import type {
+  Product,
+  ProductDetailsPage,
+  ProductListingPage,
+} from "@decocms/apps-commerce/types";
+import { RequestContext } from "@decocms/blocks/sdk/requestContext";
+import {
+  findCatalogRecordByHandle,
+  findCatalogRecords,
+  findOptionNames,
+  searchCatalog,
+} from "./catalog.d1";
+import { recordToProduct, recordToProductPage } from "./catalog.mapper";
+import { parseSort, toProductListingPage } from "./catalog.plp";
+
+/**
+ * O `Product` carrega URLs absolutas, então precisa da origin da requisição.
+ * Mesmo fallback que src/loaders/productByHandle.ts:27-28 usa quando roda fora
+ * de um contexto de request (build, preview do editor).
+ */
+const currentOrigin = (): string => {
+  const request = RequestContext.current?.request;
+  return request ? new URL(request.url).origin : "https://localhost";
+};
+
+const PAGE_URL_HEADER = "x-deco-page-url";
+
+/**
+ * URL real da página sendo renderizada.
+ *
+ * `RequestContext.request.url` **não** serve sozinho: no caminho de resolve do
+ * CMS ele pode ser a URL do `_serverFn/...`, não a que o usuário vê — e aí
+ * `?q=`, `?sort=` e os filtros somem, sem erro nenhum, devolvendo o catálogo
+ * inteiro como se ninguém tivesse filtrado. Mesma precedência que
+ * `resolvePageUrl` em src/setup.ts:105-121 usa para o loader do Shopify, pelo
+ * mesmo motivo.
+ */
+const resolvePageUrl = (pageUrlProp?: string): URL => {
+  try {
+    const header = RequestContext.request.headers.get(PAGE_URL_HEADER);
+    if (header) return new URL(header, "http://localhost");
+  } catch {
+    // RequestContext pode não existir em chamadas isoladas.
+  }
+
+  if (pageUrlProp) return new URL(pageUrlProp, "http://localhost");
+
+  try {
+    return new URL(RequestContext.request.url);
+  } catch {
+    return new URL("https://localhost/s");
+  }
+};
+
+export interface ListProductsOptions {
+  /** Quantos produtos retornar. */
+  limit?: number;
+  /** Handle da coleção, ex.: "shirts". */
+  collection?: string;
+  /** Busca livre no título. */
+  query?: string;
+}
+
+/** Lista produtos do catálogo SQLite já no formato que as sections esperam. */
+export const listProducts = async ({
+  limit = 12,
+  collection,
+  query,
+}: ListProductsOptions = {}): Promise<Product[]> => {
+  const records = await findCatalogRecords({ limit, collection, query });
+  const origin = currentOrigin();
+
+  // Um produto sem nenhuma variante não tem preço nem URL de PDP; o mapper
+  // devolve null e ele sai da lista em vez de renderizar um card quebrado.
+  return records
+    .map((record) => recordToProduct(record, origin))
+    .filter((product): product is Product => product !== null);
+};
+
+/**
+ * Resolve o slug da PDP (`/products/:slug`) numa `ProductDetailsPage`.
+ *
+ * O slug é `<handle>` ou `<handle>-<id numérico da variante>`, convenção herdada
+ * do transform do Shopify.
+ *
+ * Diferença deliberada em relação ao loader do Shopify
+ * (ProductDetailsPage.ts:19-21): ele sempre trata o último segmento numérico
+ * como id de variante, o que quebra handles que legitimamente terminam em
+ * número — `high-top-canvas-shoes-1` (Women's Slides) resolveria para
+ * `high-top-canvas-shoes` (High Top Canvas Shoes), o produto errado, sem erro
+ * nenhum. Aqui o slug inteiro é tentado como handle primeiro; só se não existir
+ * é que o sufixo numérico é interpretado como variante.
+ */
+/**
+ * Chaves de querystring que a página usa para si.
+ *
+ * Guarda contra colisão: se um dia existir uma opção de variante chamada
+ * `sort`, o significado de página continua ganhando.
+ */
+const RESERVED_PARAMS = new Set(["q", "page", "sort", "collection", "startCursor", "endCursor"]);
+
+export interface ListingPageOptions {
+  /** Coleção fixa da página (landing pages), sobrepõe o `?collection=`. */
+  collection?: string;
+  /** Busca fixa da página, para landing pages sem coleção própria (ex.: "kids"). */
+  query?: string;
+  /** Produtos por página. */
+  perPage?: number;
+  /** URL da página, injetada pelo framework como `__pageUrl`. Ver resolvePageUrl. */
+  pageUrl?: string;
+}
+
+/**
+ * Monta a `ProductListingPage` a partir da URL da requisição — busca `/s`,
+ * página de categoria e landing pages usam este mesmo caminho.
+ *
+ * Os filtros vêm da própria querystring: `collection` é tratado à parte porque
+ * a página pode fixá-lo, e o resto vira opção de variante (`Size=M&Color=Black`),
+ * do mesmo jeito que o `url` de cada FilterToggleValue é construído.
+ *
+ * Só entram chaves que são de fato nome de opção no catálogo. Interpretar todo
+ * parâmetro desconhecido como filtro parece inofensivo e não é: um link de
+ * campanha (`?utm_source=google`, `gclid`, `fbclid`) viraria um filtro por uma
+ * opção inexistente, e a PLP voltaria vazia — sem erro, sem log, só zero
+ * resultados para quem chegou pelo anúncio.
+ */
+export const getProductListingPage = async (
+  { collection, query, perPage = 12, pageUrl }: ListingPageOptions = {},
+): Promise<ProductListingPage | null> => {
+  const url = resolvePageUrl(pageUrl);
+  const optionNames = await findOptionNames();
+
+  const options: Record<string, string[]> = {};
+  for (const key of new Set(url.searchParams.keys())) {
+    if (RESERVED_PARAMS.has(key) || !optionNames.has(key)) continue;
+    options[key] = url.searchParams.getAll(key);
+  }
+
+  const page = Math.max(0, Number(url.searchParams.get("page") ?? 0) || 0);
+
+  const result = await searchCatalog({
+    // `?q=` do usuário ganha da query fixa da página: buscar dentro de /kids
+    // deve buscar, não continuar preso ao recorte da landing.
+    term: url.searchParams.get("q") ?? query ?? undefined,
+    collection: collection ?? url.searchParams.get("collection") ?? undefined,
+    options,
+    sort: parseSort(url.searchParams.get("sort")),
+    page,
+    perPage,
+  });
+
+  return toProductListingPage(result, url, { page, perPage });
+};
+
+/**
+ * Um produto pelo handle, como lista de um item — encaixa direto em qualquer
+ * prop tipada `Product[] | null`. Mesmo contrato de
+ * `site/loaders/productByHandle.ts`, que fala com o Shopify.
+ */
+export const getProductByHandle = async (handle: string): Promise<Product[] | null> => {
+  if (!handle) return null;
+
+  const record = await findCatalogRecordByHandle(handle);
+  if (!record) return null;
+
+  const product = recordToProduct(record, currentOrigin());
+  return product ? [product] : null;
+};
+
+export const getProductDetailsPage = async (slug: string): Promise<ProductDetailsPage | null> => {
+  if (!slug) return null;
+  const origin = currentOrigin();
+
+  const exact = await findCatalogRecordByHandle(slug);
+  if (exact) return recordToProductPage(exact, origin);
+
+  const match = slug.match(/^(.*)-(\d+)$/);
+  if (!match) return null;
+
+  const [, handle, numericId] = match;
+  const record = await findCatalogRecordByHandle(handle);
+  if (!record) return null;
+
+  // O banco guarda o gid completo; o slug carrega só o sufixo numérico.
+  const variant = record.variants.find((v) => v.variant_id.endsWith(`/${numericId}`));
+  return recordToProductPage(record, origin, variant?.variant_id);
+};

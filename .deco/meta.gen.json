@@ -124,12 +124,24 @@
         }
       },
       "loaders": {
-        "site/loaders/_cookie.ts": {
-          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM=",
-          "namespace": "site"
-        },
         "site/loaders/address.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/catalogProductByHandle.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/catalogProductDetailsPage.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0RGV0YWlsc1BhZ2UudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/catalogProductList.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw==",
+          "namespace": "site"
+        },
+        "site/loaders/catalogProductListingPage.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=",
           "namespace": "site"
         },
         "site/loaders/productByHandle.ts": {
@@ -142,6 +154,10 @@
         },
         "site/loaders/wishlist.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3dpc2hsaXN0LnRz",
+          "namespace": "site"
+        },
+        "site/loaders/_cookie.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM=",
           "namespace": "site"
         },
         "shopify/loaders/ProductDetailsPage.ts": {
@@ -217,22 +233,6 @@
           }
         }
       },
-      "c2l0ZS9sb2FkZXJzL19jb29raWUudHM=": {
-        "title": "site/loaders/_cookie.ts",
-        "type": "object",
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/loaders/_cookie.ts"
-            ],
-            "default": "site/loaders/_cookie.ts"
-          }
-        }
-      },
       "c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM=": {
         "title": "site/loaders/address.ts",
         "type": "object",
@@ -246,6 +246,117 @@
               "site/loaders/address.ts"
             ],
             "default": "site/loaders/address.ts"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM=": {
+        "title": "site/loaders/catalogProductByHandle.ts",
+        "type": "object",
+        "required": [
+          "__resolveType",
+          "handle"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/catalogProductByHandle.ts"
+            ],
+            "default": "site/loaders/catalogProductByHandle.ts"
+          },
+          "handle": {
+            "type": "string",
+            "title": "Product handle",
+            "description": "Handle/slug do produto (ex.: \"deco-tee\") — fixa um produto exato em vez de depender de busca."
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0RGV0YWlsc1BhZ2UudHM=": {
+        "title": "site/loaders/catalogProductDetailsPage.ts",
+        "type": "object",
+        "required": [
+          "__resolveType",
+          "slug"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/catalogProductDetailsPage.ts"
+            ],
+            "default": "site/loaders/catalogProductDetailsPage.ts"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "Slug da URL da PDP. No bloco vem de `website/functions/requestToParam.ts`."
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw==": {
+        "title": "site/loaders/catalogProductList.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/catalogProductList.ts"
+            ],
+            "default": "site/loaders/catalogProductList.ts"
+          },
+          "count": {
+            "type": "number",
+            "nullable": true,
+            "title": "Quantidade",
+            "description": "Quantos produtos trazer do catálogo SQLite."
+          },
+          "collection": {
+            "type": "string",
+            "nullable": true,
+            "title": "Coleção",
+            "description": "Handle da coleção, ex.: \"shirts\", \"accessories\", \"hoodies-sweatshirts\". Vazio traz de todas."
+          },
+          "query": {
+            "type": "string",
+            "nullable": true,
+            "title": "Busca",
+            "description": "Filtro livre no título do produto. Vazio ignora."
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=": {
+        "title": "site/loaders/catalogProductListingPage.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/catalogProductListingPage.ts"
+            ],
+            "default": "site/loaders/catalogProductListingPage.ts"
+          },
+          "collection": {
+            "type": "string",
+            "nullable": true,
+            "title": "Coleção fixa",
+            "description": "Handle da coleção desta página (ex.: \"shirts\"). Deixe vazio na busca — aí vem de `?collection=`."
+          },
+          "query": {
+            "type": "string",
+            "nullable": true,
+            "title": "Busca fixa",
+            "description": "Recorte da página quando não há coleção própria (ex.: \"kids\"). O `?q=` do usuário tem prioridade."
+          },
+          "count": {
+            "type": "number",
+            "nullable": true,
+            "title": "Produtos por página"
           }
         }
       },
@@ -300,6 +411,22 @@
               "site/loaders/wishlist.ts"
             ],
             "default": "site/loaders/wishlist.ts"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL19jb29raWUudHM=": {
+        "title": "site/loaders/_cookie.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/_cookie.ts"
+            ],
+            "default": "site/loaders/_cookie.ts"
           }
         }
       },
@@ -720,6 +847,9 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
+              },
+              {
                 "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3RMaXN0aW5nUGFnZS50cw=="
               }
             ]
@@ -757,6 +887,9 @@
             "anyOf": [
               {
                 "$ref": "#/definitions/Resolvable"
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0RGV0YWlsc1BhZ2UudHM="
               },
               {
                 "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3REZXRhaWxzUGFnZS50cw=="
@@ -1172,6 +1305,12 @@
                   "anyOf": [
                     {
                       "$ref": "#/definitions/Resolvable"
+                    },
+                    {
+                      "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM="
+                    },
+                    {
+                      "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw=="
                     },
                     {
                       "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
@@ -3247,6 +3386,12 @@
                         "$ref": "#/definitions/Resolvable"
                       },
                       {
+                        "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM="
+                      },
+                      {
+                        "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw=="
+                      },
+                      {
                         "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
                       },
                       {
@@ -3421,7 +3566,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4447,6 +4592,9 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0RGV0YWlsc1BhZ2UudHM="
+              },
+              {
                 "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3REZXRhaWxzUGFnZS50cw=="
               }
             ],
@@ -4611,6 +4759,12 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM="
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw=="
+              },
+              {
                 "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
               },
               {
@@ -4644,7 +4798,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4689,6 +4843,12 @@
                   "anyOf": [
                     {
                       "$ref": "#/definitions/Resolvable"
+                    },
+                    {
+                      "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM="
+                    },
+                    {
+                      "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw=="
                     },
                     {
                       "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
@@ -4765,6 +4925,9 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
+              },
+              {
                 "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3RMaXN0aW5nUGFnZS50cw=="
               }
             ],
@@ -4789,7 +4952,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -4900,6 +5063,9 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
+              },
+              {
                 "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3RMaXN0aW5nUGFnZS50cw=="
               }
             ],
@@ -4924,7 +5090,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5551,10 +5717,19 @@
             "$ref": "#/definitions/Resolvable"
           },
           {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM="
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM="
           },
           {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM="
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0QnlIYW5kbGUudHM="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0RGV0YWlsc1BhZ2UudHM="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdC50cw=="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
@@ -5564,6 +5739,9 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3dpc2hsaXN0LnRz"
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM="
           },
           {
             "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3REZXRhaWxzUGFnZS50cw=="

@@ -16,7 +16,7 @@
           "headline": "NEW SEASON, UP TO 60% OFF",
           "href": "/s?q=shoes&page=0",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-tee"
           }
         },
@@ -26,7 +26,7 @@
           "headline": "THE DENIM EDIT IS HERE",
           "href": "/s?q=jeans",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-cap"
           }
         },
@@ -36,7 +36,7 @@
           "headline": "ACCESSORIES THAT FINISH THE LOOK",
           "href": "/accessories",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-sweatpants"
           }
         }
@@ -52,11 +52,6 @@
           "label": "Accessories",
           "href": "/accessories",
           "image": "https://decoims.com/demo-storefront/2026/07/543e04d2-011d-4cc2-8875-46a1a08bef3d-accessories.png"
-        },
-        {
-          "label": "Stickers",
-          "href": "/stickers",
-          "image": "https://decoims.com/demo-storefront/2026/07/6df3a538-085e-4243-93a8-0b961b99ae26-stickers.png"
         }
       ],
       "infoBullets": [
@@ -107,11 +102,6 @@
                 "href": "/accessories",
                 "label": "Accessories",
                 "image": "https://decoims.com/storefront-tanstack/ba682b53-64d8-44b7-8e57-18d02f5dcf5a/1742560230067-92129655-fe40-4b29-8fdb-e7f71e67a5d1.png"
-              },
-              {
-                "href": "/stickers",
-                "label": "Stickers",
-                "image": "https://decoims.com/storefront-tanstack/ba682b53-64d8-44b7-8e57-18d02f5dcf5a/1742560230067-92129655-fe40-4b29-8fdb-e7f71e67a5d1.png"
               }
             ]
           },
@@ -143,54 +133,27 @@
         "tabs": [
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "hat and bag",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "accessories",
+              "count": 10
             },
             "title": "Accessories"
           },
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "Shirts",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "shirts",
+              "count": 10
             },
             "title": "Fashion"
           },
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "stickers",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "jackets-outerwear",
+              "count": 10
             },
-            "title": "Stickers"
+            "title": "Jackets & Outerwear"
           }
         ]
       }

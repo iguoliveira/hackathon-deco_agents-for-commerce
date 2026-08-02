@@ -22,9 +22,9 @@
       "section": {
         "__resolveType": "site/sections/Product/SearchResult.tsx",
         "page": {
-          "__resolveType": "shopify/loaders/ProductListingPage.ts",
+          "__resolveType": "site/loaders/catalogProductListingPage.ts",
           "count": 12,
-          "query": "women"
+          "query": "women's"
         },
         "layout": {
           "columns": {

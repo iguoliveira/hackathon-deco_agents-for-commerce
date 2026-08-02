@@ -5,9 +5,9 @@
 project: demo-storefront
 hackathon_front: search_discovery + seo_geo_agentic_commerce
 repo_stack: tanstack-start, react19, cloudflare-workers, deco-cms
-status: thesis_revised_pending_implementation
-revision: 4
-revision_notes: "r2: agent runs as a single structured-output call (not a tool_use loop), filters are discovered at runtime from the commerce protocol, resolution happens in the /s loader, added phase_0 blockers, reframed the admin surface as a proposal-generating agent. r3: reconciled with docs/tese-admin-agentes.md — adopted its Proposal artifact (before/evidence), split storage by access pattern (KV for proposals, D1 for aggregation), and made the autonomy level an explicit store-owner setting instead of a hardcoded v1 exclusion. r4: dropped the Shopify Storefront API, D1, and KV bindings — the goal for this build is to demonstrate agent behavior, not stand up real commerce/persistence infra. Catalog, query log, and proposals now live in static/generated JSON files with the same shapes the loader and sections already expect."
+status: catalog_implemented_agents_pending
+revision: 5
+revision_notes: "r2: agent runs as a single structured-output call (not a tool_use loop), filters are discovered at runtime from the commerce protocol, resolution happens in the /s loader, added phase_0 blockers, reframed the admin surface as a proposal-generating agent. r3: reconciled with docs/tese-admin-agentes.md — adopted its Proposal artifact (before/evidence), split storage by access pattern (KV for proposals, D1 for aggregation), and made the autonomy level an explicit store-owner setting instead of a hardcoded v1 exclusion. r4: dropped the Shopify Storefront API, D1, and KV bindings — the goal for this build is to demonstrate agent behavior, not stand up real commerce/persistence infra. Catalog, query log, and proposals moved to static/generated JSON files. r5: replaced those JSON files with SQLite (D1 binding CATALOG_DB). The r4 reasoning still holds — no Shopify, no external service — but flat JSON was the wrong shape for the aggregation the analytics domain needs, and whole-file rewrites are not a safe concurrent write path. D1 is SQLite: local-only, no cloud resource provisioned. The catalog half is BUILT (see implementation_status); the agent tables are not."
 scope: |
   NORMATIVE. This file is the single source of truth for what gets built: verified facts
   about this repo, binding technical decisions, schemas, and the build sequence. If a
@@ -22,6 +22,29 @@ related_docs:
       adopted here and become binding at this file's version, not that one's.
       That document owns: the problem framing, the fleet narrative, autonomy as a product
       idea, workflows, guardrails, metric honesty, and the pitch.
+```
+
+## implementation_status
+
+```yaml
+# O que já existe no repo, para ninguém reimplementar nem assumir de menos.
+built:
+  - what: "Catálogo em SQLite (D1), binding CATALOG_DB"
+    where:
+      - db/migrations/0001_create_catalog.sql  # 5 tabelas
+      - db/migrations/0002_seed_catalog.sql    # 1 produto, 3 variantes
+      - db/README.md                           # fluxo de migrations
+      - src/platform/catalog/            # types -> d1 -> mapper -> actions -> barrel
+      - src/loaders/catalogProductList.ts
+      - src/setup.ts                     # registro em registerCommerceLoaders
+      - .deco/blocks/Product%20List%20Loader.json  # aponta para o loader do catálogo
+      - package.json                     # predev -> db:migrate; db:reset; db:query
+    verified: "Banco apagado e reconstruído do zero via `npm run dev`; vitrine da home
+               renderiza a partir do SQLite; migrations idempotentes; typecheck limpo."
+not_built:
+  - "Tabelas do agente: agent_query_log, topic_rankings, proposals, query_cache."
+  - "Todo o hot path do agente (phase_1 em diante)."
+  - "PDP, PLP e busca continuam no Shopify — só a vitrine da home migrou."
 ```
 
 ## problem_statement
@@ -62,12 +85,13 @@ rationale:
     -> native submit to /s?q=<term>   (UNCHANGED — no client-side interception)
 
 [/s route loader]
-    1. run the existing broad/literal search for <term> against the local JSON
-       catalog (data/catalog.json — same shape a live commerce API would return,
-       so nothing downstream needs to know the source changed)
+    1. run the existing broad/literal search for <term> against the local SQLite
+       catalog (binding CATALOG_DB — src/platform/catalog remonta as linhas no
+       mesmo `Product` que a Storefront API devolveria, so nothing downstream
+       needs to know the source changed)
     2. read page.filters  (Filter[] / FilterToggle[] from @decocms/apps-commerce/types)
        -> this IS the action space: real labels, real counts, real hrefs
-    3. JSON cache lookup: normalize(term) -> cached plpUrl? (data/query-cache.json)
+    3. SQLite cache lookup: normalize(term) -> cached plpUrl? (table query_cache)
        ---- HIT -> 302 redirect
     4. MISS -> ONE Claude call with structured outputs:
          input:  term + the enumerated filter values from step 2
@@ -147,7 +171,7 @@ Rules:
 - Model choice is a product decision. `claude-opus-5` at `effort: "low"` is the default;
   swapping to a cheaper model is a deliberate call, not an implicit optimization.
 
-### AgentQueryLog (persisted to a JSON file — see phase_0)
+### AgentQueryLog (persisted to SQLite — see persistence)
 ```typescript
 interface AgentQueryLog {
   id: string;
@@ -163,26 +187,90 @@ interface AgentQueryLog {
 
 interface TopicRanking {
   topicKey: string;
-  label: string;      // LLM-generated once, then cached in data/topic-rankings.json — never regenerated per render
+  label: string;      // LLM-generated once, then cached in the topic_rankings table — never regenerated per render
   count: number;
   windowDays: number;
 }
 ```
 
+## persistence
+
+### decision: SQLite (D1), local-only
+```yaml
+chosen: sqlite_via_d1
+rejected:
+  - static_json_files      # era a decisão da r4; ver why_not_json
+  - shopify_storefront_api # r4, mantido fora
+  - cloudflare_kv          # r4, mantido fora
+what_d1_is: |
+  D1 é o SQLite gerenciado da Cloudflare. Não é "parecido com SQLite" — é SQLite,
+  com SQL real, índices e transações. Em `vite dev` o binding materializa um
+  arquivo .sqlite comum em `.wrangler/state/v3/d1/`, abrível em qualquer cliente.
+  O @cloudflare/vite-plugin persiste no mesmo diretório que `wrangler d1 --local`
+  usa, então dá para semear pela CLI e ler pelo dev server.
+why_not_json: |
+  A r4 escolheu JSON para evitar infra, e essa motivação continua válida — nada
+  de Shopify, nada de serviço externo. Mas JSON plano tem dois problemas que
+  aparecem exatamente onde o projeto precisa:
+    - agregação: getTopicRankings tem filtros de sanidade (min count, min sessões
+      distintas, denylist) que em JSON viram Array.reduce à mão a cada request;
+      em SQL é um GROUP BY com HAVING.
+    - escrita: `data/*.json` só se escreve reescrevendo o arquivo inteiro, o que
+      perde escrita concorrente. logAgentQuery roda via ctx.waitUntil em toda
+      busca — é justamente o caminho onde isso quebra.
+  D1 resolve os dois sem trazer serviço novo: continua rodando dentro do Worker.
+local_only: |
+  Nenhum banco remoto foi provisionado. `database_id` no wrangler.jsonc é um
+  placeholder, o que basta para `vite dev` e `wrangler d1 ... --local` e falha de
+  propósito em `wrangler deploy`. Ir para produção = `wrangler d1 create` e colar
+  o id real. Deploy está fora do escopo desta fase.
+caveats:
+  - "`.wrangler/` é gitignored: o banco NÃO é versionado. O que se versiona é o
+     SQL em db/. `npm run dev:clean` apaga o estado — recriar = reaplicar
+     migration + seed."
+  - "Ao mexer em bindings, `wrangler types` gera um worker-configuration.d.ts que
+     QUEBRA o typecheck (colide com os tipos de Request dos pacotes @decocms/*,
+     que shippam TS cru e escapam do skipLibCheck). Por isso os bindings são
+     declarados à mão em src/types/cloudflare-bindings.d.ts — adicione binding
+     novo lá."
+```
+
+### tabela por artefato
+```yaml
+# Substitui o mapa data/*.json da r4. Uma tabela por artefato, mesma forma dos
+# tipos em data_contracts.
+catalog:        "products, product_images, product_props, variants, variant_options — BUILT"
+AgentQueryLog:  "agent_query_log — uma linha por busca resolvida pelo agente"
+TopicRanking:   "topic_rankings — topicKey + label gerado uma vez, nunca por render"
+Proposal:       "proposals — uma linha por proposta, chave `id`"
+query_cache:    "query_cache — normalize(term) -> plpUrl"
+access_rule: |
+  Todo acesso passa por src/platform/<domínio>/<domínio>.d1.ts. Nenhum SQL fora
+  desses arquivos — é a mesma fronteira que hoje isola o catálogo (o mapper
+  devolve `Product`, e nada acima dele sabe que existe banco).
+```
+
 ## file_layout_to_create
 ```
+src/platform/catalog/     # JÁ EXISTE — catálogo em SQLite
+  catalog.types.ts     # linhas cruas do SQLite, uma interface por tabela
+  catalog.d1.ts        # queries (único lugar com SQL de catálogo)
+  catalog.mapper.ts    # linhas -> Product (espelha o toProduct do Shopify)
+  catalog.actions.ts   # listProducts()
+  index.ts
+
 src/platform/agent/
   agent.types.ts       # FilterCandidate, AgentSelection, AgentQueryLog
   agent.actions.ts     # resolveSearchQuery(term, candidates) -> { plpUrl } | { fallback: true }
   agent.claude.ts      # the single structured-output call + prompt cache breakpoints
-  agent.cache.ts       # JSON file read/write for normalize(term) -> plpUrl
+  agent.d1.ts          # tabela query_cache: normalize(term) -> plpUrl
   agent.filters.ts     # ProductListingPage["filters"] -> FilterCandidate[]
   index.ts
 
 src/platform/analytics/
   analytics.types.ts   # TopicRanking
   analytics.actions.ts # logAgentQuery(), getTopicRankings(windowDays), proposeCollections()
-  analytics.json.ts    # JSON file read/write + in-process aggregation
+  analytics.d1.ts      # agent_query_log / topic_rankings / proposals + agregação em SQL
   analytics.hooks.ts   # useQuery wrapper for the dashboard section
   index.ts
 
@@ -207,25 +295,24 @@ phase_0_unblock:   # NEW — blocks phase_1
       key via `wrangler secret put ANTHROPIC_API_KEY` — server-side only.
       note: the CSP in src/worker-entry.ts:28-35 is irrelevant here; the call never
       leaves the worker. A client-side call would leak the key.
-  - data lives in static/generated JSON files, not a database — the goal is to
-      demonstrate agent behavior, not to stand up real persistence infra:
-      catalog                       -> data/catalog.json (replaces a Shopify
-                        Storefront API call; same shape the loader already expects,
-                        so nothing downstream changes)
-      AgentQueryLog + TopicRanking  -> data/agent-query-log.json and
-                        data/topic-rankings.json, appended to per run and
-                        aggregated in-process (Array.reduce / groupBy) — the
-                        dataset is small enough that SQL buys nothing here
-      Proposals + normalize(term)->plpUrl cache -> data/proposals.json and
-                        data/query-cache.json, read/written whole-file
-      All reads/writes go through src/platform/*/*.json.ts helpers so the storage
-      shape is isolated behind one module per domain, not scattered across callers.
+  - [DONE] data lives in SQLite (D1 binding CATALOG_DB), local-only — still no
+      Shopify, still no external service. Full rationale and caveats in the
+      `persistence` section; table-per-artifact map there too.
+      catalog -> products / product_images / product_props / variants /
+                 variant_options. BUILT: db/migrations/0001_catalog.sql +
+                 src/platform/catalog/. Substitui a chamada à Storefront API e
+                 devolve o mesmo `Product`, então nada downstream muda.
+      agent + analytics tables -> agent_query_log, topic_rankings, proposals,
+                 query_cache. AINDA NÃO CRIADAS — cada uma entra na fase que a
+                 consome, não antes.
+      All reads/writes go through src/platform/*/*.d1.ts so the storage shape is
+      isolated behind one module per domain, not scattered across callers.
   - resolve the admin gate BEFORE building any dashboard UI (see admin_surface.decision)
 
 phase_1_agent_hot_path:
   - agent.filters.ts: ProductListingPage["filters"] -> FilterCandidate[] (drop quantity === 0)
   - agent.claude.ts: single structured-output call, effort low, prompt cache breakpoint
-  - agent.cache.ts: JSON-file cache keyed on normalize(term)   # was phase_3 — it is
+  - agent.d1.ts: query_cache table keyed on normalize(term)   # was phase_3 — it is
                                                         # what makes the demo fast, it belongs here
   - wire resolveSearchQuery into the EXISTING /s route loader (302 on success)
   - fallback: low confidence / empty selection / any error -> render literal search
@@ -233,12 +320,11 @@ phase_1_agent_hot_path:
 
 phase_2_analytics_foundation:
   - logAgentQuery from inside the same loader run, via ctx.waitUntil (never a second
-    client round trip, never blocking the redirect) — appends a row to
-    data/agent-query-log.json
-  - getTopicRankings: simple count aggregation in-process over the JSON log, no ML
-    ranking
+    client round trip, never blocking the redirect) — INSERT into agent_query_log
+  - getTopicRankings: count aggregation in SQL (GROUP BY topicKey + HAVING para os
+    filtros de sanidade), no ML ranking
   - topic label generation: one LLM call per new topicKey, persisted in
-    data/topic-rankings.json
+    topic_rankings
 
 phase_3_admin_surface:
   - build src/sections/AgentDashboard/AgentDashboard.tsx
@@ -246,14 +332,14 @@ phase_3_admin_surface:
              fallback rate, p50/p95 latency, cache hit rate
   - every number renders with its evidence source (Proposal.evidence) — no unsourced figures
   - "Gerar coleções sugeridas" -> proposeCollections() runs the 3-stage pipeline and
-    persists a Proposal to data/proposals.json. It does NOT bust a cache.
+    persists a Proposal to the proposals table. It does NOT bust a cache.
   - review screen: diff + evidence + PLP preview + per-topic approve/edit/reject
   - autonomy selector on the agent card, defaulting to `sugerir`
   - dry run = the same proposeCollections() with commit:false — nothing persisted.
     Build this early: it is a dev tool before it is a feature.
   - CUTTABLE if time-constrained: inline copy editing, PLP preview. The minimum that is
     still an agent: aggregation -> one copy call -> validation -> approvable list
-    writing to data/proposals.json.
+    writing to the proposals table.
 
 phase_4_trending_collections:
   - build src/sections/TrendingCollections/TrendingCollections.tsx
@@ -261,8 +347,7 @@ phase_4_trending_collections:
     OR rendered as a deferred section (deferredSectionLoader, already imported at
     src/routes/$.tsx:3) — see cache decision
   - place once on the homepage via CMS (manual placement)
-  - verify: changing topic frequency in data/topic-rankings.json changes the homepage
-    without a deploy
+  - verify: an UPDATE on topic_rankings changes the homepage without a deploy
 
 phase_5_hardening_and_demo:
   - synonyms, implicit price ranges, multi-filter selection
@@ -308,17 +393,18 @@ rejected_v1: recompute_ranking_and_invalidate_cache   # that is BI, not an agent
 ```yaml
 why: "The model touches only the middle stage. Selection and resolution stay in code."
 stage_1_aggregation_no_model: |
-  getTopicRankings(windowDays) aggregates AgentQueryLog (data/agent-query-log.json)
-  in-process. Sanity filters live HERE, not in model judgement: minimum count,
-  minimum distinct sessions (otherwise one person refreshing 200x becomes a
-  "trend"), exclude topics that fell back, denylist. Output is topicKey + count.
-  Data, not prose.
+  getTopicRankings(windowDays) aggregates agent_query_log in SQL. Sanity filters
+  live HERE, not in model judgement: minimum count, minimum distinct sessions
+  (otherwise one person refreshing 200x becomes a "trend"), exclude topics that
+  fell back, denylist. Em SQL isso é um GROUP BY com HAVING — foi um dos motivos
+  de trocar JSON por SQLite (ver persistence.why_not_json). Output is
+  topicKey + count. Data, not prose.
 stage_2_one_llm_call_copy_only: |
   Input: the already-cleaned topic list. Output: { topicKey, title, subtitle } per topic,
   via structured outputs. The model does NOT choose which topics qualify (stage 1 did),
   does NOT build URLs (stage 3 does), and NEVER sees raw rawUserText — only the
   normalized topicKey. One call per batch, not per topic. Titles persist in
-  data/topic-rankings.json keyed by topicKey and are never regenerated per render.
+  topic_rankings keyed by topicKey and are never regenerated per render.
 stage_3_resolve_and_validate_no_model: |
   Each topicKey resolves back to a URL using the same page.filters the search agent uses.
   A topic whose filter no longer exists in the catalog is dropped here, not shipped as a
@@ -337,8 +423,8 @@ interface Proposal {
   // The change. `before` is what makes rollback free.
   target: string;                    // e.g. "home.trending-collections" — a logical
                                       // key the section reads by, not a file path
-  before: unknown;                   // entry in data/proposals.json as it is now
-  after: unknown;                    // entry in data/proposals.json as proposed
+  before: unknown;                   // row in `proposals` as it is now
+  after: unknown;                    // row in `proposals` as proposed
 
   // The why — natural language, what the human reads first
   hypothesis: string;
@@ -348,11 +434,13 @@ interface Proposal {
   evidence: Array<{ metric: string; value: number; window: string; source: string }>;
 
   status: "pending" | "approved" | "rejected" | "applied" | "reverted";
-  appliedAs: null | "json";
+  appliedAs: null | "sqlite";
   decidedBy: null | `human:${string}` | `auto:${string}`;
 }
 ```
-Stored in `data/proposals.json`, one entry per proposal, keyed by `id`. The review
+Stored in the `proposals` table, one row per proposal, keyed by `id`. `before`,
+`after` e `evidence` são colunas TEXT com JSON serializado — são blobs opacos que
+só o admin lê inteiros, nunca filtrados em SQL, então não vale normalizar. The review
 screen shows the diff, the evidence (including the top 3 real queries behind
 each topicKey), a preview of the resolved PLP with its product count, and per-topic
 approve/edit/reject. Titles are editable inline so a human fixes copy without rejecting
@@ -367,16 +455,16 @@ levels:
   - level: sugerir
     v1_default: true
     behavior: "Proposal goes to a review queue. Nothing reaches the store until approved."
-    apply_paths_available: [json]
+    apply_paths_available: [sqlite]
   - level: autonomo
     v1_default: false
     behavior: "Proposal is auto-approved and applied. Undo window stays open via `before`."
-    apply_paths_available: [json]
+    apply_paths_available: [sqlite]
     requires: "Explicit opt-in by the store owner. See risks.autonomous_content_from_user_text."
 
 apply_paths:
-  - id: json
-    what: "Approved proposals are written into data/proposals.json (status flips to
+  - id: sqlite
+    what: "Approved proposals are UPDATEd in the proposals table (status flips to
            `applied`); TrendingCollections and the dashboard read from there at
            render time."
     human_needed: false
@@ -424,7 +512,7 @@ correct_fix: |
 
 ## success_metrics
 ```yaml
-measurable_in_v1:   # observable from the worker / JSON log alone
+measurable_in_v1:   # observable from the worker / agent_query_log alone
   - metric: zero_result_search_rate
     before: literal keyword search baseline
     after: agent-mediated filter selection
@@ -433,9 +521,9 @@ measurable_in_v1:   # observable from the worker / JSON log alone
   - metric: fallback_rate
     purpose: inverse of the above, broken down by cause (low confidence / no match / error)
   - metric: agent_latency_p50_p95
-    purpose: proves the hot path is viable, and demonstrates the JSON cache effect
+    purpose: proves the hot path is viable, and demonstrates the query_cache effect
   - metric: cache_hit_rate
-    purpose: JSON translation cache + Claude prompt cache, reported separately
+    purpose: query_cache table + Claude prompt cache, reported separately
 
 not_measurable_in_v1:
   - metric: plp_conversion_rate
@@ -464,18 +552,32 @@ not_measurable_in_v1:
   mitigation: |
     ONE LLM call (not a tool_use loop — that was 2-4 round trips / 3-8s and is the single
     biggest correction in this revision). effort: "low". Prompt caching on the stable
-    prefix. JSON translation cache in front of everything. Literal search renders on any
-    timeout — the fallback is the default path, not an error branch.
+    prefix. query_cache lookup (indexed, one row) in front of everything. Literal search
+    renders on any timeout — the fallback is the default path, not an error branch.
 
 - risk: llm_provider_undefined
   status: NEW — was missing from revision 1
   mitigation: "phase_0. No AI binding or API secret exists in wrangler.jsonc today."
 
 - risk: no_persistence_layer
-  status: RESOLVED — no binding needed
-  mitigation: "phase_0. Data lives in data/*.json, read/written directly by the
-               worker. No D1/KV binding for the demo; revisit only if this needs to
-               survive real concurrent writes or scale past a single store's dataset."
+  status: RESOLVED — D1 binding CATALOG_DB, local-only
+  mitigation: "Ver a seção `persistence`. SQLite dentro do próprio Worker: sem
+               serviço externo, mas com SQL real para agregação e sem o problema de
+               reescrever arquivo inteiro a cada escrita. Nenhum banco remoto
+               provisionado — o binding é local."
+
+- risk: local_db_is_not_versioned
+  status: MITIGADO — migrations automáticas no predev
+  description: |
+    `.wrangler/` é gitignored, então o .sqlite não entra no git e `npm run dev:clean`
+    o apaga. Sem automação, quem clonasse o repo subiria com banco vazio — e a falha
+    é silenciosa (o loader devolve null, a section some, nenhum erro alto).
+  mitigation: |
+    Schema e seed são migrations versionadas em db/migrations/, aplicadas pelo hook
+    `predev` a cada `npm run dev`. O wrangler registra o que já rodou em
+    `d1_migrations`, então é idempotente: não duplica linha nem sobrescreve
+    alteração feita à mão. `npm run db:reset` reconstrói do zero. Ver db/README.md.
+    Verificado apagando .wrangler/state/v3/d1 e subindo o dev do zero.
 
 - risk: admin_route_auth_undefined
   status: CONFIRMED REAL — revision 1's premise was wrong
@@ -485,7 +587,7 @@ not_measurable_in_v1:
   mitigation: "Client-fetched or deferred section — not a cache-config override."
 
 - risk: topic_label_quality
-  mitigation: "One LLM generation per topicKey, persisted in data/topic-rankings.json. Never regenerated per render."
+  mitigation: "One LLM generation per topicKey, persisted in topic_rankings. Never regenerated per render."
 
 - risk: autonomous_content_from_user_text
   status: NEW — this is why `sugerir` is the v1 default, not a technical limitation
@@ -495,8 +597,8 @@ not_measurable_in_v1:
     test, or abusive query. The risk is content, not infrastructure.
   mitigation: |
     Layered, and mostly outside the model:
-      - stage 1 filters (min count, min distinct sessions, denylist) run in SQL before
-        the model sees anything
+      - stage 1 filters (min count, min distinct sessions, denylist) run in SQL
+        (GROUP BY / HAVING sobre agent_query_log) before the model sees anything
       - the model never receives rawUserText, only the normalized topicKey
       - stage 3 schema validation drops malformed proposals
       - `sugerir` is the shipped default; `autonomo` is opt-in by the store owner
@@ -536,7 +638,12 @@ not_measurable_in_v1:
    v1 ships defaulting to `sugerir` (human approves). `autonomo` exists on the same code
    path and is opt-in by the store owner."
 - "No CMS block writes (.deco/blocks/*.json via git/PR) in v1 — proposals are applied
-   by writing to data/proposals.json, which storefront sections read directly. See
+   by writing to the proposals table, which storefront sections read directly. See
    admin_surface.apply_paths."
-- "No new backend service outside the existing Cloudflare Worker / TanStack Start server functions."
+- "No new backend service outside the existing Cloudflare Worker / TanStack Start server
+   functions. D1 não viola isso: é um binding do próprio Worker, não um serviço à parte."
+- "No remote D1 database. O binding é local-only (`database_id` placeholder); deploy está
+   fora do escopo desta fase. Ver persistence.local_only."
+- "No ORM. SQL escrito à mão em src/platform/*/*.d1.ts — o volume de queries não paga a
+   dependência nem o passo de codegen."
 ```
