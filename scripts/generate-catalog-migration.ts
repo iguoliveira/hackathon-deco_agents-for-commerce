@@ -17,6 +17,7 @@
 
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { isDenied } from "./catalog-denylist";
 
 const MIGRATIONS_DIR = "db/migrations";
 const API_VERSION = "2025-04";
@@ -213,7 +214,11 @@ const emit = (table: string, columns: string[], rows: string[][]): string => {
   return sql;
 };
 
-const buildSql = (products: ShopifyProduct[], storeName: string): string => {
+const buildSql = (
+  products: ShopifyProduct[],
+  storeName: string,
+  deniedCount: number,
+): string => {
   const productRows: string[][] = [];
   const imageRows: string[][] = [];
   const propRows: string[][] = [];
@@ -278,6 +283,10 @@ const buildSql = (products: ShopifyProduct[], storeName: string): string => {
 -- preços e URLs de imagem de verdade —, então a vitrine fica idêntica à que o
 -- Shopify serviria.
 --
+-- ${deniedCount} produtos foram excluídos por scripts/catalog-denylist.ts (stickers,
+-- pelúcias, papelaria, utilidades de casa): a demo é uma loja de moda, e a loja
+-- de origem é de brindes. O porquê está documentado naquele arquivo.
+--
 -- ${productRows.length} produtos, ${variantRows.length} variantes, ${imageRows.length} imagens, ${propRows.length} tags/coleções, ${optionRows.length} opções.
 
 DELETE FROM variant_options WHERE variant_id IN (
@@ -335,11 +344,24 @@ const main = async () => {
   const { endpoint, token, storeName } = readShopifyConfig();
   console.log(`Lendo catálogo de ${storeName}.myshopify.com…`);
 
-  const products = await fetchCatalog(createClient(endpoint, token));
-  const sql = buildSql(products, storeName);
+  const fetched = await fetchCatalog(createClient(endpoint, token));
+
+  // Filtra ANTES de emitir SQL: produto negado nunca chega ao banco.
+  // Ver scripts/catalog-denylist.ts para o critério e o porquê.
+  const denied = fetched.filter((p) => isDenied(p.handle));
+  const products = fetched.filter((p) => !isDenied(p.handle));
 
   const variants = products.reduce((sum, p) => sum + p.variants.nodes.length, 0);
-  console.log(`\n${products.length} produtos, ${variants} variantes`);
+  console.log(
+    `\n${fetched.length} produtos na loja` +
+      ` → ${denied.length} excluídos pela denylist → ${products.length} no catálogo` +
+      ` (${variants} variantes)`,
+  );
+  if (denied.length > 0) {
+    console.log(`  excluídos: ${denied.map((p) => p.handle).join(", ")}`);
+  }
+
+  const sql = buildSql(products, storeName, denied.length);
 
   if (dryRun) {
     console.log(`--dry-run: nada escrito (seriam ${(sql.length / 1024).toFixed(0)} KB)`);

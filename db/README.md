@@ -36,14 +36,15 @@ npm run db:query "SELECT handle, title FROM products"
 |---|---|
 | `0001_create_catalog.sql` | Schema: as 5 tabelas + índices |
 | `0002_seed_catalog.sql` | Produto sintético de teste (removido pela 0003) |
-| `0003_seed_full_catalog.sql` | **Catálogo real da loja** — 58 produtos, 289 variantes. Gerada. |
+| `0003_seed_full_catalog.sql` | Catálogo real da loja — 58 produtos. Gerada. |
+| `0004_apparel_only.sql` | Remove 27 não-vestuário, deixando **31 produtos** |
 
 ## Atualizando o catálogo
 
 A `0003` é **gerada**, não escrita à mão. Quando o catálogo da loja Shopify mudar:
 
 ```sh
-npm run catalog:generate   # cria a PRÓXIMA migration (0004, 0005, …)
+npm run catalog:generate   # cria a PRÓXIMA migration (0005, 0006, …)
 npm run db:migrate         # aplica
 ```
 
@@ -54,6 +55,22 @@ números sem escrever, e `--out <arquivo>` para escolher o destino.
 
 Ele nunca sobrescreve uma migration existente: escreve sempre na próxima numeração
 livre. Isso é de propósito, ver abaixo.
+
+### O que fica de fora
+
+A loja de origem é de brindes (vende sticker ao lado de camiseta); a demo é de
+moda. **`scripts/catalog-denylist.ts`** lista os produtos que não entram —
+stickers, pelúcias, papelaria, utilidades de casa —, e o gerador filtra por ela
+antes de emitir SQL. O raciocínio completo, incluindo por que é lista explícita
+em vez de filtro por categoria, está documentado naquele arquivo.
+
+Divisão de responsabilidade entre as duas peças:
+
+- a **`0004`** conserta bancos que já importaram o catálogo completo;
+- a **denylist** impede que voltem num import futuro.
+
+Para negar um produto novo: adicione o handle no grupo certo da denylist e rode
+`npm run catalog:generate`.
 
 ## Mudando o schema
 
