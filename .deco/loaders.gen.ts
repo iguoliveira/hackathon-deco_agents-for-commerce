@@ -52,6 +52,8 @@ export const siteLoaders: Record<string, (props: any, request?: Request) => Prom
   },
   "site/loaders/address": createLoaderEntry("site/loaders/address", () => import("../src/loaders/address")),
   "site/loaders/address.ts": createLoaderEntry("site/loaders/address", () => import("../src/loaders/address")),
+  "site/loaders/catalogProductList": createLoaderEntry("site/loaders/catalogProductList", () => import("../src/loaders/catalogProductList")),
+  "site/loaders/catalogProductList.ts": createLoaderEntry("site/loaders/catalogProductList", () => import("../src/loaders/catalogProductList")),
   "site/loaders/productByHandle": createLoaderEntry("site/loaders/productByHandle", () => import("../src/loaders/productByHandle")),
   "site/loaders/productByHandle.ts": createLoaderEntry("site/loaders/productByHandle", () => import("../src/loaders/productByHandle")),
   "site/loaders/user": createLoaderEntry("site/loaders/user", () => import("../src/loaders/user")),

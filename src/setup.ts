@@ -145,6 +145,13 @@ registerCommerceLoaders({
     (await import("./loaders/productByHandle")).default(props),
   "site/loaders/productByHandle": async (props: any) =>
     (await import("./loaders/productByHandle")).default(props),
+  // Catálogo em SQLite (binding D1 `CATALOG_DB`). Devolve o mesmo `Product[]`
+  // que `shopify/loaders/ProductList.ts`, então é intercambiável com ele em
+  // qualquer bloco — ver `.deco/blocks/Product%20List%20Loader.json`.
+  "site/loaders/catalogProductList.ts": async (props: any) =>
+    (await import("./loaders/catalogProductList")).default(props),
+  "site/loaders/catalogProductList": async (props: any) =>
+    (await import("./loaders/catalogProductList")).default(props),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --

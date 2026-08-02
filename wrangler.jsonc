@@ -33,6 +33,25 @@
   //     "dataset": "deco_metrics_YOUR_SITE_NAME"
   //   }
   // ],
+  // Catálogo de produtos em SQLite. D1 é o SQLite gerenciado da Cloudflare —
+  // localmente o vite-plugin/wrangler materializam um arquivo .sqlite real em
+  // `.wrangler/state/v3/d1/`, abrível em qualquer cliente SQLite.
+  //
+  // `database_id` é um placeholder: nenhum banco remoto foi criado. Isso é
+  // suficiente para `vite dev` e para `wrangler d1 ... --local`, e falha de
+  // propósito em `wrangler deploy` — se um dia formos para produção, rode
+  // `wrangler d1 create demo-storefront-catalog` e cole o id real aqui.
+  // `migrations_dir` faz o `wrangler d1 migrations apply` achar db/migrations.
+  // Ele mantém uma tabela `d1_migrations` com o que já rodou, então aplicar duas
+  // vezes é no-op — é isso que deixa o `predev` seguro.
+  "d1_databases": [
+    {
+      "binding": "CATALOG_DB",
+      "database_name": "demo-storefront-catalog",
+      "database_id": "local-only-not-provisioned",
+      "migrations_dir": "db/migrations"
+    }
+  ],
   "kv_namespaces": [
     {
       "binding": "DECO_KV",
