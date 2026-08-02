@@ -8,6 +8,9 @@ dist/
 # Cloudflare Workers
 .wrangler/
 .dev.vars
+# Regenerado pelo plugin da Cloudflare a cada dev/build. Não usamos: colide com
+# as definições de Request dos pacotes @decocms/* — ver src/types/cloudflare-bindings.d.ts.
+worker-configuration.d.ts
 
 # TanStack Router (auto-generated)
 src/routeTree.gen.ts

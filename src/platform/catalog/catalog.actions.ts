@@ -9,7 +9,12 @@ import type {
   ProductListingPage,
 } from "@decocms/apps-commerce/types";
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
-import { findCatalogRecordByHandle, findCatalogRecords, searchCatalog } from "./catalog.d1";
+import {
+  findCatalogRecordByHandle,
+  findCatalogRecords,
+  findOptionNames,
+  searchCatalog,
+} from "./catalog.d1";
 import { recordToProduct, recordToProductPage } from "./catalog.mapper";
 import { parseSort, toProductListingPage } from "./catalog.plp";
 
@@ -91,7 +96,12 @@ export const listProducts = async ({
  * nenhum. Aqui o slug inteiro é tentado como handle primeiro; só se não existir
  * é que o sufixo numérico é interpretado como variante.
  */
-/** Chaves de querystring que não são filtro de faceta. */
+/**
+ * Chaves de querystring que a página usa para si.
+ *
+ * Guarda contra colisão: se um dia existir uma opção de variante chamada
+ * `sort`, o significado de página continua ganhando.
+ */
 const RESERVED_PARAMS = new Set(["q", "page", "sort", "collection", "startCursor", "endCursor"]);
 
 export interface ListingPageOptions {
@@ -110,18 +120,24 @@ export interface ListingPageOptions {
  * página de categoria e landing pages usam este mesmo caminho.
  *
  * Os filtros vêm da própria querystring: `collection` é tratado à parte porque
- * a página pode fixá-lo, e todo o resto é interpretado como opção de variante
- * (`Size=M&Color=Black`), do mesmo jeito que o `url` de cada FilterToggleValue
- * é construído.
+ * a página pode fixá-lo, e o resto vira opção de variante (`Size=M&Color=Black`),
+ * do mesmo jeito que o `url` de cada FilterToggleValue é construído.
+ *
+ * Só entram chaves que são de fato nome de opção no catálogo. Interpretar todo
+ * parâmetro desconhecido como filtro parece inofensivo e não é: um link de
+ * campanha (`?utm_source=google`, `gclid`, `fbclid`) viraria um filtro por uma
+ * opção inexistente, e a PLP voltaria vazia — sem erro, sem log, só zero
+ * resultados para quem chegou pelo anúncio.
  */
 export const getProductListingPage = async (
   { collection, query, perPage = 12, pageUrl }: ListingPageOptions = {},
 ): Promise<ProductListingPage | null> => {
   const url = resolvePageUrl(pageUrl);
+  const optionNames = await findOptionNames();
 
   const options: Record<string, string[]> = {};
   for (const key of new Set(url.searchParams.keys())) {
-    if (RESERVED_PARAMS.has(key)) continue;
+    if (RESERVED_PARAMS.has(key) || !optionNames.has(key)) continue;
     options[key] = url.searchParams.getAll(key);
   }
 

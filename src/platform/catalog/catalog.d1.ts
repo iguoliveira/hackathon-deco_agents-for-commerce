@@ -283,6 +283,34 @@ export const searchCatalog = async (
   };
 };
 
+/**
+ * Nomes de opção de variante que existem no catálogo — `Size`, `Color`, …
+ *
+ * É a whitelist que separa filtro de faceta de qualquer outro parâmetro da
+ * querystring. Sem ela, `?utm_source=google` vira um filtro por uma opção que
+ * não existe e a listagem volta vazia (ver `getProductListingPage`).
+ *
+ * Cacheado por isolate: o conjunto só muda quando uma migration nova entra, e
+ * aí o processo reinicia de qualquer forma.
+ */
+let optionNames: Set<string> | null = null;
+
+export const findOptionNames = async (): Promise<Set<string>> => {
+  if (optionNames) return optionNames;
+
+  const db = getDb();
+  // Sem banco, nenhum filtro de opção é aplicado — degrada para a listagem sem
+  // facetas, que é melhor do que zerar o resultado.
+  if (!db) return new Set();
+
+  const { results } = await db
+    .prepare("SELECT DISTINCT name FROM variant_options")
+    .all<{ name: string }>();
+
+  optionNames = new Set(results.map((row) => row.name));
+  return optionNames;
+};
+
 /** Lê um produto pelo handle. `null` quando não existe. */
 export const findCatalogRecordByHandle = async (handle: string): Promise<CatalogRecord | null> => {
   const db = getDb();
