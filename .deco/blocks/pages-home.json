@@ -52,11 +52,6 @@
           "label": "Accessories",
           "href": "/accessories",
           "image": "https://decoims.com/demo-storefront/2026/07/543e04d2-011d-4cc2-8875-46a1a08bef3d-accessories.png"
-        },
-        {
-          "label": "Stickers",
-          "href": "/stickers",
-          "image": "https://decoims.com/demo-storefront/2026/07/6df3a538-085e-4243-93a8-0b961b99ae26-stickers.png"
         }
       ],
       "infoBullets": [
@@ -106,11 +101,6 @@
               {
                 "href": "/accessories",
                 "label": "Accessories",
-                "image": "https://decoims.com/storefront-tanstack/ba682b53-64d8-44b7-8e57-18d02f5dcf5a/1742560230067-92129655-fe40-4b29-8fdb-e7f71e67a5d1.png"
-              },
-              {
-                "href": "/stickers",
-                "label": "Stickers",
                 "image": "https://decoims.com/storefront-tanstack/ba682b53-64d8-44b7-8e57-18d02f5dcf5a/1742560230067-92129655-fe40-4b29-8fdb-e7f71e67a5d1.png"
               }
             ]

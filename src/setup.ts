@@ -83,6 +83,34 @@ applySectionConventions({
 await autoconfigApps(generatedBlocks, APP_REGISTRY);
 
 // -- Commerce-loader overrides --
+//
+// ⚠️ DEAD CODE, KEPT ON PURPOSE. No block resolves `shopify/loaders/*` for
+// product data any more: the catalog is served from SQLite (D1 binding
+// `CATALOG_DB`) by the `site/loaders/catalog*` entries registered further down.
+// Nothing below this line runs today.
+//
+// Three reasons it stays instead of being deleted:
+//
+//   1. It is the escape hatch. Pointing `.deco/blocks/PLP%20Loader.json` back at
+//      `shopify/loaders/ProductListingPage.ts` restores the Shopify-backed PLP
+//      in one line — useful to compare behaviour between the two sources while
+//      the SQLite path is still young.
+//   2. The `resolvePageUrl` precedence below is hard-won knowledge, not
+//      boilerplate: in the CMS resolve path `RequestContext.request.url` can be
+//      the `_serverFn/...` URL rather than the page URL, so querystring filters
+//      silently vanish and the loader returns the whole catalog as if nobody had
+//      filtered. `src/platform/catalog/catalog.actions.ts` reimplements the same
+//      three-step precedence for exactly this reason — deleting the original
+//      would drop the explanation of *why* that code exists.
+//   3. Removing it means also dropping the `@decocms/apps-shopify` PLP import,
+//      which is a wider change than it looks: the app is still wired for cart,
+//      checkout proxy and user session.
+//
+// Delete this block once the SQLite catalog is settled and nobody wants the
+// comparison any more. Same applies to the `site/loaders/productByHandle`
+// entries below, which the Hero stopped using when it moved to
+// `catalogProductByHandle`.
+//
 // Shopify's productListingPage loader reads filters/sort/pagination from a
 // URL. The framework calls commerce loaders with `(props)` only — it injects
 // `__pageUrl` into props, but Shopify ignores it and falls back to a hardcoded
@@ -141,6 +169,8 @@ registerCommerceLoaders({
   "site/loaders/wishlist": async () => (await import("./loaders/wishlist")).default(),
   "site/loaders/address.ts": async () => (await import("./loaders/address")).default(),
   "site/loaders/address": async () => (await import("./loaders/address")).default(),
+  // ⚠️ Dead code, kept for the same reasons as the PLP override above: the Hero
+  // slides moved to `catalogProductByHandle` and no block resolves this any more.
   "site/loaders/productByHandle.ts": async (props: any) =>
     (await import("./loaders/productByHandle")).default(props),
   "site/loaders/productByHandle": async (props: any) =>
