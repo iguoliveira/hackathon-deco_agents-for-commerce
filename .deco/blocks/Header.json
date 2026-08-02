@@ -44,12 +44,6 @@
       "url": "/accessories",
       "name": "Accessories",
       "children": []
-    },
-    {
-      "@type": "SiteNavigationElement",
-      "url": "/stickers",
-      "name": "Stickers",
-      "children": []
     }
   ],
   "loading": "eager"
