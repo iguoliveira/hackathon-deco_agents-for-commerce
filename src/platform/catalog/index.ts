@@ -6,4 +6,11 @@ export type {
   VariantOptionRow,
   VariantRow,
 } from "./catalog.types";
-export { listProducts, type ListProductsOptions } from "./catalog.actions";
+export {
+  getProductByHandle,
+  getProductDetailsPage,
+  getProductListingPage,
+  listProducts,
+  type ListingPageOptions,
+  type ListProductsOptions,
+} from "./catalog.actions";

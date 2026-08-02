@@ -7,6 +7,16 @@ export interface Props {
    * @description Quantos produtos trazer do catálogo SQLite.
    */
   count?: number;
+  /**
+   * @title Coleção
+   * @description Handle da coleção, ex.: "shirts", "accessories", "hoodies-sweatshirts". Vazio traz de todas.
+   */
+  collection?: string;
+  /**
+   * @title Busca
+   * @description Filtro livre no título do produto. Vazio ignora.
+   */
+  query?: string;
 }
 
 /**
@@ -18,7 +28,9 @@ export interface Props {
  */
 export default async function catalogProductListLoader({
   count = 12,
+  collection,
+  query,
 }: Props = {}): Promise<Product[] | null> {
-  const products = await listProducts({ limit: count });
+  const products = await listProducts({ limit: count, collection, query });
   return products.length > 0 ? products : null;
 }

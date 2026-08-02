@@ -10,7 +10,14 @@
  * Se o transform do Shopify mudar, este arquivo é o que precisa acompanhar.
  */
 
-import type { ImageObject, Product, PropertyValue } from "@decocms/apps-commerce/types";
+import type {
+  BreadcrumbList,
+  ImageObject,
+  ListItem,
+  Product,
+  ProductDetailsPage,
+  PropertyValue,
+} from "@decocms/apps-commerce/types";
 import { DEFAULT_IMAGE } from "@decocms/apps-commerce/utils/constants";
 import type { CatalogRecord, VariantRow } from "./catalog.types";
 
@@ -144,4 +151,65 @@ export const recordToProduct = (record: CatalogRecord, origin: string): Product 
   const first = record.variants[0];
   if (!first) return null;
   return toProduct(record, first, origin, true);
+};
+
+/**
+ * Breadcrumb da PDP.
+ *
+ * Espelha `toBreadcrumbList` do Shopify (transform.ts:128-160), inclusive a
+ * peculiaridade de usar `position: 2` no item do produto mesmo quando ele é o
+ * único da lista (produto sem coleção). Parece engano deles, mas isto alimenta
+ * o JSON-LD de SEO — divergir aqui mudaria a saída estruturada da página em
+ * relação ao que o Shopify serve hoje, que é justamente o que não queremos.
+ */
+const toBreadcrumbList = (record: CatalogRecord, origin: string, path: string): BreadcrumbList => {
+  const collection = record.props.find((prop) => prop.name === "COLLECTION");
+
+  const items: ListItem[] = collection
+    ? [
+        {
+          "@type": "ListItem",
+          name: decodeURI(collection.value),
+          position: 1,
+          item: `/${collection.value_reference ?? ""}`,
+        },
+        { "@type": "ListItem", name: decodeURI(record.product.title), position: 2, item: path },
+      ]
+    : [{ "@type": "ListItem", name: decodeURI(record.product.title), position: 2, item: path }];
+
+  return {
+    "@type": "BreadcrumbList",
+    numberOfItems: items.length,
+    itemListElement: items,
+  };
+};
+
+/**
+ * Monta a `ProductDetailsPage` — o que a PDP e o SEO PDP consomem.
+ *
+ * `variantId` escolhe a variante exibida; ausente ou inexistente cai na
+ * primeira, mesma tolerância do loader do Shopify.
+ */
+export const recordToProductPage = (
+  record: CatalogRecord,
+  origin: string,
+  variantId?: string,
+): ProductDetailsPage | null => {
+  const variant =
+    record.variants.find((candidate) => candidate.variant_id === variantId) ?? record.variants[0];
+
+  if (!variant) return null;
+
+  const path = productPath(record.product.handle, variant);
+
+  return {
+    "@type": "ProductDetailsPage",
+    breadcrumbList: toBreadcrumbList(record, origin, path),
+    product: toProduct(record, variant, origin, true),
+    seo: {
+      title: record.product.title,
+      description: record.product.description,
+      canonical: `${origin}${path}`,
+    },
+  };
 };

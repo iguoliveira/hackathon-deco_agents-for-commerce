@@ -152,6 +152,18 @@ registerCommerceLoaders({
     (await import("./loaders/catalogProductList")).default(props),
   "site/loaders/catalogProductList": async (props: any) =>
     (await import("./loaders/catalogProductList")).default(props),
+  "site/loaders/catalogProductDetailsPage.ts": async (props: any) =>
+    (await import("./loaders/catalogProductDetailsPage")).default(props),
+  "site/loaders/catalogProductDetailsPage": async (props: any) =>
+    (await import("./loaders/catalogProductDetailsPage")).default(props),
+  "site/loaders/catalogProductByHandle.ts": async (props: any) =>
+    (await import("./loaders/catalogProductByHandle")).default(props),
+  "site/loaders/catalogProductByHandle": async (props: any) =>
+    (await import("./loaders/catalogProductByHandle")).default(props),
+  "site/loaders/catalogProductListingPage.ts": async (props: any) =>
+    (await import("./loaders/catalogProductListingPage")).default(props),
+  "site/loaders/catalogProductListingPage": async (props: any) =>
+    (await import("./loaders/catalogProductListingPage")).default(props),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --

@@ -16,7 +16,7 @@
           "headline": "NEW SEASON, UP TO 60% OFF",
           "href": "/s?q=shoes&page=0",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-tee"
           }
         },
@@ -26,7 +26,7 @@
           "headline": "THE DENIM EDIT IS HERE",
           "href": "/s?q=jeans",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-cap"
           }
         },
@@ -36,7 +36,7 @@
           "headline": "ACCESSORIES THAT FINISH THE LOOK",
           "href": "/accessories",
           "product": {
-            "__resolveType": "site/loaders/productByHandle.ts",
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-sweatpants"
           }
         }
@@ -143,54 +143,27 @@
         "tabs": [
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "hat and bag",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "accessories",
+              "count": 10
             },
             "title": "Accessories"
           },
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "Shirts",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "shirts",
+              "count": 10
             },
             "title": "Fashion"
           },
           {
             "products": {
-              "__resolveType": "shopify/loaders/ProductList.ts",
-              "props": {
-                "sort": "",
-                "query": "stickers",
-                "count": 10
-              },
-              "filters": {
-                "tags": [],
-                "productTypes": [],
-                "productVendors": [],
-                "variantOptions": []
-              }
+              "__resolveType": "site/loaders/catalogProductList.ts",
+              "collection": "jackets-outerwear",
+              "count": 10
             },
-            "title": "Stickers"
+            "title": "Jackets & Outerwear"
           }
         ]
       }
