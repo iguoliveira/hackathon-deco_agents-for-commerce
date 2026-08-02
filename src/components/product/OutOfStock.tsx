@@ -15,7 +15,8 @@ const INPUT_CLASS =
 export default function OutOfStock({ productID }: Props) {
   const { user } = useUser();
   const notify = useMutation({
-    mutationFn: async (input: { email: string; name?: string }) => {
+    // `email` is omitted when signed in — the server takes it from the session.
+    mutationFn: async (input: { email?: string; name?: string }) => {
       const result = (await invoke.site.actions.notifyMe.subscribe({
         skuId: productID,
         email: input.email,
@@ -37,6 +38,40 @@ export default function OutOfStock({ productID }: Props) {
     );
   }
 
+  // Signed in: we already know who this is, and the server reads the identity
+  // from the session anyway — asking for it again would be theatre, and any
+  // address typed here would be ignored.
+  if (user?.email) {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <span className="text-sm font-medium text-ink-soft">
+          This product is currently unavailable
+        </span>
+        <span className="text-xs text-muted">
+          We'll let you know at <span className="text-ink-soft">{user.email}</span>
+        </span>
+
+        <Button
+          type="button"
+          variant="solid"
+          size="md"
+          disabled={notify.isPending}
+          onClick={() => notify.mutate({})}
+        >
+          {notify.isPending ? (
+            <span className="loading loading-spinner loading-xs" />
+          ) : (
+            "Notify me when it's back"
+          )}
+        </Button>
+
+        {notify.isError && (
+          <span className="text-xs text-error">Something went wrong. Please try again.</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <form
       className="flex flex-col items-start gap-2"
@@ -54,14 +89,7 @@ export default function OutOfStock({ productID }: Props) {
       <span className="text-xs text-muted">Notify me when it's back in stock</span>
 
       <input placeholder="Name" className={INPUT_CLASS} name="name" />
-      <input
-        placeholder="Email"
-        type="email"
-        required
-        className={INPUT_CLASS}
-        name="email"
-        defaultValue={user?.email ?? ""}
-      />
+      <input placeholder="Email" type="email" required className={INPUT_CLASS} name="email" />
 
       <Button type="submit" variant="solid" size="md" disabled={notify.isPending}>
         {notify.isPending ? <span className="loading loading-spinner loading-xs" /> : "Submit"}

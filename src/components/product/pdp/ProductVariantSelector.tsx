@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import type { Product } from "@decocms/apps-commerce/types";
 import { useVariantPossibilities } from "@decocms/apps-commerce/sdk/useVariantPossibilities";
+import { useOffer } from "@decocms/apps-commerce/sdk/useOffer";
 import { relative } from "../../../sdk/url";
 import { ColorSwatchNavList } from "../ColorSwatch";
 import { SizePillList } from "../SizePill";
@@ -36,6 +37,22 @@ export default function ProductVariantSelector({ product, config }: Props) {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const currentProductPath = relative(product.url);
   const selectedHref = (currentPath || currentProductPath) as string;
+
+  // `useVariantPossibilities` only yields value -> href; it knows nothing about
+  // stock, so every size used to render identically and you only discovered a
+  // size was gone after clicking it. Availability lives on each sibling
+  // variant's offer, keyed here by the same relative href the pills link to.
+  //
+  // `useOffer` is a plain function despite the name (see SearchResult.tsx,
+  // which calls it inside a map), so this loop is not a hook violation.
+  const unavailableHrefs = new Set<string>();
+  for (const variant of hasVariant) {
+    const href = relative(variant?.url);
+    if (!href) continue;
+    if (useOffer(variant.offers).availability !== "https://schema.org/InStock") {
+      unavailableHrefs.add(href);
+    }
+  }
 
   const attrNames = Object.keys(possibilities).filter((n) => {
     const lower = n.toLowerCase();
@@ -80,6 +97,7 @@ export default function ProductVariantSelector({ product, config }: Props) {
               <SizePillList
                 entries={entries}
                 selectedHref={selectedHref}
+                unavailableHrefs={unavailableHrefs}
                 preloadStrategy={preloadStrategy}
               />
             )}
