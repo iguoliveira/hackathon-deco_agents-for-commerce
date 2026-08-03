@@ -1,8 +1,8 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Product } from "@decocms/apps-commerce/types";
 import { invoke } from "../../runtime";
 import { useUser } from "../../platform/user";
-import { useHasStockAlert } from "../../platform/alerts";
+import { STOCK_ALERT_QUERY_KEY, useHasStockAlert } from "../../platform/alerts";
 import type { NotifyMeResult } from "../../actions/notifyMe/subscribe";
 import Button from "../ui/Button";
 
@@ -15,6 +15,7 @@ const INPUT_CLASS =
 
 export default function OutOfStock({ productID }: Props) {
   const { user } = useUser();
+  const queryClient = useQueryClient();
   // Signed-out shoppers always read `false` here: their identity is the email
   // they are about to type, which does not exist yet at render time.
   const { alreadyRequested } = useHasStockAlert(productID);
@@ -28,6 +29,14 @@ export default function OutOfStock({ productID }: Props) {
       })) as NotifyMeResult | undefined;
       if (!result?.success) throw new Error("Notify request failed");
       return result;
+    },
+    // The row we just wrote is exactly what `useHasStockAlert` reads, and its
+    // cached `false` outlives this component: switch to another size and come
+    // back within the `staleTime` window and the form renders again, as if the
+    // request had never happened. `notify.isSuccess` does not survive that
+    // unmount — the cache is what has to be corrected.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...STOCK_ALERT_QUERY_KEY, productID] });
     },
   });
 

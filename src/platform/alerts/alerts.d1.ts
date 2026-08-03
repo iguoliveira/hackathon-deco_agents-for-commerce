@@ -83,17 +83,25 @@ export const createStockAlert = async ({
  * Só responde para quem tem sessão: deslogado, a identidade é o e-mail digitado
  * no formulário, que ainda não existe no momento em que a PDP renderiza. Um
  * `visitor_id` em cookie resolveria isso — decisão adiada de propósito.
+ *
+ * Não lança, como `createStockAlert`: isto decide qual estado a PDP mostra, e
+ * banco fora do ar deve degradar para o formulário, não para uma PDP quebrada.
  */
 export const hasStockAlert = async (email: string, variantId: string): Promise<boolean> => {
   const db = getDb();
   if (!db) return false;
 
-  const row = await db
-    .prepare("SELECT 1 AS ok FROM stock_alerts WHERE email = ? AND variant_id = ?")
-    .bind(email, variantId)
-    .first<{ ok: number }>();
+  try {
+    const row = await db
+      .prepare("SELECT 1 AS ok FROM stock_alerts WHERE email = ? AND variant_id = ?")
+      .bind(email, variantId)
+      .first<{ ok: number }>();
 
-  return !!row;
+    return !!row;
+  } catch (error) {
+    console.error("[alerts] falha ao consultar stock_alert:", error);
+    return false;
+  }
 };
 
 interface WaitedRow {
@@ -118,11 +126,30 @@ interface WaitedRow {
  *
  * `available` vem junto porque o agente precisa saber o que já voltou: para
  * esses, o melhor "produto que combina" é o próprio item esperado.
+ *
+ * Não lança: quem consome isto é a shelf, e uma shelf vazia é um resultado
+ * aceitável — derrubar a página por causa dela não é.
  */
 export const findWaitedItems = async (email: string, limit = 20): Promise<WaitedItem[]> => {
   const db = getDb();
   if (!db) return [];
 
+  try {
+    return await queryWaitedItems(db, email, limit);
+  } catch (error) {
+    console.error("[alerts] falha ao ler waited items:", error);
+    return [];
+  }
+};
+
+/** O binding já conferido por `getDb` — evita depender do global `D1Database`. */
+type CatalogDb = NonNullable<ReturnType<typeof getDb>>;
+
+const queryWaitedItems = async (
+  db: CatalogDb,
+  email: string,
+  limit: number,
+): Promise<WaitedItem[]> => {
   const { results: rows } = await db
     .prepare(
       `SELECT v.variant_id, v.product_group_id, v.price, v.available,

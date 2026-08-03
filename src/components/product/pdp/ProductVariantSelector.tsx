@@ -28,6 +28,33 @@ export interface Props {
 
 const isColorAttr = (name: string) => /color|cor(es)?/i.test(name);
 
+/**
+ * Hrefs of the sibling variants that are out of stock, keyed by the same
+ * relative href the pills link to.
+ *
+ * `useVariantPossibilities` only yields value -> href; it knows nothing about
+ * stock, so every size used to render identically and you only discovered a
+ * size was gone after clicking it. Availability lives on each sibling
+ * variant's offer.
+ *
+ * Deliberately outside the component: `useOffer` is a plain function despite
+ * the name (see SearchResult.tsx, which calls it inside a map), but the React
+ * Compiler — enabled in vite.config.ts — reads a `use`-prefixed call inside a
+ * loop as a conditional hook and bails out of memoising the whole component.
+ * Out here the rule does not apply.
+ */
+const unavailableHrefsOf = (variants: Product[]): ReadonlySet<string> => {
+  const hrefs = new Set<string>();
+  for (const variant of variants) {
+    const href = relative(variant?.url);
+    if (!href) continue;
+    if (useOffer(variant.offers).availability !== "https://schema.org/InStock") {
+      hrefs.add(href);
+    }
+  }
+  return hrefs;
+};
+
 export default function ProductVariantSelector({ product, config }: Props) {
   const preloadStrategy = config?.preloadStrategy ?? "intent";
   const showLabels = config?.showLabels ?? true;
@@ -38,21 +65,7 @@ export default function ProductVariantSelector({ product, config }: Props) {
   const currentProductPath = relative(product.url);
   const selectedHref = (currentPath || currentProductPath) as string;
 
-  // `useVariantPossibilities` only yields value -> href; it knows nothing about
-  // stock, so every size used to render identically and you only discovered a
-  // size was gone after clicking it. Availability lives on each sibling
-  // variant's offer, keyed here by the same relative href the pills link to.
-  //
-  // `useOffer` is a plain function despite the name (see SearchResult.tsx,
-  // which calls it inside a map), so this loop is not a hook violation.
-  const unavailableHrefs = new Set<string>();
-  for (const variant of hasVariant) {
-    const href = relative(variant?.url);
-    if (!href) continue;
-    if (useOffer(variant.offers).availability !== "https://schema.org/InStock") {
-      unavailableHrefs.add(href);
-    }
-  }
+  const unavailableHrefs = unavailableHrefsOf(hasVariant);
 
   const attrNames = Object.keys(possibilities).filter((n) => {
     const lower = n.toLowerCase();
