@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { Product } from "@decocms/apps-commerce/types";
 import { invoke } from "../../runtime";
 import { useUser } from "../../platform/user";
+import { useHasStockAlert } from "../../platform/alerts";
 import type { NotifyMeResult } from "../../actions/notifyMe/subscribe";
 import Button from "../ui/Button";
 
@@ -14,6 +15,9 @@ const INPUT_CLASS =
 
 export default function OutOfStock({ productID }: Props) {
   const { user } = useUser();
+  // Signed-out shoppers always read `false` here: their identity is the email
+  // they are about to type, which does not exist yet at render time.
+  const { alreadyRequested } = useHasStockAlert(productID);
   const notify = useMutation({
     // `email` is omitted when signed in — the server takes it from the session.
     mutationFn: async (input: { email?: string; name?: string }) => {
@@ -27,7 +31,10 @@ export default function OutOfStock({ productID }: Props) {
     },
   });
 
-  if (notify.isSuccess) {
+  // `alreadyRequested` covers the return visit: without it the form rendered
+  // blank days later, as if the shopper had never asked, and the only way to
+  // find out was to submit again.
+  if (notify.isSuccess || alreadyRequested) {
     return (
       <div className="flex flex-col gap-1">
         <span className="text-sm font-medium text-ink-soft">You're on the list!</span>

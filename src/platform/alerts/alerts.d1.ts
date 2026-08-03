@@ -29,22 +29,39 @@ export interface CreateStockAlertInput {
 }
 
 /**
+ * Resultado da gravação. Três estados em vez de um booleano porque o chamador
+ * precisa contar coisas diferentes para o usuário: um `skuId` que não existe é
+ * erro de quem chamou, banco fora do ar não é.
+ */
+export type CreateStockAlertOutcome = "stored" | "unknown_variant" | "failed";
+
+/**
  * Registra o desejo. Idempotente: reclicar no mesmo tamanho não duplica nem
  * falha, só atualiza o nome (o índice UNIQUE de 0005 é quem garante isso).
  *
- * Retorna `false` quando o banco não está disponível, para o chamador poder
- * distinguir "não gravou" de "gravou" — sem lançar, porque este caminho roda
- * dentro de um clique do usuário.
+ * A variante é conferida contra o catálogo antes de gravar. O endpoint que
+ * chama isto é público e sem autenticação, então sem essa checagem qualquer
+ * string vira linha: a tabela junta lixo que só o INNER JOIN da leitura
+ * esconde, e o problema fica invisível justamente por não quebrar nada.
+ *
+ * Não lança: este caminho roda dentro de um clique do usuário.
  */
 export const createStockAlert = async ({
   variantId,
   email,
   name,
-}: CreateStockAlertInput): Promise<boolean> => {
+}: CreateStockAlertInput): Promise<CreateStockAlertOutcome> => {
   const db = getDb();
-  if (!db) return false;
+  if (!db) return "failed";
 
   try {
+    const variant = await db
+      .prepare("SELECT 1 AS ok FROM variants WHERE variant_id = ?")
+      .bind(variantId)
+      .first<{ ok: number }>();
+
+    if (!variant) return "unknown_variant";
+
     await db
       .prepare(
         `INSERT INTO stock_alerts (variant_id, email, name)
@@ -53,11 +70,30 @@ export const createStockAlert = async ({
       )
       .bind(variantId, email, name ?? null)
       .run();
-    return true;
+    return "stored";
   } catch (error) {
     console.error("[alerts] falha ao gravar stock_alert:", error);
-    return false;
+    return "failed";
   }
+};
+
+/**
+ * Se este comprador já pediu aviso para esta variante.
+ *
+ * Só responde para quem tem sessão: deslogado, a identidade é o e-mail digitado
+ * no formulário, que ainda não existe no momento em que a PDP renderiza. Um
+ * `visitor_id` em cookie resolveria isso — decisão adiada de propósito.
+ */
+export const hasStockAlert = async (email: string, variantId: string): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  const row = await db
+    .prepare("SELECT 1 AS ok FROM stock_alerts WHERE email = ? AND variant_id = ?")
+    .bind(email, variantId)
+    .first<{ ok: number }>();
+
+  return !!row;
 };
 
 interface WaitedRow {
