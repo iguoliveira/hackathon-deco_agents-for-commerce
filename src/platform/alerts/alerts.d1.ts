@@ -1,25 +1,16 @@
 /**
- * Acesso ao SQLite (D1) para o sinal de desejo. Único arquivo que fala SQL de
- * `stock_alerts`.
+ * Acesso ao Postgres (Supabase) para o sinal de desejo. Único arquivo que fala
+ * SQL de `stock_alerts`.
  *
- * Compartilha o binding `CATALOG_DB` com `platform/catalog` de propósito: a
- * leitura útil é justamente o JOIN entre o desejo e o catálogo, e bancos
- * separados obrigariam a fazer esse cruzamento em memória.
+ * Mora no mesmo banco que `platform/catalog` de propósito: a leitura útil é
+ * justamente o JOIN entre o desejo e o catálogo, e bancos separados obrigariam
+ * a fazer esse cruzamento em memória.
  */
 
-import { env } from "cloudflare:workers";
+import { getDb } from "../db";
 import type { WaitedItem } from "./alerts.types";
 
 const placeholders = (count: number) => new Array(count).fill("?").join(", ");
-
-const getDb = () => {
-  const db = env.CATALOG_DB;
-  if (!db) {
-    console.error("[alerts] binding CATALOG_DB ausente — confira d1_databases no wrangler.jsonc");
-    return null;
-  }
-  return db;
-};
 
 export interface CreateStockAlertInput {
   /** `variant_id` — já identifica item + tamanho + cor. */

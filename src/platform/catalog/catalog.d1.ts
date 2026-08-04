@@ -1,13 +1,13 @@
 /**
- * Acesso ao SQLite (D1). Único arquivo do projeto que fala SQL de catálogo.
+ * Acesso ao Postgres (Supabase). Único arquivo do projeto que fala SQL de catálogo.
  *
- * O binding `CATALOG_DB` é declarado em wrangler.jsonc e tipado à mão em
- * src/types/cloudflare-bindings.d.ts. Localmente o banco vive em
- * `.wrangler/state/v3/d1/` — é um arquivo .sqlite comum, abrível em qualquer
- * cliente.
+ * As queries continuam escritas na API do D1 — `platform/db` expõe o Postgres
+ * com essa mesma superfície e traduz `?` para `$1..$n`. O nome do arquivo é
+ * herdado da época do D1 e ficou: renomeá-lo trocaria o import em vários
+ * lugares sem mudar nada do que o arquivo faz.
  */
 
-import { env } from "cloudflare:workers";
+import { getDb } from "../db";
 import type {
   CatalogRecord,
   ProductImageRow,
@@ -17,7 +17,7 @@ import type {
   VariantRow,
 } from "./catalog.types";
 
-/** `?, ?, ?` para um `IN (...)` — D1 não aceita array como parâmetro único. */
+/** `?, ?, ?` para um `IN (...)` — cada valor vai como parâmetro próprio. */
 const placeholders = (count: number) => new Array(count).fill("?").join(", ");
 
 const groupBy = <T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> => {
@@ -28,15 +28,6 @@ const groupBy = <T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> => {
     else map.set(key(row), [row]);
   }
   return map;
-};
-
-const getDb = () => {
-  const db = env.CATALOG_DB;
-  if (!db) {
-    console.error("[catalog] binding CATALOG_DB ausente — confira d1_databases no wrangler.jsonc");
-    return null;
-  }
-  return db;
 };
 
 /**
@@ -134,9 +125,12 @@ export const findCatalogRecords = async ({
   }
 
   if (query) {
-    // LIKE simples: o catálogo é pequeno e isto não é o agente de busca, é só
+    // ILIKE, não LIKE: no SQLite o LIKE era case-insensitive de graça, no
+    // Postgres não é. Trocado junto com o banco — mantido LIKE, "Hoodie" e
+    // "hoodie" passariam a dar resultados diferentes, sem erro nenhum.
+    // Busca simples: o catálogo é pequeno e isto não é o agente de busca, é só
     // o filtro que as abas da vitrine usavam no loader do Shopify.
-    where.push("p.title LIKE ?");
+    where.push("p.title ILIKE ?");
     params.push(`%${query}%`);
   }
 
@@ -191,7 +185,8 @@ const buildFilter = ({ term, collection, options }: SearchCatalogOptions) => {
   const params: unknown[] = [];
 
   if (term) {
-    where.push("(p.title LIKE ? OR p.description LIKE ?)");
+    // ILIKE pelo mesmo motivo do filtro acima — ver findCatalogRecords.
+    where.push("(p.title ILIKE ? OR p.description ILIKE ?)");
     params.push(`%${term}%`, `%${term}%`);
   }
 
@@ -221,7 +216,8 @@ const buildFilter = ({ term, collection, options }: SearchCatalogOptions) => {
 const ORDER_BY: Record<NonNullable<SearchCatalogOptions["sort"]>, string> = {
   relevance: "p.position ASC, p.handle ASC",
   // O preço vive na variante; ordena pelo menor preço do produto.
-  "price:asc": "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) ASC",
+  "price:asc":
+    "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) ASC",
   "price:desc":
     "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) DESC",
 };
@@ -243,34 +239,36 @@ export const searchCatalog = async (
   const { sort = "relevance", page = 0, perPage = 12 } = opts;
   const { clause, params } = buildFilter(opts);
 
-  const [pageRows, countRows, collectionRows, optionRows] = await db.batch<Record<string, unknown>>([
-    db
-      .prepare(`SELECT p.* FROM products p${clause} ORDER BY ${ORDER_BY[sort]} LIMIT ? OFFSET ?`)
-      .bind(...params, perPage, page * perPage),
-    db.prepare(`SELECT COUNT(*) AS total FROM products p${clause}`).bind(...params),
-    // Facetas calculadas sobre o MESMO conjunto filtrado dos produtos. Valores
-    // com contagem 0 nunca aparecem — é o que impede oferecer um filtro que
-    // levaria a zero resultados.
-    db
-      .prepare(
-        `SELECT pp.value_reference AS value, pp.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+  const [pageRows, countRows, collectionRows, optionRows] = await db.batch<Record<string, unknown>>(
+    [
+      db
+        .prepare(`SELECT p.* FROM products p${clause} ORDER BY ${ORDER_BY[sort]} LIMIT ? OFFSET ?`)
+        .bind(...params, perPage, page * perPage),
+      db.prepare(`SELECT COUNT(*) AS total FROM products p${clause}`).bind(...params),
+      // Facetas calculadas sobre o MESMO conjunto filtrado dos produtos. Valores
+      // com contagem 0 nunca aparecem — é o que impede oferecer um filtro que
+      // levaria a zero resultados.
+      db
+        .prepare(
+          `SELECT pp.value_reference AS value, pp.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN product_props pp ON pp.product_group_id = p.product_group_id AND pp.name = 'COLLECTION'
          ${clause.replace(/^ WHERE/, "WHERE")}
          GROUP BY pp.value_reference HAVING quantity > 0 ORDER BY quantity DESC`,
-      )
-      .bind(...params),
-    db
-      .prepare(
-        `SELECT vo.name AS key, vo.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+        )
+        .bind(...params),
+      db
+        .prepare(
+          `SELECT vo.name AS key, vo.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN variants v ON v.product_group_id = p.product_group_id
          JOIN variant_options vo ON vo.variant_id = v.variant_id
          ${clause.replace(/^ WHERE/, "WHERE")}
          GROUP BY vo.name, vo.value HAVING quantity > 0 ORDER BY vo.name ASC, vo.position ASC`,
-      )
-      .bind(...params),
-  ]);
+        )
+        .bind(...params),
+    ],
+  );
 
   return {
     records: await withChildren(db, pageRows.results as unknown as ProductRow[]),

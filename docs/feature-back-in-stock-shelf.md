@@ -97,10 +97,11 @@ par (item, tamanho) não podia ser exercitado. Migration roda em qualquer
 ambiente onde o banco for aplicado, então **precisa ser revertida antes de o
 catálogo ser real**, ou dois produtos ficam artificialmente esgotados.
 
-**Não existe banco remoto.** O `database_id` no `wrangler.jsonc` é um
-placeholder deliberado: funciona em `vite dev`, falha de propósito em
-`wrangler deploy`. Os dados existem só na máquina de quem rodou, e
-`db:reset` / `dev:clean` / `clean` apagam tudo.
+**O banco agora é remoto e compartilhado.** Isto mudou: o D1 local deu lugar ao
+Postgres do Supabase (ver `docs/deploy-vercel-supabase.md`). A consequência para
+esta feature é que `stock_alerts` deixou de ser um arquivo na máquina de quem
+rodou e passou a ser dado que todo mundo enxerga — e que `npm run db:reset`
+apaga de verdade, para todos. Por isso o reset passou a exigir `--confirm`.
 
 **Deslogado, ninguém é reconhecido de volta.** A identidade é o e-mail digitado,
 que só existe no instante do envio. Um visitante anônimo que volta amanhã não

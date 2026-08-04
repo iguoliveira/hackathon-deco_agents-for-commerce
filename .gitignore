@@ -23,6 +23,9 @@ vite.config.timestamp_*
 # Environment
 .env
 .env.*
+# ...menos o modelo sem segredo, que precisa ser versionado para alguém novo
+# saber o que configurar.
+!.env.example
 
 # OS
 .DS_Store
