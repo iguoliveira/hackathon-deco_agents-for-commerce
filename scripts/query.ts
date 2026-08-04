@@ -17,24 +17,10 @@
 
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
-
-const loadEnv = () => {
-  if (process.env.DATABASE_URL) return;
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    // Sem .env: o erro útil é o de DATABASE_URL abaixo.
-  }
-};
+import { resolveDatabaseUrl } from "./db-url";
 
 const main = async () => {
-  loadEnv();
-
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error("DATABASE_URL não definida (veja o .env).");
-    process.exit(1);
-  }
+  const url = resolveDatabaseUrl();
 
   const args = process.argv.slice(2);
   const fileFlag = args.indexOf("--file");

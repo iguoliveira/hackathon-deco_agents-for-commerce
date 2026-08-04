@@ -20,31 +20,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
+import { redact, resolveDatabaseUrl } from "./db-url";
 
 const MIGRATIONS_DIR = "db/migrations";
 
-/** Carrega .env quando a variável não veio do ambiente (Vercel já injeta). */
-const loadEnv = () => {
-  if (process.env.DATABASE_URL) return;
-  try {
-    process.loadEnvFile(".env");
-  } catch {
-    // Sem .env: o erro útil é o de DATABASE_URL logo abaixo, não este.
-  }
-};
-
 const main = async () => {
-  loadEnv();
-
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error(
-      "DATABASE_URL não definida.\n" +
-        "Crie um .env com a connection string do Supabase (Project Settings → Database →\n" +
-        "Connection string → Transaction pooler, porta 6543).",
-    );
-    process.exit(1);
-  }
+  const url = resolveDatabaseUrl();
 
   // `max: 1` porque migration é sequencial por natureza, e o pooler em modo
   // transação não garante a mesma conexão entre statements de conexões
@@ -76,7 +57,7 @@ const main = async () => {
         console.error(
           "--reset APAGA todas as tabelas do banco apontado por DATABASE_URL,\n" +
             "incluindo stock_alerts (o histórico de desejos, que o seed não recria).\n\n" +
-            `Alvo: ${url.replace(/:[^:@]*@/, ":***@")}\n\n` +
+            `Alvo: ${redact(url)}\n\n` +
             "Se é isso mesmo: npm run db:reset -- --confirm",
         );
         process.exit(1);
@@ -129,7 +110,41 @@ const main = async () => {
   }
 };
 
+/**
+ * Erro de conexão do driver costuma vir com `message` VAZIA e o motivo real em
+ * `code`/`errno`/`cause` — imprimir só a message deixa a falha indistinguível
+ * de "não aconteceu nada".
+ */
+const report = (error: unknown): void => {
+  console.error("\nfalhou:");
+
+  if (!(error instanceof Error)) {
+    console.error(error);
+    return;
+  }
+
+  console.error("  message:", error.message || "(vazia)");
+  for (const key of [
+    "code",
+    "errno",
+    "syscall",
+    "address",
+    "port",
+    "severity",
+    "detail",
+    "hint",
+    "position",
+    "where",
+    "routine",
+  ]) {
+    const value = (error as unknown as Record<string, unknown>)[key];
+    if (value !== undefined) console.error(`  ${key}:`, value);
+  }
+  if (error.cause) console.error("  cause:", error.cause);
+  if (error.stack) console.error("\n", error.stack);
+};
+
 main().catch((error) => {
-  console.error("\nfalhou:", error instanceof Error ? error.message : error);
+  report(error);
   process.exit(1);
 });
