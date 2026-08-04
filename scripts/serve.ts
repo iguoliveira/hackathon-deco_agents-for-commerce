@@ -19,6 +19,18 @@ import { extname, join, normalize } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+// O `.env` precisa ser carregado à mão aqui. Em `vite dev` e `vite build` quem
+// faz isso é o loadEnvPlugin do TanStack Start, que não roda num script solto —
+// sem esta linha o preview sobe com DATABASE_URL indefinida e renderiza o site
+// inteiro com catálogo vazio, que é fácil de confundir com bug de query.
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // Sem .env o site sobe com catálogo vazio — é o fallback esperado.
+  }
+}
+
 const PORT = Number(process.env.PORT ?? 3000);
 const CLIENT_DIR = "dist/client";
 

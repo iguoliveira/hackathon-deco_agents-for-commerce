@@ -36,12 +36,19 @@ export const resolveDatabaseUrl = (): string => {
     process.exit(1);
   }
 
-  // Checado antes do parser: `postgresql://postgresql://...` é URL válida para
-  // o `new URL`, que lê host vazio em silêncio — o erro só apareceria como
-  // ECONNREFUSED lá na frente.
-  const schemes = raw.match(/postgres(ql)?:\/\//g);
+  // Checado antes do parser: com o esquema repetido o `new URL` aceita a
+  // string e lê host vazio em silêncio — o erro só apareceria como
+  // ECONNREFUSED lá na frente, apontando para rede em vez de para a string.
+  //
+  // Conta `postgres(ql):` COM E SEM as barras: o caso real que aconteceu foi
+  // `postgresql:postgresql://...`, de colar a string por cima do exemplo sem
+  // apagar o prefixo — e uma regex que exigisse `//` não pegava justamente ele.
+  const schemes = raw.match(/postgres(ql)?:/g);
   if (schemes && schemes.length > 1) {
-    fail(`o prefixo "postgresql://" aparece ${schemes.length} vezes (deve aparecer 1)`);
+    fail(
+      `o prefixo "postgresql:" aparece ${schemes.length} vezes (deve aparecer 1) — ` +
+        "apague a linha inteira e cole a string do Supabase por cima",
+    );
   }
 
   let url: URL;
