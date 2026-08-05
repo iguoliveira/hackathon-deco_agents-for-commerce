@@ -144,20 +144,112 @@ porque `vite preview` só serve assets e não executa SSR:
 npm run build && npm run preview   # http://localhost:3000
 ```
 
+## Os bugs que só existiam no runtime da Vercel
+
+Esta é a parte que vale ler antes de mexer no entry ou no banco. Quatro
+problemas passaram por typecheck, build e pelo `npm run preview` e só
+apareceram em produção — três deles porque o `preview` exercitava um caminho
+*parecido* com o real, não o real.
+
+**1. `request.headers.get is not a function`** (todas as páginas, 500)
+
+O runtime Node da Vercel invoca a função como `(IncomingMessage,
+ServerResponse)`, não com um `Request` da Web API. A primeira tentativa de
+correção pôs a conversão numa casca em `api/index.mjs` — e o stack de produção
+mostrou a Vercel chamando `dist/server/server.js` **direto**, sem passar por
+ela. A conversão vive hoje dentro do próprio handler, em `src/server.ts`, e
+`scripts/serve.ts` chama o handler no mesmo formato de produção em vez de
+converter por conta própria. Era exatamente essa divergência que deixava o
+preview passar enquanto a produção quebrava.
+
+**2. Todo POST travava até o timeout** (GETs respondiam normalmente)
+
+O launcher da Vercel consome e parseia o corpo **antes** de chamar o handler,
+expondo em `req.body`. O stream chega drenado, e um `Readable.toWeb(req)` fica
+esperando bytes que nunca vêm — sem erro, sem log, só pendurado. `readBody`
+aceita as duas formas.
+
+**3. `column "quantity" does not exist`** (PLP e busca)
+
+Três exigências do Postgres que o SQLite perdoava, todas nas facetas de
+`searchCatalog`:
+
+- `HAVING` **não** enxerga alias da lista de SELECT (é avaliado antes dela) —
+  o agregado precisa ser repetido por extenso. Era este o erro do log.
+- Coluna não agregada fora do `GROUP BY` (`pp.value`, `vo.position`): o SQLite
+  escolhia um valor qualquer do grupo, o Postgres recusa a query. Este nem
+  tinha aparecido ainda — só surgiria depois de corrigir o primeiro.
+- `ORDER BY`, ao contrário do `HAVING`, **aceita** alias de saída. Anotado no
+  código para ninguém "corrigir" o que está certo.
+
+**4. `GROUP_CONCAT` em `db/queries/waited-items.sql`** — função do SQLite; no
+Postgres é `STRING_AGG`, e lá o separador é obrigatório. Passou batido porque
+a varredura de dialeto cobriu `db/migrations/` e esqueceu `db/queries/`.
+
+### A lição que mais custou tempo
+
+**Status HTTP 200 não é sinal de saúde neste site, e HTML de SSR não é prova de
+renderização.**
+
+Quando um loader do CMS falha, o erro é registrado e a section renderiza vazia
+— a página continua devolvendo 200. E as sections são **diferidas ou lazy**:
+`ProductShelf` e `ProductDetails` têm `hasLoadingFallback: true`, e as páginas
+de PDP (`/products/:slug`), categoria (`/*`) e busca (`/s`) têm **todas** as
+suas sections dentro de `website/sections/Rendering/Lazy.tsx`. Só a home tem
+sections diretas — é a única cujo HTML de SSR mostra produto.
+
+Durante esta migração eu concluí duas vezes que algo estava quebrado a partir
+de `curl`, e errei nas duas. Para validar render, use navegador. Para validar
+dados, chame as funções de `platform/` direto ou leia o log de runtime.
+
 ## Estado da verificação
 
-Verificado localmente contra o build de produção rodando sob Node:
+**No ar:** https://hackathon-deco-agents-for-commerces.vercel.app
 
-- home, PDP e busca respondem 200
-- desktop e mobile produzem HTML diferente (prova de que o `RequestContext` está
-  de pé)
-- headers de segurança, CSP e `Vary: User-Agent` presentes só em HTML
-- `Set-Cookie` sendo escrito
-- driver do Postgres ausente do bundle do client
-- tradução `?` → `$n` conferida contra as queries reais
+Verificado em produção:
 
-**Não verificado:**
+- home, PDP, busca, coleção e login respondem 200
+- a home entrega 18 links de produto vindos do Supabase
+- headers de segurança, CSP e `Vary: Accept-Encoding, User-Agent`
+- o clique de "avise-me quando voltar" grava no Supabase (~370ms) e a leitura
+  devolve `Size=M | Color=White` com a coleção
+- variante inexistente é recusada
+- log de runtime sem `PostgresError` nem falha de loader
 
-- nenhuma query rodou contra um Postgres real — falta `DATABASE_URL`. Os 200
-  acima são o fallback de catálogo vazio, por design.
-- o deploy na Vercel em si (`vercel.json` + `api/index.mjs`) nunca foi executado.
+Verificado contra o Supabase real, localmente — as 14 funções exportadas que
+falam SQL, incluindo paginação, ordenação por preço, facetas combinadas,
+idempotência do alerta e `findWaitedItems`.
+
+Verificado contra o build de produção sob Node: desktop e mobile produzem HTML
+diferente (prova de que o `RequestContext` está de pé), e o driver do Postgres
+está ausente do bundle do client.
+
+**Não verificado:** a renderização em si. Como as sections são lazy/diferidas,
+isso exige navegador — confirme na tela que a PDP mostra o tamanho **M**
+riscado e o formulário de aviso.
+
+**Ruído pré-existente, não desta migração:** o log traz
+`[CMS] No component registered for: site/sections/Session.tsx`. É referência
+órfã em `.deco/blocks/site.json` a um arquivo que nunca existiu — nem no `main`
+do time.
+
+## Deploy
+
+O projeto está em `igorfigueiredo28s-projects/hackathon-deco-agents-for-commerces`,
+apontando para o fork `IgorFigueiredo28/hackathon-deco_agents-for-commerces`
+(o `main` do fork carrega a migração; o `main` do repo do time não foi tocado).
+
+Hoje o deploy é manual:
+
+```bash
+vercel --prod
+```
+
+Conectar o repositório na Vercel faria cada push virar deploy. Para atualizar a
+variável do banco sem risco de cópia parcial — que foi a causa de dois erros
+seguidos:
+
+```bash
+node -e "process.loadEnvFile('.env');process.stdout.write(process.env.DATABASE_URL)" \
+  | vercel env add DATABASE_URL production --force
+```
