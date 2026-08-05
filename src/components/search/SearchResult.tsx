@@ -15,12 +15,10 @@ import SearchResultGridSkeleton from "./SearchResultGridSkeleton";
 import SearchSortBar from "./SearchSortBar";
 
 export interface Layout {
-  /**
-   * @title Pagination
-   * @description Format of the pagination
-   * @default "show-more"
-   */
-  pagination?: "show-more" | "pagination";
+  // A opção `pagination` ("show-more" | "pagination") foi removida: a listagem
+  // é sempre numerada. O "show more" só empilhava itens e não permitia saltar
+  // para o fim de uma listagem longa — com 26 camisetas em 3 páginas isso já
+  // incomodava. Deixar o campo no CMS sem efeito seria pior que não ter.
   /**
    * @title Pré-carregar página do produto
    * @description Quando ativado, a página do produto começa a carregar assim
@@ -74,6 +72,24 @@ function Result({
   const zeroIndexedOffsetPage = pageInfo.currentPage - startingPage;
   const offset = zeroIndexedOffsetPage * perPage;
   const { prev, next } = rebasePaginationHrefs(pageInfo.previousPage, pageInfo.nextPage, href);
+
+  // Quantas páginas o total de itens produz — é o que permite numerar em vez
+  // de só oferecer "próxima".
+  const totalRecords = pageInfo.records ?? products.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / (perPage || 1)));
+
+  // Destino de uma página qualquer, preservando os filtros/ordenação da URL
+  // atual. `search` é obrigatório: `to` carrega só o caminho, e o `page` vive
+  // na query — passar apenas `to` navegaria para a própria página.
+  const pageTarget = (page: number) => {
+    const atual = new URL(href, "http://localhost");
+    const search = Object.fromEntries(atual.searchParams);
+    // 1-indexada na tela, 0-indexada na URL — a mesma convenção do loader.
+    const zeroBased = page - 1 + startingPage;
+    if (zeroBased === 0) delete search.page;
+    else search.page = String(zeroBased);
+    return { to: atual.pathname, search };
+  };
 
   const viewItemListEvent = useSendEvent({
     on: "view",
@@ -130,11 +146,14 @@ function Result({
             )}
 
             <div className="grid place-items-center pt-2 sm:pt-8">
+              {/* Sempre numerada. O "show more" saiu: ele só empilhava itens e
+                  não deixava saltar para o fim de uma listagem longa. */}
               <SearchPagination
                 currentPage={zeroIndexedOffsetPage + 1}
+                totalPages={totalPages}
+                pageTarget={pageTarget}
                 prev={prev}
                 next={next}
-                variant={layout?.pagination ?? "show-more"}
               />
             </div>
           </div>
