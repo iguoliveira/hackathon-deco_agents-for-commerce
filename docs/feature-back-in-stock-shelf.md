@@ -114,23 +114,61 @@ newsletter) com fusão no login. Adiado de propósito.
 pares e-mail/variante. A variante é validada contra o catálogo, então lixo puro
 não entra, mas nada impede volume.
 
-## O que limita a qualidade do agente
+## A entrada do agente (resolvido nas migrations 0007–0009)
 
-Levantado sobre o catálogo atual (31 produtos):
+Este diagnóstico já foi endereçado. O estado antes e depois:
 
-| | |
-|---|---|
-| Sem `product_type` | 28 de 31 (90%) |
-| Com tags | 3 de 31 (10%) |
-| Com coleção | 24 de 31 (77%) |
-| Com descrição | 31 de 31 (100%) |
+| | antes | depois |
+|---|---|---|
+| Produtos | 31 | **41** |
+| Com `product_type` | 3 (10%) | **41 (100%)** |
+| Com tags | 3 (10%) | **41 (100%)** |
+| Com coleção | 24 (77%) | **41 (100%)** |
+| Com descrição | 31 (100%) | 41 (100%) |
 
-Os dois eixos óbvios de similaridade (tipo e tags) praticamente não existem. O
-agente vai depender de **coleção** — que é grossa, já que uma coleção pode ser
-quase o catálogo inteiro — e de **descrição**, que é texto livre e exige o
-modelo ler prosa.
+O problema nunca foi falta de informação — as descrições têm média de 866
+caracteres e já diziam público, material, estilo e motivo. Estava tudo em
+prosa, e os campos estruturados, vazios.
 
-Some-se a isso que só entra na tabela quem clicou num produto esgotado, o que é
-uma fração pequena dos visitantes. Um agente excelente sobre entrada pobre
-produz vitrine que parece aleatória, e a conclusão fácil (errada) é culpar o
-modelo. Se a qualidade decepcionar, **suspeite da entrada antes do agente**.
+- **0007** devolveu 10 itens de lifestyle que a 0004 tinha removido. O catálogo
+  de vestuário era raso demais para "combina com" (`bottoms` tem 1 produto,
+  `jackets` tem 2); recomendação cruzada é a única com variedade suficiente
+  para não parecer aleatória.
+- **0008** promoveu a campo o que a descrição já dizia, e corrigiu coleções —
+  4 produtos estavam em `stickers` (item que saiu do menu) e calçados e
+  infantil não tinham coleção nenhuma.
+- **0009** preparou similaridade: índice full-text e a extensão `pgvector` com
+  a coluna de embedding, ainda vazia.
+
+`findSimilarAvailable` (em `catalog.d1.ts`) é a consulta que alimenta o agente.
+Ela devolve **os componentes da nota, não só a nota** — `sameType`,
+`sameCollection`, `sharedTags` — porque o agente precisa saber se cada
+candidato é *alternativa* (mesmo tipo) ou *complemento* (tipo diferente, tags
+em comum) para montar a vitrine e justificá-la em texto. Só entram produtos com
+variante disponível.
+
+Para quem esperou o Eco Raglan Hoodie M, ela devolve hoje:
+
+```
+14  mesma coleção  basic,cotton,layering,winter   Hoodie
+14  mesma coleção  basic,cotton,layering,winter   Women's Sweatshirt
+12  —              unisex,basic,cotton,winter     Winter Hat
+11  mesma coleção  unisex,cotton,winter           The Future of Web Dev Sweatshirt
+ 9  —              unisex,layering,winter         All-Over Print Bomber Jacket
+```
+
+Alternativas no topo, complemento cruzado logo abaixo — e cada linha
+explicável sem recorrer a embedding.
+
+## O que ainda limita
+
+**Embeddings não estão populados.** A coluna existe (`products.embedding`,
+1536 dimensões), a extensão está habilitada, mas preencher exige um provedor
+externo — a Anthropic não serve embeddings; OpenAI, Voyage ou o `gte-small` do
+próprio Supabase servem. Com estrutura em 41/41, a ordenação por SQL já cobre
+a maior parte; vale medir a vitrine antes de decidir que precisa de vetor.
+
+**Só entra na tabela quem clicou num produto esgotado**, que é uma fração
+pequena dos visitantes. Um agente excelente sobre entrada pobre produz vitrine
+que parece aleatória, e a conclusão fácil (errada) é culpar o modelo. Se a
+qualidade decepcionar, **suspeite da entrada antes do agente**.
