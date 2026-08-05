@@ -9,5 +9,11 @@
 
   "outputDirectory": "dist/client",
 
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "dist/server/**"
+    }
+  },
+
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
