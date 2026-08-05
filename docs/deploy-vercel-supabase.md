@@ -105,8 +105,25 @@ imports em vários lugares sem mudar o que fazem.
 
 ## Rodando
 
+Crie um `.env` (ignorado pelo git) com uma linha:
+
+```
+DATABASE_URL=postgresql://postgres.<ref>:<senha>@aws-0-<regiao>.pooler.supabase.com:6543/postgres
+```
+
+Pegue a string em **Supabase → Connect → Connection string → Transaction
+pooler**. Tem que ser o pooler na **porta 6543**, não a conexão direta (5432):
+o driver está configurado com `prepare: false` por causa do modo transação, e
+no plano free a conexão direta só resolve em IPv6 — costuma dar timeout sem
+dizer por quê. O host do pooler tem `pooler.supabase.com` e o usuário tem um
+ponto (`postgres.<ref>`).
+
+Cole a string **por cima da linha inteira**. Colar depois de um prefixo que já
+estava lá produz `postgresql:postgresql://...`, que o parser aceita com host
+vazio e vira um `ECONNREFUSED` que parece problema de rede. `scripts/db-url.ts`
+detecta isso antes de conectar.
+
 ```bash
-cp .env.example .env      # preencha DATABASE_URL (pooler do Supabase, porta 6543)
 npm run db:migrate        # aplica db/migrations/*.sql
 npm run dev
 ```
