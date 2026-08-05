@@ -114,31 +114,36 @@ newsletter) com fusão no login. Adiado de propósito.
 pares e-mail/variante. A variante é validada contra o catálogo, então lixo puro
 não entra, mas nada impede volume.
 
-## A entrada do agente (resolvido nas migrations 0007–0009)
+## A entrada do agente (resolvido nas migrations 0007–0010)
 
 Este diagnóstico já foi endereçado. O estado antes e depois:
 
 | | antes | depois |
 |---|---|---|
-| Produtos | 31 | **41** |
-| Com `product_type` | 3 (10%) | **41 (100%)** |
-| Com tags | 3 (10%) | **41 (100%)** |
-| Com coleção | 24 (77%) | **41 (100%)** |
-| Com descrição | 31 (100%) | 41 (100%) |
+| Produtos | 31 | **32** |
+| Com `product_type` | 3 (10%) | **32 (100%)** |
+| Com tags | 3 (10%) | **32 (100%)** |
+| Com coleção | 24 (77%) | **32 (100%)** |
+| Com descrição | 31 (100%) | 32 (100%) |
 
 O problema nunca foi falta de informação — as descrições têm média de 866
 caracteres e já diziam público, material, estilo e motivo. Estava tudo em
 prosa, e os campos estruturados, vazios.
 
-- **0007** devolveu 10 itens de lifestyle que a 0004 tinha removido. O catálogo
-  de vestuário era raso demais para "combina com" (`bottoms` tem 1 produto,
-  `jackets` tem 2); recomendação cruzada é a única com variedade suficiente
-  para não parecer aleatória.
+- **0007** devolveu 10 itens de lifestyle que a 0004 tinha removido, apostando
+  que dariam a dimensão "combina com".
 - **0008** promoveu a campo o que a descrição já dizia, e corrigiu coleções —
   4 produtos estavam em `stickers` (item que saiu do menu) e calçados e
   infantil não tinham coleção nenhuma.
 - **0009** preparou similaridade: índice full-text e a extensão `pgvector` com
   a coluna de embedding, ainda vazia.
+- **0010** desfez a aposta da 0007 e removeu 9 itens que não são roupa nem
+  acessório (caneca, garrafa, caderno, caneta, almofada, pelúcia). Numa loja de
+  roupa, "você queria um moletom, leve uma caneca" não é complemento, é
+  estranheza. E os dados confirmaram: com as tags no lugar, nenhum item de
+  lifestyle aparecia no top 8 de `findSimilarAvailable` — ocupavam catálogo sem
+  nunca serem recomendados. Ficaram os acessórios de uso pessoal (bolsas,
+  chapéus, capa de celular), que são vestíveis ou de carregar.
 
 `findSimilarAvailable` (em `catalog.d1.ts`) é a consulta que alimenta o agente.
 Ela devolve **os componentes da nota, não só a nota** — `sameType`,
