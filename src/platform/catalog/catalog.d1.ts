@@ -342,3 +342,109 @@ export const findCatalogRecordByHandle = async (handle: string): Promise<Catalog
   const [record] = await withChildren(db, [product]);
   return record ?? null;
 };
+
+/** Um candidato a entrar na vitrine, com o PORQUÊ separado da nota. */
+export interface SimilarCandidate {
+  record: CatalogRecord;
+  /** Nota combinada — só para ordenar. Os campos abaixo é que explicam. */
+  score: number;
+  /** Mesmo `product_type`: é uma alternativa ao que a pessoa queria. */
+  sameType: boolean;
+  /** Mesma coleção: mesmo território da loja. */
+  sameCollection: boolean;
+  /** Tags em comum — o eixo mais forte de "combina com". */
+  sharedTags: string[];
+}
+
+/**
+ * Produtos DISPONÍVEIS parecidos com a variante que o comprador esperou.
+ *
+ * É a consulta que alimenta o agente da vitrine. Devolve os componentes da
+ * nota, não só a nota: o agente precisa saber SE é alternativa (mesmo tipo) ou
+ * complemento (tipo diferente, tags em comum) para montar uma vitrine que faça
+ * sentido — e para justificar a escolha em texto, que um número sozinho não
+ * permite.
+ *
+ * Pesos: tag em comum vale 3, mesmo tipo 4, mesma coleção 2. Mesmo tipo pesa
+ * mais que uma tag isolada porque "outro moletom" quase sempre serve quando o
+ * que a pessoa queria acabou; tags acumulam e por isso passam o tipo quando são
+ * várias.
+ *
+ * Só entram produtos com ao menos uma variante disponível — recomendar o que
+ * também está esgotado é repetir o problema que trouxe a pessoa até aqui.
+ *
+ * Full-text sobre título+descrição ainda NÃO entra: com `product_type` e tags
+ * preenchidos em 41/41 (ver 0008), a estrutura já ordena bem, e um sinal
+ * textual em cima disso é difícil de justificar. O índice existe (0009) para
+ * quando isso for medido e provado necessário.
+ */
+export const findSimilarAvailable = async (
+  variantId: string,
+  limit = 12,
+): Promise<SimilarCandidate[]> => {
+  const db = getDb();
+  if (!db) return [];
+
+  const { results: rows } = await db
+    .prepare(
+      `WITH alvo AS (
+         SELECT p.product_group_id, p.product_type,
+                (SELECT pp.value_reference FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'COLLECTION' LIMIT 1) AS colecao,
+                COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'TAG'), '{}') AS tags
+           FROM products p
+           JOIN variants v ON v.product_group_id = p.product_group_id
+          WHERE v.variant_id = ?
+       )
+       SELECT p.*,
+              (p.product_type = alvo.product_type AND p.product_type <> '') AS same_type,
+              EXISTS (SELECT 1 FROM product_props pp
+                       WHERE pp.product_group_id = p.product_group_id
+                         AND pp.name = 'COLLECTION'
+                         AND pp.value_reference = alvo.colecao)          AS same_collection,
+              COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                         WHERE pp.product_group_id = p.product_group_id
+                           AND pp.name = 'TAG'
+                           AND pp.value = ANY(alvo.tags)), '{}')          AS shared_tags
+         FROM products p, alvo
+        WHERE p.product_group_id <> alvo.product_group_id
+          -- Ao menos uma variante comprável agora.
+          AND EXISTS (SELECT 1 FROM variants v
+                       WHERE v.product_group_id = p.product_group_id AND v.available = 1)
+        ORDER BY
+          COALESCE((SELECT COUNT(*) FROM product_props pp
+                     WHERE pp.product_group_id = p.product_group_id
+                       AND pp.name = 'TAG' AND pp.value = ANY(alvo.tags)), 0) * 3
+          + CASE WHEN p.product_type = alvo.product_type AND p.product_type <> '' THEN 4 ELSE 0 END
+          + CASE WHEN EXISTS (SELECT 1 FROM product_props pp
+                               WHERE pp.product_group_id = p.product_group_id
+                                 AND pp.name = 'COLLECTION'
+                                 AND pp.value_reference = alvo.colecao) THEN 2 ELSE 0 END
+          DESC, p.position ASC
+        LIMIT ?`,
+    )
+    .bind(variantId, limit)
+    .all<ProductRow & { same_type: boolean; same_collection: boolean; shared_tags: string[] }>();
+
+  if (rows.length === 0) return [];
+
+  const records = await withChildren(
+    db,
+    rows.map(({ same_type: _t, same_collection: _c, shared_tags: _s, ...produto }) => produto),
+  );
+
+  return records.map((record, i) => {
+    const row = rows[i];
+    const sharedTags = row.shared_tags ?? [];
+    return {
+      record,
+      sameType: !!row.same_type,
+      sameCollection: !!row.same_collection,
+      sharedTags,
+      score: sharedTags.length * 3 + (row.same_type ? 4 : 0) + (row.same_collection ? 2 : 0),
+    };
+  });
+};

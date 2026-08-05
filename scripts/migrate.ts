@@ -30,7 +30,10 @@ const main = async () => {
   // `max: 1` porque migration é sequencial por natureza, e o pooler em modo
   // transação não garante a mesma conexão entre statements de conexões
   // diferentes — o que quebraria a transação por arquivo.
-  const sql = postgres(url, { prepare: false, max: 1 });
+  // `onnotice` silenciado: o `CREATE TABLE IF NOT EXISTS` abaixo emite um
+  // NOTICE toda vez que a tabela já existe, e o driver o imprime como um objeto
+  // de erro com `routine: transformCreateStmt` — parece falha e não é.
+  const sql = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
 
   try {
     await sql`
