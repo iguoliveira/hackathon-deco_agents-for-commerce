@@ -25,9 +25,15 @@
  */
 
 import "./setup";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { getAppMiddleware } from "@decocms/blocks-admin/sdk/setupApps";
+
+type NodeRequest = IncomingMessage;
+type NodeResponse = ServerResponse;
 
 /**
  * CSP do site, herdado do worker-entry. Continua **report-only**: era assim que
@@ -119,8 +125,9 @@ const finalizeHtmlResponse = (response: Response): Response => {
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
-export default async function handler(request: Request, ...rest: unknown[]): Promise<Response> {
-  return RequestContext.run(request, async () => {
+/** O handler de verdade — sempre em Web API. */
+const handleWebRequest = async (request: Request, ...rest: unknown[]): Promise<Response> =>
+  RequestContext.run(request, async () => {
     const appMiddleware = getAppMiddleware();
     const inner = () =>
       (startHandler as (req: Request, ...args: unknown[]) => Promise<Response>)(request, ...rest);
@@ -130,4 +137,68 @@ export default async function handler(request: Request, ...rest: unknown[]): Pro
     deduplicateSetCookies(response);
     return finalizeHtmlResponse(response);
   });
+
+/** IncomingMessage -> Request. */
+const toWebRequest = (req: NodeRequest): Request => {
+  const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
+  const proto = req.headers["x-forwarded-proto"] ?? "https";
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) value.forEach((v) => headers.append(key, v));
+    else if (value != null) headers.set(key, String(value));
+  }
+
+  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+  return new Request(`${proto}://${String(host)}${req.url ?? "/"}`, {
+    method: req.method,
+    headers,
+    ...(hasBody ? { body: Readable.toWeb(req) as ReadableStream, duplex: "half" } : {}),
+  } as RequestInit);
+};
+
+/** Response -> ServerResponse, sem bufferizar (o SSR é streaming). */
+const sendWebResponse = async (response: Response, res: NodeResponse): Promise<void> => {
+  const headers: Record<string, string | string[]> = {};
+  for (const [key, value] of response.headers) headers[key] = value;
+
+  // Set-Cookie é o único header que pode repetir; o iterador acima colapsa.
+  const cookies = response.headers.getSetCookie?.();
+  if (cookies?.length) headers["set-cookie"] = cookies;
+
+  res.writeHead(response.status, headers);
+
+  if (!response.body) {
+    res.end();
+    return;
+  }
+  // `pipeline` e não `.pipe()`: só ele espera o fim do stream e propaga erro.
+  await pipeline(Readable.fromWeb(response.body as never), res);
+};
+
+/**
+ * Entrada única, nas DUAS assinaturas.
+ *
+ * O runtime Node da Vercel invoca no formato clássico `(IncomingMessage,
+ * ServerResponse)`; TanStack Start e os testes locais entregam um `Request` da
+ * Web API. Aceitar as duas aqui — e não numa casca em `api/` — é o que garante
+ * que o caminho de produção seja o MESMO que `npm run preview` exercita. O
+ * TypeError `request.headers.get is not a function` em produção existiu
+ * justamente porque a conversão morava só no script de preview, deixando o
+ * caminho real sem cobertura nenhuma.
+ *
+ * `res.writeHead` é o discriminador confiável: no formato web não há segundo
+ * argumento, e um `Request` nunca tem esse método.
+ */
+export default async function handler(
+  request: Request | NodeRequest,
+  ...rest: unknown[]
+): Promise<Response | void> {
+  const res = rest[0] as NodeResponse | undefined;
+
+  if (typeof res?.writeHead !== "function") {
+    return handleWebRequest(request as Request, ...rest);
+  }
+
+  await sendWebResponse(await handleWebRequest(toWebRequest(request as NodeRequest)), res);
 }
