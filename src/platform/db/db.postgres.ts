@@ -49,26 +49,44 @@ let warned = false;
  * de outras: o limite que importa é o do pooler, não o daqui. Abrir um pool por
  * instância é como se esgota o banco.
  */
+/** Um aviso por isolate: aqui roda dentro de request, e logar por query
+ *  transformaria um erro de configuração numa enxurrada de log. */
+const warnOnce = (message: string): null => {
+  if (!warned) {
+    console.error(`[db] ${message}`);
+    warned = true;
+  }
+  return null;
+};
+
 const getClient = (): postgres.Sql | null => {
   if (client) return client;
+  if (warned) return null;
 
   const url = process.env.DATABASE_URL;
-  if (!url) {
-    // Um aviso por isolate: este caminho roda dentro de request, e logar por
-    // query transformaria a falta de config numa enxurrada de log.
-    if (!warned) {
-      console.error("[db] DATABASE_URL ausente — nenhuma query vai rodar");
-      warned = true;
-    }
-    return null;
-  }
+  if (!url) return warnOnce("DATABASE_URL ausente — nenhuma query vai rodar");
 
-  client = postgres(url, {
-    prepare: false,
-    max: 1,
-    idle_timeout: 20,
-    connect_timeout: 10,
-  });
+  try {
+    client = postgres(url, {
+      prepare: false,
+      max: 1,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+  } catch (error) {
+    // O driver valida a URL no construtor e LANÇA. Sem este catch, uma
+    // DATABASE_URL malformada não degrada para catálogo vazio: ela estoura
+    // dentro de cada loader e derruba a página inteira — foi o que aconteceu
+    // em produção com o esquema `postgresql:` faltando, onde o erro visível
+    // era um "Invalid URL" solto, sem dizer qual URL nem de onde vinha.
+    //
+    // A mensagem não inclui a URL: ela contém a senha do banco.
+    const detail = error instanceof Error ? error.message : String(error);
+    return warnOnce(
+      `DATABASE_URL inválida (${detail}). Confira se ela começa com "postgresql://" ` +
+        "e tem usuário, senha, host e porta. O site vai renderizar com catálogo vazio.",
+    );
+  }
 
   return client;
 };
