@@ -23,21 +23,21 @@
         {
           "image": "https://decoims.com/demo-storefront/2026/07/ba0261c3-bee6-40bd-b7a4-ce12083c7be5-banner2.png",
           "mobileImage": "https://decoims.com/demo-storefront/2026/07/9b92f808-9ae1-40ed-8a88-8a9929347647-banner2-mob.png",
-          "headline": "THE DENIM EDIT IS HERE",
-          "href": "/products/straight-leg-jeans",
-          "product": {
-            "__resolveType": "site/loaders/catalogProductByHandle.ts",
-            "handle": "straight-leg-jeans"
-          }
-        },
-        {
-          "image": "https://decoims.com/demo-storefront/2026/07/5a5dbcb8-eaaa-494f-8476-f32a029facf3-banner3.png",
-          "mobileImage": "https://decoims.com/demo-storefront/2026/07/62941bd2-b774-4445-8533-2ca6db199f15-banner3-mob.png",
           "headline": "ACCESSORIES THAT FINISH THE LOOK",
           "href": "/products/deco-cap",
           "product": {
             "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-cap"
+          }
+        },
+        {
+          "image": "https://decoims.com/demo-storefront/2026/07/5a5dbcb8-eaaa-494f-8476-f32a029facf3-banner3.png",
+          "mobileImage": "https://decoims.com/demo-storefront/2026/07/62941bd2-b774-4445-8533-2ca6db199f15-banner3-mob.png",
+          "headline": "BUILT FOR COMFORT, CUT FOR STYLE",
+          "href": "/products/deco-sweatpants",
+          "product": {
+            "__resolveType": "site/loaders/catalogProductByHandle.ts",
+            "handle": "deco-sweatpants"
           }
         }
       ],
@@ -116,7 +116,7 @@
       "title": "Capybara Helper",
       "cta": {
         "label": "Shop now",
-        "href": "/products/capybara-club-tee"
+        "href": "/products/capybara-helper"
       },
       "price": "79,99",
       "priceLabel": "Starting at",

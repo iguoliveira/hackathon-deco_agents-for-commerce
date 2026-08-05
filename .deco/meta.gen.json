@@ -4941,7 +4941,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -4956,7 +4956,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
             "default": 1
           }
         },
@@ -5068,7 +5068,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5083,7 +5083,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
             "default": 1
           }
         },

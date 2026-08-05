@@ -93,6 +93,11 @@ const IMG = {
   teeWhiteFlat: "1620799139834-6b8f844fbe61",
   jeansDark: "1624378439575-d8705ad7ae80",
   skirtTulle: "1509551388413-e18d0ac5d495",
+  // URL completa em vez de id do Unsplash: esta é a arte do banner "Capybara
+  // Helper" da home, que já vivia no armazenamento da deco. Reaproveitá-la faz
+  // o produto do banner existir de verdade, com a mesma imagem que o anuncia.
+  capybaraHelper:
+    "https://decoims.com/demo-storefront/2026/07/161c9ecb-ceea-4562-bc55-01a2967dc4f2-banner4.png",
 };
 
 /**
@@ -167,9 +172,18 @@ const COR: Record<keyof typeof IMG, string> = {
   teeWhiteFlat: "White",
   jeansDark: "Dark Indigo",
   skirtTulle: "Ivory",
+  capybaraHelper: "Green",
 };
-const url = (k: keyof typeof IMG, w = 900) =>
-  `https://images.unsplash.com/photo-${IMG[k]}?w=${w}&q=80&auto=format&fit=crop`;
+/**
+ * URL da foto. Id do Unsplash vira URL com resize por query string; URL
+ * completa passa como está — o otimizador do framework sabe redimensionar o que
+ * está no armazenamento da deco, que é de onde vem a arte do banner.
+ */
+const url = (k: keyof typeof IMG, w = 900) => {
+  const valor = IMG[k];
+  if (valor.startsWith("http")) return valor;
+  return `https://images.unsplash.com/photo-${valor}?w=${w}&q=80&auto=format&fit=crop`;
+};
 
 const APP = ["XS", "S", "M", "L", "XL"];
 const DEN = ["36", "38", "40", "42", "44"];
@@ -1465,6 +1479,23 @@ const P: Produto[] = [
     ["shoeWhite", "shoeGrey"],
     ["unisex", "basic", "canvas", "everyday", "streetwear"],
     "Tênis cano alto de lona com reforço na biqueira. Sustenta o tornozelo e é o mais durável da linha de lona.",
+  ],
+
+  // O produto que o banner da home anuncia. Existia só como arte: o CTA levava
+  // para uma busca por jeans, e clicar em "comprar" caía nas calças. Agora ele
+  // é um produto de verdade, com a MESMA imagem do banner — quem clica encontra
+  // o que viu.
+  [
+    "capybara-helper",
+    "Capybara Helper",
+    "Plush Toy",
+    "accessories",
+    ["Green"],
+    ONE,
+    79.99,
+    ["capybaraHelper"],
+    ["unisex", "graphic", "capybara", "everyday", "desk"],
+    "A capivara de pelúcia que veste o mesmo moletom que você. Pelo macio de toque aveludado, capuz costurado que fica em pé e enchimento firme o bastante para ela sentar sozinha na mesa. Vem da arte que já estampava a home — agora dá para levar para casa.",
   ],
 ];
 

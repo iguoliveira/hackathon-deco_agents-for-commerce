@@ -1,4 +1,4 @@
--- Migration 0011 — catálogo ampliado: 103 produtos de vestuário e acessórios.
+-- Migration 0011 — catálogo ampliado: 104 produtos de vestuário e acessórios.
 --
 -- Gerado para dar ao agente da vitrine massa e variedade suficientes. O
 -- catálogo tinha 32 produtos com categorias de 1 e 2 itens — `bottoms` tinha
@@ -141,7 +141,8 @@ INSERT INTO products (product_group_id, handle, title, description, description_
 ('gid://catalog/Product/9099', 'five-panel-cap', 'Five Panel Cap - White', 'Boné de cinco gomos com aba plana e copa baixa. Silhueta mais discreta que o snapback tradicional.', '<p>Boné de cinco gomos com aba plana e copa baixa. Silhueta mais discreta que o snapback tradicional.</p>', 'Deco Store', 'Cap', '2026-08-05T00:00:00Z', 'BRL', 199),
 ('gid://catalog/Product/9100', 'chunky-sole-sneakers', 'Chunky Sole Sneakers - Pastel', 'Tênis de solado alto e volumoso, com camadas em tons diferentes. Ganha altura sem salto.', '<p>Tênis de solado alto e volumoso, com camadas em tons diferentes. Ganha altura sem salto.</p>', 'Deco Store', 'Sneakers', '2026-08-05T00:00:00Z', 'BRL', 200),
 ('gid://catalog/Product/9101', 'suede-desert-boots', 'Suede Desert Boots - Orange', 'Bota deserto em camurça, dois pares de ilhoses e solado de crepe. O calçado de meia-estação que serve com jeans e com chino.', '<p>Bota deserto em camurça, dois pares de ilhoses e solado de crepe. O calçado de meia-estação que serve com jeans e com chino.</p>', 'Deco Store', 'Boots', '2026-08-05T00:00:00Z', 'BRL', 201),
-('gid://catalog/Product/9102', 'canvas-high-tops', 'Canvas High Tops - White', 'Tênis cano alto de lona com reforço na biqueira. Sustenta o tornozelo e é o mais durável da linha de lona.', '<p>Tênis cano alto de lona com reforço na biqueira. Sustenta o tornozelo e é o mais durável da linha de lona.</p>', 'Deco Store', 'Sneakers', '2026-08-05T00:00:00Z', 'BRL', 202)
+('gid://catalog/Product/9102', 'canvas-high-tops', 'Canvas High Tops - White', 'Tênis cano alto de lona com reforço na biqueira. Sustenta o tornozelo e é o mais durável da linha de lona.', '<p>Tênis cano alto de lona com reforço na biqueira. Sustenta o tornozelo e é o mais durável da linha de lona.</p>', 'Deco Store', 'Sneakers', '2026-08-05T00:00:00Z', 'BRL', 202),
+('gid://catalog/Product/9103', 'capybara-helper', 'Capybara Helper - Green', 'A capivara de pelúcia que veste o mesmo moletom que você. Pelo macio de toque aveludado, capuz costurado que fica em pé e enchimento firme o bastante para ela sentar sozinha na mesa. Vem da arte que já estampava a home — agora dá para levar para casa.', '<p>A capivara de pelúcia que veste o mesmo moletom que você. Pelo macio de toque aveludado, capuz costurado que fica em pé e enchimento firme o bastante para ela sentar sozinha na mesa. Vem da arte que já estampava a home — agora dá para levar para casa.</p>', 'Deco Store', 'Plush Toy', '2026-08-05T00:00:00Z', 'BRL', 203)
 ON CONFLICT (product_group_id) DO NOTHING;
 
 INSERT INTO product_images (product_group_id, url, alt, position) VALUES
@@ -249,7 +250,8 @@ INSERT INTO product_images (product_group_id, url, alt, position) VALUES
 ('gid://catalog/Product/9099', 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=900&q=80&auto=format&fit=crop', 'Five Panel Cap - White', 0),
 ('gid://catalog/Product/9100', 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=900&q=80&auto=format&fit=crop', 'Chunky Sole Sneakers - Pastel', 0),
 ('gid://catalog/Product/9101', 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=900&q=80&auto=format&fit=crop', 'Suede Desert Boots - Orange', 0),
-('gid://catalog/Product/9102', 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=900&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 0);
+('gid://catalog/Product/9102', 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=900&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 0),
+('gid://catalog/Product/9103', 'https://decoims.com/demo-storefront/2026/07/161c9ecb-ceea-4562-bc55-01a2967dc4f2-banner4.png', 'Capybara Helper - Green', 0);
 
 INSERT INTO product_props (product_group_id, name, value, value_reference, position) VALUES
 ('gid://catalog/Product/9000', 'COLLECTION', 'Shirts', 'shirts', 0),
@@ -922,7 +924,14 @@ INSERT INTO product_props (product_group_id, name, value, value_reference, posit
 ('gid://catalog/Product/9102', 'TAG', 'canvas', NULL, 2),
 ('gid://catalog/Product/9102', 'TAG', 'everyday', NULL, 3),
 ('gid://catalog/Product/9102', 'TAG', 'streetwear', NULL, 4),
-('gid://catalog/Product/9102', 'TAG', 'white', NULL, 100);
+('gid://catalog/Product/9102', 'TAG', 'white', NULL, 100),
+('gid://catalog/Product/9103', 'COLLECTION', 'Accessories', 'accessories', 0),
+('gid://catalog/Product/9103', 'TAG', 'unisex', NULL, 0),
+('gid://catalog/Product/9103', 'TAG', 'graphic', NULL, 1),
+('gid://catalog/Product/9103', 'TAG', 'capybara', NULL, 2),
+('gid://catalog/Product/9103', 'TAG', 'everyday', NULL, 3),
+('gid://catalog/Product/9103', 'TAG', 'desk', NULL, 4),
+('gid://catalog/Product/9103', 'TAG', 'green', NULL, 100);
 
 INSERT INTO variants (variant_id, product_group_id, title, barcode, price, compare_at_price, available, quantity, image_url, image_alt, position) VALUES
 ('gid://catalog/Variant/900000', 'gid://catalog/Product/9000', 'XS', NULL, 89, NULL, 1, 12, 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80&auto=format&fit=crop', 'Essential Cotton Tee - White', 0),
@@ -1397,7 +1406,8 @@ INSERT INTO variants (variant_id, product_group_id, title, barcode, price, compa
 ('gid://catalog/Variant/910202', 'gid://catalog/Product/9102', '39', NULL, 349, NULL, 1, 12, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 2),
 ('gid://catalog/Variant/910203', 'gid://catalog/Product/9102', '40', NULL, 349, NULL, 1, 12, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 3),
 ('gid://catalog/Variant/910204', 'gid://catalog/Product/9102', '41', NULL, 349, NULL, 1, 12, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 4),
-('gid://catalog/Variant/910205', 'gid://catalog/Product/9102', '42', NULL, 349, NULL, 1, 12, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 5)
+('gid://catalog/Variant/910205', 'gid://catalog/Product/9102', '42', NULL, 349, NULL, 1, 12, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=600&q=80&auto=format&fit=crop', 'Canvas High Tops - White', 5),
+('gid://catalog/Variant/910300', 'gid://catalog/Product/9103', 'Green', NULL, 79.99, NULL, 1, 12, 'https://decoims.com/demo-storefront/2026/07/161c9ecb-ceea-4562-bc55-01a2967dc4f2-banner4.png', 'Capybara Helper - Green', 0)
 ON CONFLICT (variant_id) DO NOTHING;
 
 INSERT INTO variant_options (variant_id, name, value, position) VALUES
