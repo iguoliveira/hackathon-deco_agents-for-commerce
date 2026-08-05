@@ -28,13 +28,17 @@ export default function SearchPagination({ currentPage, prev, next, variant }: P
   if (variant === "show-more") {
     return (
       <div className="flex flex-col items-center gap-3">
+        {/* `search` é obrigatório aqui: `to` carrega só o caminho, e é no
+            search que vive o `?page=`. Sem ele os dois botões navegavam para a
+            própria página — a variante "pagination" abaixo sempre passou os
+            dois, esta não. */}
         {prev ? (
-          <Button href={prev.to} variant="outline" size="md">
+          <Button href={prev.to} search={prev.search} variant="outline" size="md">
             Show less
           </Button>
         ) : null}
         {next ? (
-          <Button href={next.to} variant="glass" size="md">
+          <Button href={next.to} search={next.search} variant="glass" size="md">
             Show more
           </Button>
         ) : null}

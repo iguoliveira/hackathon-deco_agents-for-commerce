@@ -71,6 +71,80 @@ const IMG = {
   shoeGrey: "1460353581641-37baddab0fa2",
   shoePastel: "1595950653106-6c9ebd614d3a",
   shoeOrange: "1600185365483-26d7a4cc7519",
+  capCharcoal: "1521369909029-2afed882baee",
+  jacketOlive: "1544022613-e87ca75a784a",
+  sneakerMulti: "1560769629-975ec94e6a86",
+  teeBlackModel: "1571455786673-9d9d6c194f90",
+  teeCreamGraphic: "1576566588028-4147f3842f27",
+  kidsOutfit: "1519238263530-99bdd11df2ea",
+  bucketTan: "1578681994506-b8f463449011",
+  teeBlackWoman: "1583744946564-b52ac1c389c8",
+  bagFloral: "1591561954557-26941169b49e",
+  shirtWhiteRack: "1603252109303-2751441dd157",
+  teeWhiteHeart: "1613852348851-df1739db8201",
+};
+
+/**
+ * A cor que cada foto REALMENTE mostra.
+ *
+ * A cor do produto é derivada daqui, nunca escolhida à parte. Antes cada
+ * produto declarava 2 ou 3 cores e todas usavam a mesma foto — então a variante
+ * "Black" de uma bolsa exibia a foto de uma bolsa bege. Bolsas e calçados eram
+ * o pior caso: cor inexistente, foto igual.
+ *
+ * Derivar a cor da foto torna a inconsistência impossível por construção: para
+ * ter uma cor nova é preciso ter uma foto nova.
+ */
+const COR: Record<keyof typeof IMG, string> = {
+  teeWhite: "White",
+  teeBlackRack: "Black",
+  teeBlackHanger: "Black",
+  teeBlackGraphic: "Black",
+  teeGreen: "Sage",
+  teeBlackText: "Black",
+  teeWhiteGraphic: "White",
+  teeOutfit: "Black",
+  hoodieGrey: "Grey",
+  sweatWhite: "White",
+  hoodieDenim: "Blue",
+  shirtChambray: "Blue",
+  rackColor: "Multicolor",
+  rackBlouse: "Off White",
+  bomberBrown: "Brown",
+  leatherBlack: "Black",
+  blazerBlack: "Black",
+  ponchoCream: "Cream",
+  knitPastel: "Pastel",
+  joggerPink: "Pink",
+  jeansFolded: "Indigo",
+  jeansPatch: "Blue",
+  jeansSkinny: "Light Blue",
+  shortsDenim: "Light Blue",
+  dressRed: "Red",
+  dressPurple: "Wine",
+  romperOlive: "Olive",
+  backpackGrey: "Grey",
+  backpackNavy: "Navy",
+  bagTan: "Tan",
+  bagRed: "Red",
+  capWhite: "White",
+  shoeRed: "Red",
+  shoeWhite: "White",
+  shoeTan: "Tan",
+  shoeGrey: "Grey",
+  shoePastel: "Pastel",
+  shoeOrange: "Orange",
+  capCharcoal: "Charcoal",
+  jacketOlive: "Olive",
+  sneakerMulti: "Multicolor",
+  teeBlackModel: "Black",
+  teeCreamGraphic: "Cream",
+  kidsOutfit: "Navy",
+  bucketTan: "Tan",
+  teeBlackWoman: "Black",
+  bagFloral: "Floral",
+  shirtWhiteRack: "White",
+  teeWhiteHeart: "White",
 };
 const url = (k: keyof typeof IMG, w = 900) =>
   `https://images.unsplash.com/photo-${IMG[k]}?w=${w}&q=80&auto=format&fit=crop`;
@@ -1379,15 +1453,48 @@ const q = (s: string | null) => (s === null ? "NULL" : `'${String(s).replace(/'/
 const PG = (i: number) => `gid://catalog/Product/${9000 + i}`;
 const VG = (i: number, j: number) => `gid://catalog/Variant/${900000 + i * 100 + j}`;
 
-// Esgotados propositais: dão pontos de entrada ao agente da vitrine.
-const ESGOTADO = new Set([
-  "classic-pullover-hoodie|Grey|M",
-  "classic-pullover-hoodie|Black|L",
-  "essential-cotton-tee|White|M",
-  "straight-leg-jeans|Blue|40",
-  "canvas-low-sneakers|White|40",
-  "structured-top-handle-bag|Tan|",
-  "satin-slip-dress|Wine|S",
+/**
+ * Tamanhos esgotados, por handle. Cada entrada é um ponto de entrada para o
+ * agente da vitrine — só dispara para quem tentou comprar e não pôde.
+ *
+ * Espalhados por tipo de propósito: se todos fossem moletom, o agente só teria
+ * um cenário para demonstrar. Aqui há camiseta, moletom, jaqueta, calça,
+ * vestido, tricô, calçado e acessório.
+ */
+const TAMANHOS_ESGOTADOS: Record<string, string[]> = {
+  "essential-cotton-tee": ["M"],
+  "heavyweight-boxy-tee": ["L", "XL"],
+  "capybara-club-tee": ["S"],
+  "striped-breton-tee": ["M"],
+  "classic-pullover-hoodie": ["M", "L"],
+  "oversized-hoodie": ["XL"],
+  "crewneck-sweatshirt": ["S"],
+  "sherpa-lined-hoodie": ["M"],
+  "classic-bomber-jacket": ["L"],
+  "denim-trucker-jacket": ["M"],
+  "straight-leg-jeans": ["40"],
+  "relaxed-mom-jeans": ["38", "40"],
+  "cargo-jogger-pants": ["L"],
+  "satin-slip-dress": ["S"],
+  "flowing-maxi-dress": ["M"],
+  "chunky-knit-sweater": ["L"],
+  "canvas-low-sneakers": ["40"],
+  "minimal-leather-sneakers": ["39", "41"],
+  "kids-capybara-tee": ["6"],
+};
+
+/**
+ * Produtos esgotados por inteiro — nenhuma variante disponível.
+ *
+ * Diferente do tamanho esgotado: aqui o agente não tem "outro tamanho do mesmo
+ * item" para oferecer, então precisa recomendar outra peça. É o caso que
+ * exercita de verdade a recomendação cruzada.
+ */
+const PRODUTOS_ESGOTADOS = new Set([
+  "structured-top-handle-bag",
+  "washed-dad-cap",
+  "knit-lounge-shorts",
+  "v-neck-knit-vest",
 ]);
 
 const linhas: Record<string, string[]> = {
@@ -1398,39 +1505,108 @@ const linhas: Record<string, string[]> = {
   variant_options: [],
 };
 let nVar = 0,
-  nEsg = 0;
+  nEsg = 0,
+  nEsgTotal = 0;
 
-P.forEach(([handle, title, tipo, colecao, cores, tamanhos, preco, imgs, tags, desc], i) => {
+/**
+ * Escolhe entre as fotos declaradas a MENOS usada até agora.
+ *
+ * Há 49 fotos verificadas para 103 produtos, então alguma repetição é
+ * inevitável. Sem isto ela se concentrava: sete produtos exibiam a mesma foto
+ * do boné branco enquanto outras fotos ficavam sem uso. Espalhar não elimina a
+ * repetição, mas troca "sete iguais lado a lado" por "duas aqui, duas ali".
+ */
+const usoFoto = new Map<string, number>();
+
+/**
+ * Fotos intercambiáveis: mesmo assunto, cor diferente.
+ *
+ * Serve para espalhar sem trocar o assunto. Uma alternativa de `capWhite` tem
+ * que ser outro boné — pegar qualquer foto pouco usada da mesma coleção
+ * colocaria a foto de um boné numa bolsa, já que `accessories` mistura os dois.
+ *
+ * Como a cor sai da foto (ver COR), escolher a alternativa também troca a cor
+ * do produto. É o comportamento desejado: a peça passa a existir na cor que a
+ * foto mostra.
+ */
+const ALTERNATIVAS: Partial<Record<keyof typeof IMG, (keyof typeof IMG)[]>> = {
+  teeWhite: ["teeWhiteHeart", "teeWhiteGraphic"],
+  teeWhiteGraphic: ["teeCreamGraphic", "teeWhiteHeart"],
+  teeBlackHanger: ["teeBlackModel", "teeBlackWoman"],
+  teeBlackRack: ["teeBlackWoman", "teeBlackModel"],
+  teeBlackGraphic: ["teeBlackModel", "teeBlackText"],
+  teeGreen: ["teeCreamGraphic"],
+  hoodieGrey: ["sweatWhite", "hoodieDenim"],
+  sweatWhite: ["hoodieGrey"],
+  knitPastel: ["ponchoCream"],
+  ponchoCream: ["knitPastel"],
+  bomberBrown: ["jacketOlive", "leatherBlack"],
+  leatherBlack: ["jacketOlive", "blazerBlack"],
+  joggerPink: ["jeansSkinny", "shortsDenim"],
+  jeansFolded: ["jeansPatch", "jeansSkinny"],
+  jeansSkinny: ["jeansPatch", "jeansFolded"],
+  rackColor: ["shirtWhiteRack", "rackBlouse"],
+  rackBlouse: ["shirtWhiteRack", "rackColor"],
+  shirtChambray: ["shirtWhiteRack"],
+  capWhite: ["capCharcoal", "bucketTan"],
+  bagTan: ["bagFloral", "bagRed"],
+  bagRed: ["bagFloral", "bagTan"],
+  backpackGrey: ["backpackNavy"],
+  backpackNavy: ["backpackGrey"],
+  shoeWhite: ["sneakerMulti", "shoeGrey"],
+  shoeGrey: ["sneakerMulti", "shoeWhite"],
+  shoeTan: ["shoeOrange"],
+  shoePastel: ["sneakerMulti"],
+};
+
+const escolherFoto = (imgs: (keyof typeof IMG)[]): keyof typeof IMG => {
+  const candidatas = [...new Set(imgs.flatMap((k) => [k, ...(ALTERNATIVAS[k] ?? [])]))];
+  let melhor = candidatas[0];
+  for (const k of candidatas) {
+    if ((usoFoto.get(k) ?? 0) < (usoFoto.get(melhor) ?? 0)) melhor = k;
+  }
+  usoFoto.set(melhor, (usoFoto.get(melhor) ?? 0) + 1);
+  return melhor;
+};
+
+P.forEach(([handle, title, tipo, colecao, _cores, tamanhos, preco, imgs, tags, desc], i) => {
   const pg = PG(i);
   const label = COLECOES[colecao];
 
+  // UMA foto e UMA cor, e a cor vem da foto (ver COR). O título carrega a cor
+  // porque é onde ela fica visível na vitrine e na busca; a tag carrega para o
+  // agente.
+  const foto = escolherFoto(imgs);
+  const cor = COR[foto];
+  const tituloFinal = `${title} - ${cor}`;
+
   linhas.products.push(
-    `(${q(pg)}, ${q(handle)}, ${q(title)}, ${q(desc)}, ${q(`<p>${desc}</p>`)}, 'Deco Store', ${q(tipo)}, '2026-08-05T00:00:00Z', 'BRL', ${100 + i})`,
+    `(${q(pg)}, ${q(handle)}, ${q(tituloFinal)}, ${q(desc)}, ${q(`<p>${desc}</p>`)}, 'Deco Store', ${q(tipo)}, '2026-08-05T00:00:00Z', 'BRL', ${100 + i})`,
   );
 
-  imgs.forEach((k, j) => linhas.product_images.push(`(${q(pg)}, ${q(url(k))}, ${q(title)}, ${j})`));
+  linhas.product_images.push(`(${q(pg)}, ${q(url(foto))}, ${q(tituloFinal)}, 0)`);
 
   linhas.product_props.push(`(${q(pg)}, 'COLLECTION', ${q(label)}, ${q(colecao)}, 0)`);
   tags.forEach((t, j) => linhas.product_props.push(`(${q(pg)}, 'TAG', ${q(t)}, NULL, ${j})`));
-  cores.forEach((c, j) =>
-    linhas.product_props.push(`(${q(pg)}, 'TAG', ${q(c.toLowerCase())}, NULL, ${100 + j})`),
-  );
+  linhas.product_props.push(`(${q(pg)}, 'TAG', ${q(cor.toLowerCase())}, NULL, 100)`);
 
+  const produtoEsgotado = PRODUTOS_ESGOTADOS.has(handle);
+  if (produtoEsgotado) nEsgTotal++;
+  const tamanhosFora = new Set(TAMANHOS_ESGOTADOS[handle] ?? []);
+
+  // Sem opção de Color: com uma cor só, o seletor renderizaria uma linha de um
+  // item, que não é escolha nenhuma.
   let j = 0;
-  for (const cor of cores) {
-    for (const tam of tamanhos ?? [null]) {
-      const vid = VG(i, j);
-      const esgotado = ESGOTADO.has(`${handle}|${cor}|${tam ?? ""}`);
-      if (esgotado) nEsg++;
-      const vTitle = tam ? `${cor} / ${tam}` : cor;
-      linhas.variants.push(
-        `(${q(vid)}, ${q(pg)}, ${q(vTitle)}, NULL, ${preco}, ${j % 7 === 3 ? preco * 1.3 : "NULL"}, ${esgotado ? 0 : 1}, ${esgotado ? 0 : 12}, ${q(url(imgs[0], 600))}, ${q(title)}, ${j})`,
-      );
-      linhas.variant_options.push(`(${q(vid)}, 'Color', ${q(cor)}, 0)`);
-      if (tam) linhas.variant_options.push(`(${q(vid)}, 'Size', ${q(tam)}, 1)`);
-      j++;
-      nVar++;
-    }
+  for (const tam of tamanhos ?? [null]) {
+    const vid = VG(i, j);
+    const esgotado = produtoEsgotado || (tam !== null && tamanhosFora.has(tam));
+    if (esgotado) nEsg++;
+    linhas.variants.push(
+      `(${q(vid)}, ${q(pg)}, ${q(tam ?? cor)}, NULL, ${preco}, ${i % 7 === 3 ? Math.round(preco * 1.3) : "NULL"}, ${esgotado ? 0 : 1}, ${esgotado ? 0 : 12}, ${q(url(foto, 600))}, ${q(tituloFinal)}, ${j})`,
+    );
+    if (tam) linhas.variant_options.push(`(${q(vid)}, 'Size', ${q(tam)}, 0)`);
+    j++;
+    nVar++;
   }
 });
 
@@ -1496,11 +1672,18 @@ for (const [tabela, vals] of Object.entries(linhas)) {
 const ARQUIVO = "db/migrations/0011_expand_apparel_catalog.sql";
 writeFileSync(ARQUIVO, sql);
 
+const comEsgotado = new Set([...Object.keys(TAMANHOS_ESGOTADOS), ...PRODUTOS_ESGOTADOS]);
+
 console.log(`gerado ${ARQUIVO}`);
 console.log(
-  `  ${P.length} produtos, ${nVar} variantes (${nEsg} esgotadas), ` +
-    `${linhas.product_images.length} imagens, ${linhas.product_props.length} props`,
+  `  ${P.length} produtos, ${nVar} variantes, ${linhas.product_images.length} imagens, ` +
+    `${linhas.product_props.length} props`,
 );
+console.log(
+  `  ${comEsgotado.size} itens com esgotado (${nEsgTotal} inteiros, ${nEsg} variantes no total)`,
+);
+const maisUsada = [...usoFoto.entries()].sort((a, b) => b[1] - a[1])[0];
+console.log(`  ${usoFoto.size} fotos distintas; a mais repetida aparece ${maisUsada[1]}x`);
 const tipos = new Set(P.map((p) => p[2]));
 console.log(`  ${tipos.size} product_types, ${new Set(P.map((p) => p[3])).size} coleções`);
 
