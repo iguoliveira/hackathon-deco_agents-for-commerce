@@ -107,6 +107,29 @@ function useSlider({ rootId, scroll = "smooth", interval, infinite = false }: Pr
       goToItem(isShowingLast ? 0 : (pageIndex + 1) * itemsPerPage);
     };
 
+    /**
+     * Mantém o indicador ativo visível DENTRO da própria régua de pontos.
+     *
+     * Substitui um `dot.scrollIntoView({ block: "nearest" })`, que tinha um
+     * comentário afirmando nunca rolar a página. Não é verdade: `scrollIntoView`
+     * rola TODOS os ancestrais roláveis, inclusive o documento. Como o
+     * carrossel troca de slide sozinho, bastava o usuário ter rolado para baixo
+     * — o ponto saía da viewport e o navegador puxava a página de volta para
+     * cima a cada troca, sozinho.
+     *
+     * Aqui só o `scrollLeft` do contêiner dos pontos é tocado. Quando a régua
+     * cabe inteira (o caso do Carousel e do Logos), não há o que rolar e a
+     * função não faz nada — que era a intenção original.
+     */
+    const manterPontoVisivel = (dot: Element | null | undefined) => {
+      if (!(dot instanceof HTMLElement)) return;
+      const regua = dot.parentElement;
+      if (!regua || regua.scrollWidth <= regua.clientWidth) return;
+
+      const alvo = dot.offsetLeft - (regua.clientWidth - dot.clientWidth) / 2;
+      regua.scrollTo({ left: Math.max(0, alvo), behavior: "smooth" });
+    };
+
     const observer = new IntersectionObserver(
       (entries) =>
         entries.forEach((entry) => {
@@ -116,11 +139,7 @@ function useSlider({ rootId, scroll = "smooth", interval, infinite = false }: Pr
           if (entry.isIntersecting) {
             dot?.setAttribute("disabled", "");
             dot?.setAttribute("aria-current", "true");
-            // Keep the active dot in view — matters for scrollable thumbnail
-            // strips (e.g. the PDP gallery with many images). `nearest` only
-            // scrolls when needed, so it's a no-op for the small dot rows of
-            // the Carousel/Logos sliders and never scrolls the page.
-            dot?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            manterPontoVisivel(dot);
           } else {
             dot?.removeAttribute("disabled");
             dot?.removeAttribute("aria-current");

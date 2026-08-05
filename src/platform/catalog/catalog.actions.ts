@@ -3,15 +3,12 @@
  * acima nunca fala com D1 nem vê linha de SQL.
  */
 
-import type {
-  Product,
-  ProductDetailsPage,
-  ProductListingPage,
-} from "@decocms/apps-commerce/types";
+import type { Product, ProductDetailsPage, ProductListingPage } from "@decocms/apps-commerce/types";
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import {
   findCatalogRecordByHandle,
   findCatalogRecords,
+  findCollectionHandles,
   findOptionNames,
   searchCatalog,
 } from "./catalog.d1";
@@ -129,9 +126,12 @@ export interface ListingPageOptions {
  * opção inexistente, e a PLP voltaria vazia — sem erro, sem log, só zero
  * resultados para quem chegou pelo anúncio.
  */
-export const getProductListingPage = async (
-  { collection, query, perPage = 12, pageUrl }: ListingPageOptions = {},
-): Promise<ProductListingPage | null> => {
+export const getProductListingPage = async ({
+  collection,
+  query,
+  perPage = 12,
+  pageUrl,
+}: ListingPageOptions = {}): Promise<ProductListingPage | null> => {
   const url = resolvePageUrl(pageUrl);
   const optionNames = await findOptionNames();
 
@@ -143,11 +143,27 @@ export const getProductListingPage = async (
 
   const page = Math.max(0, Number(url.searchParams.get("page") ?? 0) || 0);
 
+  // A coleção pode vir do CAMINHO — `/shirts`, `/accessories`. É o que faz as
+  // abas do menu pré-selecionarem o filtro.
+  //
+  // Sem isto, a Category Page (`/*`) chamava este loader sem coleção nenhuma e
+  // toda aba mostrava o catálogo inteiro: o bloco `PLP Loader` é compartilhado
+  // por todas elas e não tem como declarar uma coleção por rota.
+  //
+  // Só vale se o segmento for MESMO uma coleção (ver findCollectionHandles) —
+  // caso contrário `/s`, `/login` ou `/wishlist` virariam filtro por coleção
+  // inexistente e a listagem voltaria vazia, sem erro e sem log.
+  const primeiroSegmento = url.pathname.split("/").filter(Boolean)[0];
+  const colecaoDoCaminho =
+    primeiroSegmento && (await findCollectionHandles()).has(primeiroSegmento)
+      ? primeiroSegmento
+      : undefined;
+
   const result = await searchCatalog({
     // `?q=` do usuário ganha da query fixa da página: buscar dentro de /kids
     // deve buscar, não continuar preso ao recorte da landing.
     term: url.searchParams.get("q") ?? query ?? undefined,
-    collection: collection ?? url.searchParams.get("collection") ?? undefined,
+    collection: collection ?? url.searchParams.get("collection") ?? colecaoDoCaminho,
     options,
     sort: parseSort(url.searchParams.get("sort")),
     page,
