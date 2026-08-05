@@ -138,8 +138,38 @@ const handleWebRequest = async (request: Request, ...rest: unknown[]): Promise<R
     return finalizeHtmlResponse(response);
   });
 
+/**
+ * Lê o corpo da request como Buffer.
+ *
+ * Bufferiza em vez de repassar o stream, e isso não é preguiça: o launcher da
+ * Vercel pode consumir e parsear o corpo ANTES de nos chamar, expondo o
+ * resultado em `req.body`. Nesse caso o stream já veio drenado, e um
+ * `Readable.toWeb(req)` fica esperando bytes que nunca chegam — o POST trava
+ * até o timeout da plataforma, sem erro nenhum. Foi o que aconteceu com o
+ * endpoint de invoke em produção enquanto todos os GETs passavam.
+ *
+ * Bufferizar também dispensa o `duplex: "half"`. Os corpos aqui são JSON de
+ * formulário, não upload — não há streaming a preservar na entrada.
+ */
+const readBody = async (req: NodeRequest): Promise<Buffer | undefined> => {
+  if (req.method === "GET" || req.method === "HEAD") return undefined;
+
+  const parsed = (req as NodeRequest & { body?: unknown }).body;
+  if (parsed !== undefined && parsed !== null) {
+    if (Buffer.isBuffer(parsed)) return parsed;
+    if (typeof parsed === "string") return Buffer.from(parsed);
+    // Já parseado pelo launcher: reserializa para o handler receber o mesmo
+    // conteúdo que o cliente mandou.
+    return Buffer.from(JSON.stringify(parsed));
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+};
+
 /** IncomingMessage -> Request. */
-const toWebRequest = (req: NodeRequest): Request => {
+const toWebRequest = async (req: NodeRequest): Promise<Request> => {
   const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost";
   const proto = req.headers["x-forwarded-proto"] ?? "https";
 
@@ -149,12 +179,15 @@ const toWebRequest = (req: NodeRequest): Request => {
     else if (value != null) headers.set(key, String(value));
   }
 
-  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+  const body = await readBody(req);
+  // Content-length pode divergir do que reserializamos; o fetch recalcula.
+  headers.delete("content-length");
+
   return new Request(`${proto}://${String(host)}${req.url ?? "/"}`, {
     method: req.method,
     headers,
-    ...(hasBody ? { body: Readable.toWeb(req) as ReadableStream, duplex: "half" } : {}),
-  } as RequestInit);
+    ...(body?.length ? { body: body as unknown as BodyInit } : {}),
+  });
 };
 
 /** Response -> ServerResponse, sem bufferizar (o SSR é streaming). */
@@ -200,5 +233,6 @@ export default async function handler(
     return handleWebRequest(request as Request, ...rest);
   }
 
-  await sendWebResponse(await handleWebRequest(toWebRequest(request as NodeRequest)), res);
+  const webRequest = await toWebRequest(request as NodeRequest);
+  await sendWebResponse(await handleWebRequest(webRequest), res);
 }
