@@ -248,23 +248,41 @@ export const searchCatalog = async (
       // Facetas calculadas sobre o MESMO conjunto filtrado dos produtos. Valores
       // com contagem 0 nunca aparecem — é o que impede oferecer um filtro que
       // levaria a zero resultados.
+      //
+      // Três detalhes aqui são exigência do Postgres que o SQLite perdoava, e
+      // os três quebram em runtime, não no build:
+      //
+      //   1. `HAVING` não enxerga alias da lista de SELECT — é avaliado antes
+      //      dela. O agregado precisa ser repetido por extenso. Era o
+      //      `column "quantity" does not exist` que derrubava a PLP.
+      //   2. Toda coluna não agregada tem que estar no GROUP BY. `label` e
+      //      `position` viraram MIN(): o SQLite escolhia um valor qualquer do
+      //      grupo, o Postgres recusa a query inteira.
+      //   3. `ORDER BY`, ao contrário do HAVING, ACEITA alias de saída — por
+      //      isso `ORDER BY quantity DESC` fica como está.
       db
         .prepare(
-          `SELECT pp.value_reference AS value, pp.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+          `SELECT pp.value_reference AS value, MIN(pp.value) AS label,
+                  COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN product_props pp ON pp.product_group_id = p.product_group_id AND pp.name = 'COLLECTION'
          ${clause.replace(/^ WHERE/, "WHERE")}
-         GROUP BY pp.value_reference HAVING quantity > 0 ORDER BY quantity DESC`,
+         GROUP BY pp.value_reference
+         HAVING COUNT(DISTINCT p.product_group_id) > 0
+         ORDER BY quantity DESC`,
         )
         .bind(...params),
       db
         .prepare(
-          `SELECT vo.name AS key, vo.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+          `SELECT vo.name AS key, vo.value AS label,
+                  COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN variants v ON v.product_group_id = p.product_group_id
          JOIN variant_options vo ON vo.variant_id = v.variant_id
          ${clause.replace(/^ WHERE/, "WHERE")}
-         GROUP BY vo.name, vo.value HAVING quantity > 0 ORDER BY vo.name ASC, vo.position ASC`,
+         GROUP BY vo.name, vo.value
+         HAVING COUNT(DISTINCT p.product_group_id) > 0
+         ORDER BY vo.name ASC, MIN(vo.position) ASC`,
         )
         .bind(...params),
     ],
