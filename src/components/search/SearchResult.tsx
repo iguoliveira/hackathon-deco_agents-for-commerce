@@ -35,9 +35,11 @@ export interface Props {
   /** @title Layout */
   layout?: Layout;
   /**
-   * @title Starting page
-   * @description 0 for ?page=0 as your first page
-   * @default 0
+   * @title Primeira página
+   * @description Número que a primeira página tem na URL. O catálogo é
+   * 1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o
+   * loader mudar junto.
+   * @default 1
    */
   startingPage?: 0 | 1;
 }
@@ -53,7 +55,10 @@ function NotFound() {
 function Result({
   page,
   layout,
-  startingPage = 0,
+  // 1 e não 0: `?page=` do catálogo é 1-based, e os blocos já declaravam
+  // `startingPage: 1`. O default antigo (0) era a outra metade do off-by-one —
+  // um bloco que não declarasse a prop mostraria "2" na primeira página.
+  startingPage = 1,
   url,
 }: SectionProps<typeof loader> & { page: ProductListingPage }) {
   const filterDrawerId = useId();
@@ -84,10 +89,10 @@ function Result({
   const pageTarget = (page: number) => {
     const atual = new URL(href, "http://localhost");
     const search = Object.fromEntries(atual.searchParams);
-    // 1-indexada na tela, 0-indexada na URL — a mesma convenção do loader.
-    const zeroBased = page - 1 + startingPage;
-    if (zeroBased === 0) delete search.page;
-    else search.page = String(zeroBased);
+    // A tela e a URL usam a mesma numeração (1-based). A primeira página omite
+    // o parâmetro, para `?page=1` e a URL limpa não virarem duas URLs iguais.
+    if (page <= 1) delete search.page;
+    else search.page = String(page);
     return { to: atual.pathname, search };
   };
 

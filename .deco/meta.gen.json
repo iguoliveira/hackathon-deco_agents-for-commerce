@@ -3566,7 +3566,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4798,7 +4798,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4937,22 +4937,11 @@
           "layout": {
             "type": "object",
             "properties": {
-              "pagination": {
-                "type": "string",
-                "enum": [
-                  "show-more",
-                  "pagination"
-                ],
-                "nullable": true,
-                "title": "Pagination",
-                "description": "Format of the pagination",
-                "default": "show-more"
-              },
               "enablePrefetch": {
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -4966,9 +4955,9 @@
               1
             ],
             "nullable": true,
-            "title": "Starting page",
-            "description": "0 for ?page=0 as your first page",
-            "default": 0
+            "title": "Primeira página",
+            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "default": 1
           }
         },
         "required": [
@@ -5075,22 +5064,11 @@
           "layout": {
             "type": "object",
             "properties": {
-              "pagination": {
-                "type": "string",
-                "enum": [
-                  "show-more",
-                  "pagination"
-                ],
-                "nullable": true,
-                "title": "Pagination",
-                "description": "Format of the pagination",
-                "default": "show-more"
-              },
               "enablePrefetch": {
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5104,9 +5082,9 @@
               1
             ],
             "nullable": true,
-            "title": "Starting page",
-            "description": "0 for ?page=0 as your first page",
-            "default": 0
+            "title": "Primeira página",
+            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "default": 1
           }
         },
         "required": [
