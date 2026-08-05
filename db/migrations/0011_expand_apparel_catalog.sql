@@ -22,7 +22,18 @@
 -- Cores e tamanhos viram `variant_options`, e as cores também viram TAG, para
 -- que a similaridade enxergue paleta sem precisar ler variante.
 --
--- Idempotente por ON CONFLICT nas chaves primárias.
+-- NÃO EDITE ESTE ARQUIVO À MÃO. Ele é gerado por
+-- `scripts/generate-apparel-catalog.ts`, onde cada produto é uma linha
+-- legível. Mudanças feitas aqui somem na próxima geração.
+--
+--   npm run catalog:apparel -- --apply
+--
+-- O DELETE abaixo torna o arquivo reaplicável: rodar de novo substitui em vez
+-- de duplicar. Ele é restrito ao prefixo `gid://catalog/`, então os produtos
+-- importados do Shopify (`gid://shopify/`) não são tocados. As tabelas filhas
+-- caem por ON DELETE CASCADE.
+
+DELETE FROM products WHERE product_group_id LIKE 'gid://catalog/Product/%';
 
 INSERT INTO products (product_group_id, handle, title, description, description_html, vendor, product_type, created_at, currency_code, position) VALUES
 ('gid://catalog/Product/9000', 'essential-cotton-tee', 'Essential Cotton Tee', 'A camiseta que resolve qualquer dia. Malha 100% algodão penteado de 180g, com caimento reto que não marca o corpo e gola canelada que não cede na lavagem. Serve sozinha no calor ou por baixo de moletom e jaqueta quando esfria.', '<p>A camiseta que resolve qualquer dia. Malha 100% algodão penteado de 180g, com caimento reto que não marca o corpo e gola canelada que não cede na lavagem. Serve sozinha no calor ou por baixo de moletom e jaqueta quando esfria.</p>', 'Deco Store', 'T-Shirt', '2026-08-05T00:00:00Z', 'BRL', 100),
