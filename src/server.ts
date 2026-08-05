@@ -44,7 +44,10 @@ type NodeResponse = ServerResponse;
  */
 const CSP_DIRECTIVES = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.shopify.com *.shopify.com",
-  "img-src 'self' data: blob: cdn.shopify.com *.shopify.com *.myshopify.com",
+  // images.unsplash.com: as fotos do catálogo gerado vêm de lá e são servidas
+  // direto pelo CDN do Unsplash, sem passar pelo otimizador — ver
+  // src/components/ui/Image.tsx.
+  "img-src 'self' data: blob: cdn.shopify.com *.shopify.com *.myshopify.com images.unsplash.com",
   "connect-src 'self' *.myshopify.com cdn.shopify.com",
   "frame-src 'self' *.shopify.com",
   "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
