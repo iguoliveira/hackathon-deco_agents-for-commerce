@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 -- Galeria do produto pai -> isVariantOf.image[]
 CREATE TABLE IF NOT EXISTS product_images (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  id               INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   product_group_id TEXT NOT NULL REFERENCES products(product_group_id) ON DELETE CASCADE,
   url              TEXT NOT NULL,
   alt              TEXT NOT NULL DEFAULT '',
@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_product_images_group ON product_images(product_gr
 -- Tags e coleções -> isVariantOf.additionalProperty[]
 -- `name` segue a convenção do transform do Shopify: 'TAG' ou 'COLLECTION'.
 CREATE TABLE IF NOT EXISTS product_props (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  id               INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   product_group_id TEXT NOT NULL REFERENCES products(product_group_id) ON DELETE CASCADE,
   name             TEXT NOT NULL,
   value            TEXT NOT NULL,
@@ -67,9 +67,13 @@ CREATE TABLE IF NOT EXISTS variants (
   title            TEXT NOT NULL,
   -- Vira `gtin`.
   barcode          TEXT,
-  price            REAL NOT NULL,
+  -- DOUBLE PRECISION, não REAL: no SQLite REAL é 8 bytes, no Postgres é float4
+  -- (~7 dígitos significativos) e o preço arredondaria sozinho. Também não é
+  -- `numeric`, que o driver devolveria como string e vazaria como "29.90" para
+  -- dentro do schema.org em catalog.mapper.ts:77.
+  price            DOUBLE PRECISION NOT NULL,
   -- Preço "de". NULL = sem desconto; o card usa isso para calcular o % off.
-  compare_at_price REAL,
+  compare_at_price DOUBLE PRECISION,
   available        INTEGER NOT NULL DEFAULT 1,
   quantity         INTEGER NOT NULL DEFAULT 0,
   image_url        TEXT,
@@ -81,7 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_variants_group ON variants(product_group_id, posi
 -- selectedOptions do Shopify (Size=M, Color=Black) -> additionalProperty[] da variante.
 -- É daqui que ProductCard tira os swatches (useVariantPossibilities).
 CREATE TABLE IF NOT EXISTS variant_options (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   variant_id TEXT NOT NULL REFERENCES variants(variant_id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   value      TEXT NOT NULL,

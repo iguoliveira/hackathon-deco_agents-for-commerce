@@ -1,13 +1,13 @@
 /**
- * Acesso ao SQLite (D1). Único arquivo do projeto que fala SQL de catálogo.
+ * Acesso ao Postgres (Supabase). Único arquivo do projeto que fala SQL de catálogo.
  *
- * O binding `CATALOG_DB` é declarado em wrangler.jsonc e tipado à mão em
- * src/types/cloudflare-bindings.d.ts. Localmente o banco vive em
- * `.wrangler/state/v3/d1/` — é um arquivo .sqlite comum, abrível em qualquer
- * cliente.
+ * As queries continuam escritas na API do D1 — `platform/db` expõe o Postgres
+ * com essa mesma superfície e traduz `?` para `$1..$n`. O nome do arquivo é
+ * herdado da época do D1 e ficou: renomeá-lo trocaria o import em vários
+ * lugares sem mudar nada do que o arquivo faz.
  */
 
-import { env } from "cloudflare:workers";
+import { getDb } from "../db";
 import type {
   CatalogRecord,
   ProductImageRow,
@@ -17,7 +17,7 @@ import type {
   VariantRow,
 } from "./catalog.types";
 
-/** `?, ?, ?` para um `IN (...)` — D1 não aceita array como parâmetro único. */
+/** `?, ?, ?` para um `IN (...)` — cada valor vai como parâmetro próprio. */
 const placeholders = (count: number) => new Array(count).fill("?").join(", ");
 
 const groupBy = <T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> => {
@@ -28,15 +28,6 @@ const groupBy = <T, K>(rows: T[], key: (row: T) => K): Map<K, T[]> => {
     else map.set(key(row), [row]);
   }
   return map;
-};
-
-const getDb = () => {
-  const db = env.CATALOG_DB;
-  if (!db) {
-    console.error("[catalog] binding CATALOG_DB ausente — confira d1_databases no wrangler.jsonc");
-    return null;
-  }
-  return db;
 };
 
 /**
@@ -134,9 +125,12 @@ export const findCatalogRecords = async ({
   }
 
   if (query) {
-    // LIKE simples: o catálogo é pequeno e isto não é o agente de busca, é só
+    // ILIKE, não LIKE: no SQLite o LIKE era case-insensitive de graça, no
+    // Postgres não é. Trocado junto com o banco — mantido LIKE, "Hoodie" e
+    // "hoodie" passariam a dar resultados diferentes, sem erro nenhum.
+    // Busca simples: o catálogo é pequeno e isto não é o agente de busca, é só
     // o filtro que as abas da vitrine usavam no loader do Shopify.
-    where.push("p.title LIKE ?");
+    where.push("p.title ILIKE ?");
     params.push(`%${query}%`);
   }
 
@@ -191,7 +185,8 @@ const buildFilter = ({ term, collection, options }: SearchCatalogOptions) => {
   const params: unknown[] = [];
 
   if (term) {
-    where.push("(p.title LIKE ? OR p.description LIKE ?)");
+    // ILIKE pelo mesmo motivo do filtro acima — ver findCatalogRecords.
+    where.push("(p.title ILIKE ? OR p.description ILIKE ?)");
     params.push(`%${term}%`, `%${term}%`);
   }
 
@@ -221,7 +216,8 @@ const buildFilter = ({ term, collection, options }: SearchCatalogOptions) => {
 const ORDER_BY: Record<NonNullable<SearchCatalogOptions["sort"]>, string> = {
   relevance: "p.position ASC, p.handle ASC",
   // O preço vive na variante; ordena pelo menor preço do produto.
-  "price:asc": "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) ASC",
+  "price:asc":
+    "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) ASC",
   "price:desc":
     "(SELECT MIN(price) FROM variants v WHERE v.product_group_id = p.product_group_id) DESC",
 };
@@ -243,34 +239,54 @@ export const searchCatalog = async (
   const { sort = "relevance", page = 0, perPage = 12 } = opts;
   const { clause, params } = buildFilter(opts);
 
-  const [pageRows, countRows, collectionRows, optionRows] = await db.batch<Record<string, unknown>>([
-    db
-      .prepare(`SELECT p.* FROM products p${clause} ORDER BY ${ORDER_BY[sort]} LIMIT ? OFFSET ?`)
-      .bind(...params, perPage, page * perPage),
-    db.prepare(`SELECT COUNT(*) AS total FROM products p${clause}`).bind(...params),
-    // Facetas calculadas sobre o MESMO conjunto filtrado dos produtos. Valores
-    // com contagem 0 nunca aparecem — é o que impede oferecer um filtro que
-    // levaria a zero resultados.
-    db
-      .prepare(
-        `SELECT pp.value_reference AS value, pp.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+  const [pageRows, countRows, collectionRows, optionRows] = await db.batch<Record<string, unknown>>(
+    [
+      db
+        .prepare(`SELECT p.* FROM products p${clause} ORDER BY ${ORDER_BY[sort]} LIMIT ? OFFSET ?`)
+        .bind(...params, perPage, page * perPage),
+      db.prepare(`SELECT COUNT(*) AS total FROM products p${clause}`).bind(...params),
+      // Facetas calculadas sobre o MESMO conjunto filtrado dos produtos. Valores
+      // com contagem 0 nunca aparecem — é o que impede oferecer um filtro que
+      // levaria a zero resultados.
+      //
+      // Três detalhes aqui são exigência do Postgres que o SQLite perdoava, e
+      // os três quebram em runtime, não no build:
+      //
+      //   1. `HAVING` não enxerga alias da lista de SELECT — é avaliado antes
+      //      dela. O agregado precisa ser repetido por extenso. Era o
+      //      `column "quantity" does not exist` que derrubava a PLP.
+      //   2. Toda coluna não agregada tem que estar no GROUP BY. `label` e
+      //      `position` viraram MIN(): o SQLite escolhia um valor qualquer do
+      //      grupo, o Postgres recusa a query inteira.
+      //   3. `ORDER BY`, ao contrário do HAVING, ACEITA alias de saída — por
+      //      isso `ORDER BY quantity DESC` fica como está.
+      db
+        .prepare(
+          `SELECT pp.value_reference AS value, MIN(pp.value) AS label,
+                  COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN product_props pp ON pp.product_group_id = p.product_group_id AND pp.name = 'COLLECTION'
          ${clause.replace(/^ WHERE/, "WHERE")}
-         GROUP BY pp.value_reference HAVING quantity > 0 ORDER BY quantity DESC`,
-      )
-      .bind(...params),
-    db
-      .prepare(
-        `SELECT vo.name AS key, vo.value AS label, COUNT(DISTINCT p.product_group_id) AS quantity
+         GROUP BY pp.value_reference
+         HAVING COUNT(DISTINCT p.product_group_id) > 0
+         ORDER BY quantity DESC`,
+        )
+        .bind(...params),
+      db
+        .prepare(
+          `SELECT vo.name AS key, vo.value AS label,
+                  COUNT(DISTINCT p.product_group_id) AS quantity
          FROM products p
          JOIN variants v ON v.product_group_id = p.product_group_id
          JOIN variant_options vo ON vo.variant_id = v.variant_id
          ${clause.replace(/^ WHERE/, "WHERE")}
-         GROUP BY vo.name, vo.value HAVING quantity > 0 ORDER BY vo.name ASC, vo.position ASC`,
-      )
-      .bind(...params),
-  ]);
+         GROUP BY vo.name, vo.value
+         HAVING COUNT(DISTINCT p.product_group_id) > 0
+         ORDER BY vo.name ASC, MIN(vo.position) ASC`,
+        )
+        .bind(...params),
+    ],
+  );
 
   return {
     records: await withChildren(db, pageRows.results as unknown as ProductRow[]),
@@ -325,4 +341,110 @@ export const findCatalogRecordByHandle = async (handle: string): Promise<Catalog
 
   const [record] = await withChildren(db, [product]);
   return record ?? null;
+};
+
+/** Um candidato a entrar na vitrine, com o PORQUÊ separado da nota. */
+export interface SimilarCandidate {
+  record: CatalogRecord;
+  /** Nota combinada — só para ordenar. Os campos abaixo é que explicam. */
+  score: number;
+  /** Mesmo `product_type`: é uma alternativa ao que a pessoa queria. */
+  sameType: boolean;
+  /** Mesma coleção: mesmo território da loja. */
+  sameCollection: boolean;
+  /** Tags em comum — o eixo mais forte de "combina com". */
+  sharedTags: string[];
+}
+
+/**
+ * Produtos DISPONÍVEIS parecidos com a variante que o comprador esperou.
+ *
+ * É a consulta que alimenta o agente da vitrine. Devolve os componentes da
+ * nota, não só a nota: o agente precisa saber SE é alternativa (mesmo tipo) ou
+ * complemento (tipo diferente, tags em comum) para montar uma vitrine que faça
+ * sentido — e para justificar a escolha em texto, que um número sozinho não
+ * permite.
+ *
+ * Pesos: tag em comum vale 3, mesmo tipo 4, mesma coleção 2. Mesmo tipo pesa
+ * mais que uma tag isolada porque "outro moletom" quase sempre serve quando o
+ * que a pessoa queria acabou; tags acumulam e por isso passam o tipo quando são
+ * várias.
+ *
+ * Só entram produtos com ao menos uma variante disponível — recomendar o que
+ * também está esgotado é repetir o problema que trouxe a pessoa até aqui.
+ *
+ * Full-text sobre título+descrição ainda NÃO entra: com `product_type` e tags
+ * preenchidos em 41/41 (ver 0008), a estrutura já ordena bem, e um sinal
+ * textual em cima disso é difícil de justificar. O índice existe (0009) para
+ * quando isso for medido e provado necessário.
+ */
+export const findSimilarAvailable = async (
+  variantId: string,
+  limit = 12,
+): Promise<SimilarCandidate[]> => {
+  const db = getDb();
+  if (!db) return [];
+
+  const { results: rows } = await db
+    .prepare(
+      `WITH alvo AS (
+         SELECT p.product_group_id, p.product_type,
+                (SELECT pp.value_reference FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'COLLECTION' LIMIT 1) AS colecao,
+                COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'TAG'), '{}') AS tags
+           FROM products p
+           JOIN variants v ON v.product_group_id = p.product_group_id
+          WHERE v.variant_id = ?
+       )
+       SELECT p.*,
+              (p.product_type = alvo.product_type AND p.product_type <> '') AS same_type,
+              EXISTS (SELECT 1 FROM product_props pp
+                       WHERE pp.product_group_id = p.product_group_id
+                         AND pp.name = 'COLLECTION'
+                         AND pp.value_reference = alvo.colecao)          AS same_collection,
+              COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                         WHERE pp.product_group_id = p.product_group_id
+                           AND pp.name = 'TAG'
+                           AND pp.value = ANY(alvo.tags)), '{}')          AS shared_tags
+         FROM products p, alvo
+        WHERE p.product_group_id <> alvo.product_group_id
+          -- Ao menos uma variante comprável agora.
+          AND EXISTS (SELECT 1 FROM variants v
+                       WHERE v.product_group_id = p.product_group_id AND v.available = 1)
+        ORDER BY
+          COALESCE((SELECT COUNT(*) FROM product_props pp
+                     WHERE pp.product_group_id = p.product_group_id
+                       AND pp.name = 'TAG' AND pp.value = ANY(alvo.tags)), 0) * 3
+          + CASE WHEN p.product_type = alvo.product_type AND p.product_type <> '' THEN 4 ELSE 0 END
+          + CASE WHEN EXISTS (SELECT 1 FROM product_props pp
+                               WHERE pp.product_group_id = p.product_group_id
+                                 AND pp.name = 'COLLECTION'
+                                 AND pp.value_reference = alvo.colecao) THEN 2 ELSE 0 END
+          DESC, p.position ASC
+        LIMIT ?`,
+    )
+    .bind(variantId, limit)
+    .all<ProductRow & { same_type: boolean; same_collection: boolean; shared_tags: string[] }>();
+
+  if (rows.length === 0) return [];
+
+  const records = await withChildren(
+    db,
+    rows.map(({ same_type: _t, same_collection: _c, shared_tags: _s, ...produto }) => produto),
+  );
+
+  return records.map((record, i) => {
+    const row = rows[i];
+    const sharedTags = row.shared_tags ?? [];
+    return {
+      record,
+      sameType: !!row.same_type,
+      sameCollection: !!row.same_collection,
+      sharedTags,
+      score: sharedTags.length * 3 + (row.same_type ? 4 : 0) + (row.same_collection ? 2 : 0),
+    };
+  });
 };

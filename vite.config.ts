@@ -1,4 +1,3 @@
-import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { decoVitePlugin } from "@decocms/tanstack/vite";
 import react from "@vitejs/plugin-react";
@@ -16,7 +15,6 @@ export default defineConfig({
     // the store's custom domain).
   },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart({ server: { entry: "server" } }),
     react({
       babel: {
@@ -62,23 +60,27 @@ export default defineConfig({
         }
       },
     },
-    // `cloudflare:workers` só existe no runtime do Worker. O catálogo o importa
-    // (src/platform/catalog/catalog.d1.ts) e chega ao grafo do client pelos
-    // dynamic imports de loaders em setup.ts — Rollup então falha o build com
-    // "Failed to resolve import". Os loaders nunca executam no browser, então no
-    // client o módulo vira um stub: se alguma vez for carregado, `env.CATALOG_DB`
-    // é undefined e `getDb()` já trata isso devolvendo lista vazia.
+    // O driver do Postgres importa builtins do Node (crypto, stream,
+    // perf_hooks) e não tem o que fazer no browser. Ele chega ao grafo do
+    // client do mesmo jeito que `cloudflare:workers` chegava antes: o catálogo
+    // o importa (src/platform/db) e os dynamic imports de loaders em setup.ts
+    // arrastam a cadeia inteira — o Rollup então falha o build do client em
+    // "perf_hooks não pode ser resolvido".
+    //
+    // Os loaders nunca rodam no browser, então no client o módulo vira um stub
+    // que devolve `null`: `getClient()` propaga esse null, `getDb()` devolve
+    // null e cada leitura já cai no seu fallback (lista vazia, `false`).
     {
-      name: "deco-stub-cloudflare-workers",
+      name: "deco-stub-postgres",
       enforce: "pre" as const,
       resolveId(id, _importer, options) {
-        if (!options?.ssr && id === "cloudflare:workers") {
-          return "\0stub:cloudflare-workers";
+        if (!options?.ssr && id === "postgres") {
+          return "\0stub:postgres";
         }
       },
       load(id) {
-        if (id === "\0stub:cloudflare-workers") {
-          return "export const env = {};";
+        if (id === "\0stub:postgres") {
+          return "export default () => null;";
         }
       },
     },

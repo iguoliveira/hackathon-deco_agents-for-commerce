@@ -97,10 +97,11 @@ par (item, tamanho) não podia ser exercitado. Migration roda em qualquer
 ambiente onde o banco for aplicado, então **precisa ser revertida antes de o
 catálogo ser real**, ou dois produtos ficam artificialmente esgotados.
 
-**Não existe banco remoto.** O `database_id` no `wrangler.jsonc` é um
-placeholder deliberado: funciona em `vite dev`, falha de propósito em
-`wrangler deploy`. Os dados existem só na máquina de quem rodou, e
-`db:reset` / `dev:clean` / `clean` apagam tudo.
+**O banco agora é remoto e compartilhado.** Isto mudou: o D1 local deu lugar ao
+Postgres do Supabase (ver `docs/deploy-vercel-supabase.md`). A consequência para
+esta feature é que `stock_alerts` deixou de ser um arquivo na máquina de quem
+rodou e passou a ser dado que todo mundo enxerga — e que `npm run db:reset`
+apaga de verdade, para todos. Por isso o reset passou a exigir `--confirm`.
 
 **Deslogado, ninguém é reconhecido de volta.** A identidade é o e-mail digitado,
 que só existe no instante do envio. Um visitante anônimo que volta amanhã não
@@ -113,23 +114,66 @@ newsletter) com fusão no login. Adiado de propósito.
 pares e-mail/variante. A variante é validada contra o catálogo, então lixo puro
 não entra, mas nada impede volume.
 
-## O que limita a qualidade do agente
+## A entrada do agente (resolvido nas migrations 0007–0010)
 
-Levantado sobre o catálogo atual (31 produtos):
+Este diagnóstico já foi endereçado. O estado antes e depois:
 
-| | |
-|---|---|
-| Sem `product_type` | 28 de 31 (90%) |
-| Com tags | 3 de 31 (10%) |
-| Com coleção | 24 de 31 (77%) |
-| Com descrição | 31 de 31 (100%) |
+| | antes | depois |
+|---|---|---|
+| Produtos | 31 | **32** |
+| Com `product_type` | 3 (10%) | **32 (100%)** |
+| Com tags | 3 (10%) | **32 (100%)** |
+| Com coleção | 24 (77%) | **32 (100%)** |
+| Com descrição | 31 (100%) | 32 (100%) |
 
-Os dois eixos óbvios de similaridade (tipo e tags) praticamente não existem. O
-agente vai depender de **coleção** — que é grossa, já que uma coleção pode ser
-quase o catálogo inteiro — e de **descrição**, que é texto livre e exige o
-modelo ler prosa.
+O problema nunca foi falta de informação — as descrições têm média de 866
+caracteres e já diziam público, material, estilo e motivo. Estava tudo em
+prosa, e os campos estruturados, vazios.
 
-Some-se a isso que só entra na tabela quem clicou num produto esgotado, o que é
-uma fração pequena dos visitantes. Um agente excelente sobre entrada pobre
-produz vitrine que parece aleatória, e a conclusão fácil (errada) é culpar o
-modelo. Se a qualidade decepcionar, **suspeite da entrada antes do agente**.
+- **0007** devolveu 10 itens de lifestyle que a 0004 tinha removido, apostando
+  que dariam a dimensão "combina com".
+- **0008** promoveu a campo o que a descrição já dizia, e corrigiu coleções —
+  4 produtos estavam em `stickers` (item que saiu do menu) e calçados e
+  infantil não tinham coleção nenhuma.
+- **0009** preparou similaridade: índice full-text e a extensão `pgvector` com
+  a coluna de embedding, ainda vazia.
+- **0010** desfez a aposta da 0007 e removeu 9 itens que não são roupa nem
+  acessório (caneca, garrafa, caderno, caneta, almofada, pelúcia). Numa loja de
+  roupa, "você queria um moletom, leve uma caneca" não é complemento, é
+  estranheza. E os dados confirmaram: com as tags no lugar, nenhum item de
+  lifestyle aparecia no top 8 de `findSimilarAvailable` — ocupavam catálogo sem
+  nunca serem recomendados. Ficaram os acessórios de uso pessoal (bolsas,
+  chapéus, capa de celular), que são vestíveis ou de carregar.
+
+`findSimilarAvailable` (em `catalog.d1.ts`) é a consulta que alimenta o agente.
+Ela devolve **os componentes da nota, não só a nota** — `sameType`,
+`sameCollection`, `sharedTags` — porque o agente precisa saber se cada
+candidato é *alternativa* (mesmo tipo) ou *complemento* (tipo diferente, tags
+em comum) para montar a vitrine e justificá-la em texto. Só entram produtos com
+variante disponível.
+
+Para quem esperou o Eco Raglan Hoodie M, ela devolve hoje:
+
+```
+14  mesma coleção  basic,cotton,layering,winter   Hoodie
+14  mesma coleção  basic,cotton,layering,winter   Women's Sweatshirt
+12  —              unisex,basic,cotton,winter     Winter Hat
+11  mesma coleção  unisex,cotton,winter           The Future of Web Dev Sweatshirt
+ 9  —              unisex,layering,winter         All-Over Print Bomber Jacket
+```
+
+Alternativas no topo, complemento cruzado logo abaixo — e cada linha
+explicável sem recorrer a embedding.
+
+## O que ainda limita
+
+**Embeddings não estão populados.** A coluna existe (`products.embedding`,
+1536 dimensões), a extensão está habilitada, mas preencher exige um provedor
+externo — a Anthropic não serve embeddings; OpenAI, Voyage ou o `gte-small` do
+próprio Supabase servem. Com estrutura em 41/41, a ordenação por SQL já cobre
+a maior parte; vale medir a vitrine antes de decidir que precisa de vetor.
+
+**Só entra na tabela quem clicou num produto esgotado**, que é uma fração
+pequena dos visitantes. Um agente excelente sobre entrada pobre produz vitrine
+que parece aleatória, e a conclusão fácil (errada) é culpar o modelo. Se a
+qualidade decepcionar, **suspeite da entrada antes do agente**.

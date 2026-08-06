@@ -17,7 +17,7 @@
 -- catálogo — e é a leitura, não o banco, que decide o que ainda faz sentido
 -- mostrar.
 CREATE TABLE IF NOT EXISTS stock_alerts (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  id         INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   -- Referencia variants(variant_id) semanticamente, sem constraint (ver acima).
   variant_id TEXT NOT NULL,
   -- Identidade do comprador. O login do site ainda passa pelo Shopify, então o
@@ -26,7 +26,13 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
   email      TEXT NOT NULL,
   name       TEXT,
   -- ISO 8601 (UTC). Ordena a shelf: o desejo mais recente pesa mais.
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  --
+  -- TEXT e não `timestamptz` de propósito. `WaitedItem.waitedAt` é `string`, e
+  -- um timestamptz voltaria do driver como `Date` — o tipo passaria a mentir e
+  -- todo consumidor precisaria converter. Como o formato é ISO 8601 com Z, o
+  -- ORDER BY lexicográfico do índice abaixo já ordena cronologicamente.
+  created_at TEXT NOT NULL
+             DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 );
 
 -- Clicar duas vezes no mesmo tamanho é o mesmo desejo, não dois. O UNIQUE deixa

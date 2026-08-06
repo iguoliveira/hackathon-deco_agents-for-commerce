@@ -17,14 +17,17 @@ SELECT
   p.vendor                                            AS marca,
   v.price                                             AS preco,
   v.available                                         AS disponivel_agora,
-  (SELECT GROUP_CONCAT(vo.name || '=' || vo.value, ' | ')
+  -- STRING_AGG e não GROUP_CONCAT: aquele era do SQLite. No Postgres o
+  -- separador é obrigatório, inclusive nas duas agregações de baixo, onde o
+  -- SQLite o deixava implícito.
+  (SELECT STRING_AGG(vo.name || '=' || vo.value, ' | ' ORDER BY vo.position)
      FROM variant_options vo
     WHERE vo.variant_id = v.variant_id)               AS opcoes,
-  (SELECT GROUP_CONCAT(pp.value_reference)
+  (SELECT STRING_AGG(pp.value_reference, ', ')
      FROM product_props pp
     WHERE pp.product_group_id = p.product_group_id
       AND pp.name = 'COLLECTION')                     AS colecoes,
-  (SELECT GROUP_CONCAT(pp.value)
+  (SELECT STRING_AGG(pp.value, ', ')
      FROM product_props pp
     WHERE pp.product_group_id = p.product_group_id
       AND pp.name = 'TAG')                            AS tags,
