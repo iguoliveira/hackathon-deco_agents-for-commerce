@@ -223,7 +223,8 @@ const sendWebResponse = async (response: Response, res: NodeResponse): Promise<v
  * `res.writeHead` é o discriminador confiável: no formato web não há segundo
  * argumento, e um `Request` nunca tem esse método.
  */
-export default async function handler(
+/** Handler interno (usa RequestContext, middleware, etc.). */
+async function handler(
   request: Request | NodeRequest,
   ...rest: unknown[]
 ): Promise<Response | void> {
@@ -236,3 +237,21 @@ export default async function handler(
   const webRequest = await toWebRequest(request as NodeRequest);
   await sendWebResponse(await handleWebRequest(webRequest), res);
 }
+
+/**
+ * Export compatível com:
+ * - **TanStack Start dev server**: espera `default.fetch(request)`
+ * - **Vercel (produção)**: chama `default(request, response)` direto
+ *
+ * O discriminador `res?.writeHead` continua funcionando porque:
+ * - No dev server: `fetch` recebe só `Request` → `rest[0]` é `undefined` → cai no `handleWebRequest`
+ * - Na Vercel: recebe `(IncomingMessage, ServerResponse)` → `res.writeHead` existe → cai no caminho Node
+ */
+export default {
+  fetch: (request: Request) => handler(request),
+  // Mantém a assinatura Node para a Vercel chamar direto
+  // (o `fetch` acima não é usado lá, mas não atrapalha)
+  async handler(request: Request | NodeRequest, ...rest: unknown[]) {
+    return handler(request, ...rest);
+  },
+};
