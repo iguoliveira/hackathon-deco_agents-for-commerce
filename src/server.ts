@@ -242,19 +242,23 @@ async function handler(
 }
 
 /**
- * Export compatível com:
- * - **TanStack Start dev server**: espera `default.fetch(request)`
- * - **Vercel (produção)**: chama `default(request, response)` direto
+ * Export compatível com os dois consumidores, que esperam formas diferentes:
  *
- * O discriminador `res?.writeHead` continua funcionando porque:
- * - No dev server: `fetch` recebe só `Request` → `rest[0]` é `undefined` → cai no `handleWebRequest`
- * - Na Vercel: recebe `(IncomingMessage, ServerResponse)` → `res.writeHead` existe → cai no caminho Node
+ * - **dev server do TanStack Start** faz `default.fetch(request)`
+ * - **Vercel (produção)** e `npm run preview` fazem `default(req, res)`
+ *
+ * Por isso o default é uma FUNÇÃO com `.fetch` pendurado, e não um objeto
+ * `{ fetch }`. Um objeto atende o dev server e quebra a produção com
+ * `default is not a function` — e a quebra é invisível localmente, porque em
+ * `vite dev` só o `.fetch` é exercitado.
+ *
+ * O discriminador `res?.writeHead` continua valendo nos dois caminhos: pelo
+ * `.fetch` chega só um `Request` (sem segundo argumento), e pela Vercel chega
+ * `(IncomingMessage, ServerResponse)`.
  */
-export default {
-  fetch: (request: Request) => handler(request),
-  // Mantém a assinatura Node para a Vercel chamar direto
-  // (o `fetch` acima não é usado lá, mas não atrapalha)
-  async handler(request: Request | NodeRequest, ...rest: unknown[]) {
-    return handler(request, ...rest);
-  },
+const entry = handler as typeof handler & {
+  fetch: (request: Request) => Promise<Response>;
 };
+entry.fetch = (request: Request) => handleWebRequest(request);
+
+export default entry;
