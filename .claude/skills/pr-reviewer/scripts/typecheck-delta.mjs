@@ -20,7 +20,8 @@
  *
  *   0  mediu, nada introduzido
  *   1  mediu, e a PR INTRODUZ erro (ruído pré-existente NÃO derruba)
- *   2  erro de uso (argumento faltando, --pr não numérico, tsc não instalado)
+ *   2  erro de uso (argumento faltando, --pr não numérico, tsc não instalado,
+ *      árvore suja, PR mergeada sem merge commit)
  *   3  não deu para medir (tsc não rodou, ref inexistente, exceção no meio)
  *
  * O 3 existe porque 1 e "quebrei no meio" eram indistinguíveis: qualquer exceção
@@ -86,7 +87,10 @@ const sujo = git("status", "--porcelain", "--untracked-files=no");
 if (sujo) {
   console.error(C.red("Há mudanças não commitadas. Commite ou guarde antes de rodar:"));
   console.error(sujo);
-  process.exit(1);
+  // 2, não 1: a medição nem começou. Sair 1 aqui devolveria o código reservado
+  // para "a PR introduz erro" a quem só esqueceu de commitar, e é o mesmo engano
+  // que o 3 existe para evitar do outro lado.
+  process.exit(2);
 }
 
 // Não rastreado NÃO barra: o git o deixa quieto durante o switch, e exigir
@@ -107,9 +111,9 @@ if (pr) {
   }
   // Fora de refs/heads/ de propósito. Um `pr-7` seria um branch no espaço de
   // nomes de quem roda, e o `--force` (necessário para reexecutar) apagaria em
-  // silêncio um `pr-7` que a pessoa tivesse criado à mão — inclusive o que a §0
-  // do SKILL.md manda criar quando não há `gh`. Aqui o --force não pisa em nada
-  // de ninguém, e o ref não aparece no `git branch`.
+  // silêncio um `pr-7` que a pessoa tivesse criado à mão. Aqui o --force não
+  // pisa em nada de ninguém, e o ref não aparece no `git branch`. O SKILL.md
+  // usa este mesmo namespace nas receitas manuais: uma PR, um ref.
   head = `refs/pr-review/${pr}`;
   console.log(C.cyan(`buscando refs/pull/${pr}/head -> ${head} ...`));
   git("fetch", "origin", `refs/pull/${pr}/head:${head}`, "--force");
@@ -151,6 +155,10 @@ if (mergeBase === headSha) {
           `(provável fast-forward ou squash). Passe --base <ref anterior ao merge>.`,
       ),
     );
+    // Sem merge commit não há 1º pai para inferir a base: achar o ponto de
+    // partida vira leitura humana do histórico. O --base que se procura é o
+    // commit do base imediatamente ANTERIOR ao 1º commit desta PR.
+    console.error(C.dim(`  git log --oneline --graph ${base} | head -30`));
     process.exit(2);
   }
   mergeBase = git("rev-parse", `${mergeCommit}^1`);

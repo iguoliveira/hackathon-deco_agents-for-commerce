@@ -100,8 +100,14 @@ Se o Credential Manager do git está configurado, **o diff já é acessível sem
 `gh`**, mesmo em repo privado:
 
 ```sh
-git fetch origin refs/pull/<N>/head:pr-<N>
+git fetch origin refs/pull/<N>/head:refs/pr-review/<N>
 ```
+
+**Fora de `refs/heads/` de propósito**, e o mesmo namespace que o script da §3
+usa. Um `pr-<N>` seria um branch no espaço de nomes de quem roda, e apareceria no
+`git branch` de todo mundo; pior, o `--force` necessário para reexecutar apagaria
+em silêncio um `pr-<N>` criado à mão. Use `refs/pr-review/<N>` em todo lugar —
+uma PR, um ref.
 
 Só a **descrição** da PR e o **post** exigem `gh` (ou navegador). Vale saber
 para não travar a revisão inteira por falta de setup: dá para revisar o código e
@@ -177,13 +183,13 @@ poluído com merges de PRs antigas que não são desta. Sempre pelo merge-base:
 
 ```sh
 # o ref local da PR: nada antes desta linha o cria, nem quando o `gh` está ok
-git fetch origin refs/pull/<N>/head:pr-<N> --force
+git fetch origin refs/pull/<N>/head:refs/pr-review/<N> --force
 
 git fetch origin main
-MB=$(git merge-base origin/main pr-<N>)
-git log --oneline "$MB..pr-<N>"
-git diff --stat "$MB..pr-<N>"
-git diff "$MB..pr-<N>" -- <caminho>
+MB=$(git merge-base origin/main refs/pr-review/<N>)
+git log --oneline "$MB..refs/pr-review/<N>"
+git diff --stat "$MB..refs/pr-review/<N>"
+git diff "$MB..refs/pr-review/<N>" -- <caminho>
 ```
 
 Em PR grande, leia por área (plataforma, componentes, scripts, dados gerados) em
@@ -194,7 +200,7 @@ nem poste um comentário completo de novo. Escope no que mudou desde a última
 passada e diga no comentário que é a segunda:
 
 ```sh
-git diff <head-da-revisao-anterior>..pr-<N>
+git diff <head-da-revisao-anterior>..refs/pr-review/<N>
 ```
 
 ## 3. Rodar as verificações — sempre contra a linha de base
@@ -243,9 +249,9 @@ igual:
 # guarde o ponto de retorno ANTES de sair daqui
 VOLTAR=$(git symbolic-ref --short -q HEAD || git rev-parse HEAD)
 
-MB=$(git merge-base origin/main pr-<N>)
+MB=$(git merge-base origin/main refs/pr-review/<N>)
 git switch --detach "$MB" && npm run typecheck > /tmp/base.txt 2>&1
-git switch --detach pr-<N> && npm run typecheck > /tmp/head.txt 2>&1
+git switch --detach refs/pr-review/<N> && npm run typecheck > /tmp/head.txt 2>&1
 
 git switch "$VOLTAR"                                   # volte ANTES de analisar
 comm -13 <(sort /tmp/base.txt) <(sort /tmp/head.txt)   # só o que o head tem a mais
