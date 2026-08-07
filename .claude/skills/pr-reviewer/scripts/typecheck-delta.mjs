@@ -16,12 +16,25 @@
  * rodou em HEAD destacado na branch de outra pessoa, sem aviso. Aqui o branch
  * volta mesmo quando algo falha.
  *
- * Sai 1 só quando a PR INTRODUZ erro — ruído pré-existente não derruba
- * automação encadeada.
+ * Códigos de saída, para automação encadeada conseguir separar achado de pane:
+ *
+ *   0  mediu, nada introduzido
+ *   1  mediu, e a PR INTRODUZ erro (ruído pré-existente NÃO derruba)
+ *   2  erro de uso (argumento faltando, --pr não numérico, tsc não instalado)
+ *   3  não deu para medir (tsc não rodou, ref inexistente, exceção no meio)
+ *
+ * O 3 existe porque 1 e "quebrei no meio" eram indistinguíveis: qualquer exceção
+ * fazia o node sair 1 sozinho, e quem lesse o código concluiria que a PR tinha
+ * erro de tipo quando na verdade a medição nunca aconteceu.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+
+// Falha de infraestrutura (tsc não rodou, ref não existe), distinta de "a PR
+// introduziu erro". As duas saíam 1 antes, e automação encadeada não conseguia
+// separar "achei defeito" de "quebrei no meio".
+class FalhaOperacional extends Error {}
 
 const C = {
   dim: (s) => `\x1b[2m${s}\x1b[0m`,
@@ -92,12 +105,31 @@ if (pr) {
     console.error("--pr precisa ser um número.");
     process.exit(2);
   }
-  head = `pr-${pr}`;
+  // Fora de refs/heads/ de propósito. Um `pr-7` seria um branch no espaço de
+  // nomes de quem roda, e o `--force` (necessário para reexecutar) apagaria em
+  // silêncio um `pr-7` que a pessoa tivesse criado à mão — inclusive o que a §0
+  // do SKILL.md manda criar quando não há `gh`. Aqui o --force não pisa em nada
+  // de ninguém, e o ref não aparece no `git branch`.
+  head = `refs/pr-review/${pr}`;
   console.log(C.cyan(`buscando refs/pull/${pr}/head -> ${head} ...`));
   git("fetch", "origin", `refs/pull/${pr}/head:${head}`, "--force");
 }
 
 gitQuieto("fetch", "origin", base.replace(/^origin\//, ""));
+
+// O caminho --pr acabou de buscar o ref; o --head recebe o que o usuário digitou
+// e pode não existir localmente. Sem isto, o `merge-base` abaixo joga e a pessoa
+// recebe um stack trace de execFileSync em vez de saber que errou o nome.
+for (const [ref, rotulo] of [
+  [head, "--head"],
+  [base, "--base"],
+]) {
+  if (gitQuieto("rev-parse", "--verify", "--quiet", `${ref}^{commit}`).status !== 0) {
+    console.error(C.red(`Não consegui resolver ${rotulo} "${ref}" neste repositório.`));
+    console.error(C.dim("Confira o nome, ou busque antes: git fetch origin <ref>"));
+    process.exit(3);
+  }
+}
 
 let mergeBase = git("merge-base", base, head);
 const headSha = git("rev-parse", head);
@@ -141,39 +173,81 @@ if (!existsSync(tsc)) {
 const verificar = (ref, rotulo) => {
   console.log(C.yellow(`\n--- ${rotulo} (${ref}) ---`));
   git("switch", "--detach", ref, "--quiet");
-  // tsc escreve diagnóstico em stdout e sai != 0 quando há erro — o status não
-  // interessa, só as linhas.
+  // tsc escreve diagnóstico em stdout e sai != 0 quando há erro — para o caso
+  // normal o status não interessa, só as linhas.
   const r = spawnSync(process.execPath, [tsc, "--noEmit"], { cwd: raiz, encoding: "utf8" });
+  if (r.error) throw r.error;
   const erros = (r.stdout ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => /error TS\d+/.test(l));
+
+  // Mas status != 0 SEM nenhuma linha casada não é "compilou limpo", é "não
+  // compilou": OOM, tsconfig ilegível, node incompatível. Sem esta checagem o
+  // crash vira lista vazia e o delta responde com confiança — se morrer na BASE,
+  // todo erro do head é reportado como introduzido; se morrer no HEAD, a PR passa
+  // limpa sem ninguém ter checado. Um "nada introduzido" falso é pior que um
+  // erro, porque parece resposta.
+  if (r.status !== 0 && erros.length === 0) {
+    const saida = ((r.stderr ?? "") + (r.stdout ?? "")).trim();
+    // throw, nunca process.exit: exit não roda o `finally`, e o branch ficaria
+    // destacado — justamente o que este script existe para não deixar acontecer.
+    throw new FalhaOperacional(
+      `tsc falhou em ${rotulo} (status ${r.status}) sem emitir diagnóstico.\n` +
+        (saida ? saida.slice(0, 2000) : "(sem saída)"),
+    );
+  }
+
   console.log(`${erros.length} erro(s).`);
   return erros;
 };
 
-// Ponto de retorno. Em HEAD destacado, `--abbrev-ref` devolve "HEAD" — aí só o
-// SHA serve.
-let voltarPara = git("rev-parse", "--abbrev-ref", "HEAD");
-if (voltarPara === "HEAD") voltarPara = git("rev-parse", "HEAD");
+// Ponto de retorno. O `symbolic-ref` responde a pergunta certa — "HEAD está
+// preso a um branch?" — em vez de inferir pelo formato do nome: `rev-parse
+// --abbrev-ref` devolve a string "HEAD" quando destacado, e um branch cujo nome
+// seja hexadecimal (`deadbeef`) é indistinguível de um SHA por regex.
+const refSimbolico = gitQuieto("symbolic-ref", "--short", "-q", "HEAD");
+const eraBranch = refSimbolico.status === 0;
+const voltarPara = eraBranch ? refSimbolico.stdout.trim() : git("rev-parse", "HEAD");
 
-let antes, depois;
+let antes, depois, falha;
 try {
   antes = verificar(mergeBase, "BASE");
-  depois = verificar(head, "HEAD");
+  // Pelo SHA, não pelo nome: `refs/pr-review/N` é um ref fora de refs/heads/ e
+  // o `switch --detach` merece um commit-ish sem ambiguidade.
+  depois = verificar(headSha, `HEAD (${head})`);
+} catch (e) {
+  // Capturado, não propagado: propagar faria o node sair 1 sozinho, que é o
+  // código reservado para "a PR introduziu erro". O `finally` restaura primeiro,
+  // e a saída certa é decidida depois dele.
+  falha = e;
 } finally {
-  gitQuieto("switch", "--detach", voltarPara, "--quiet");
-  // Se era branch nomeado, reata o nome em vez de deixar HEAD destacado.
-  if (!/^[0-9a-f]{7,40}$/.test(voltarPara)) gitQuieto("switch", voltarPara, "--quiet");
+  // `eraBranch` vem do `symbolic-ref` lá de cima, não de adivinhar o formato do
+  // nome: um branch chamado `deadbeef` casa com regex de SHA e ficaria destacado.
+  if (eraBranch) gitQuieto("switch", voltarPara, "--quiet");
+  else gitQuieto("switch", "--detach", voltarPara, "--quiet");
   console.log(C.dim(`\nbranch restaurado: ${voltarPara}`));
+}
+
+if (falha) {
+  console.error(C.red(`\n${falha.message}`));
+  if (!(falha instanceof FalhaOperacional)) console.error(falha.stack ?? "");
+  // 3 = não consegui medir. Distinto de 1 = medi, e a PR introduziu erro.
+  process.exit(3);
 }
 
 // --- delta ------------------------------------------------------------------
 
-const setAntes = new Set(antes);
-const setDepois = new Set(depois);
-const novos = depois.filter((e) => !setAntes.has(e));
-const sumidos = antes.filter((e) => !setDepois.has(e));
+// Multiconjunto, não Set: o mesmo diagnóstico pode aparecer várias vezes, e com
+// Set um head com duas ocorrências de um erro que a base tinha uma vez sairia
+// como "nada introduzido". Compara por contagem, então a segunda ocorrência conta.
+const contar = (lista) => lista.reduce((m, e) => m.set(e, (m.get(e) ?? 0) + 1), new Map());
+const cAntes = contar(antes);
+const cDepois = contar(depois);
+const diferenca = (a, b) =>
+  [...a].flatMap(([erro, n]) => Array(Math.max(0, n - (b.get(erro) ?? 0))).fill(erro));
+const novos = diferenca(cDepois, cAntes);
+const sumidos = diferenca(cAntes, cDepois);
 
 console.log(C.cyan("\n================ DELTA ================"));
 console.log(`base: ${antes.length}   head: ${depois.length}`);

@@ -111,10 +111,47 @@ entregar o texto no chat.
 
 ## 1. Ler a PR
 
+### Primeiro: não desmonte a URL
+
+Se veio uma URL, **passe-a inteira para o `gh`**. Não extraia o número.
+
 ```sh
-gh pr view <N> --json title,body,author,state,baseRefName,headRefName,additions,deletions,changedFiles
-gh pr diff <N> --name-only
+ALVO="https://github.com/owner/repo/pull/7"   # ou só: 7
+gh pr view "$ALVO" --json number,title,body,author,state,baseRefName,headRefName,url,additions,deletions,changedFiles
+gh pr diff "$ALVO" --name-only
 ```
+
+O motivo é uma armadilha silenciosa: `gh pr view 7` resolve pelo repositório
+**onde você está**, não pelo repositório da URL. Cole uma URL de outro repo,
+extraia o `7`, e a revisão sai inteira sobre a PR errada — título errado, diff
+errado, tudo coerente e tudo falso. O `gh` aceita a URL completa e vai no repo
+certo; deixe ele resolver.
+
+Prove que o alvo é o que você pensa antes de gastar contexto: o `url` que voltou
+tem que bater com o que foi pedido. Se apontar para fora do repo atual, **pare** —
+o `git fetch origin refs/pull/N/head` da §2 buscaria a PR de número igual deste
+repo, e as duas metades da revisão falariam de PRs diferentes. Nesse caso, ou
+troque de diretório, ou faça a revisão só pelo `gh` (sem as etapas §2 e §3) e
+diga no comentário que foi só leitura.
+
+### Estado e conversa que já existe
+
+```sh
+gh pr view "$ALVO" --json state,isDraft,comments,reviews,statusCheckRollup
+```
+
+Três coisas mudam o que vale escrever:
+
+- **`state`/`isDraft`** — PR mergeada ou fechada se revisa em pretérito, e a §3
+  precisa do tratamento de merge-base que o script já tem. Draft merece revisão
+  mais leve: o autor ainda está escrevendo.
+- **`comments`/`reviews`** — repetir um achado que alguém já levantou é ruído, e
+  contradizer um combinado da thread sem saber que ele existe é pior. Se um ponto
+  já foi feito, referencie em vez de reescrever.
+- **`statusCheckRollup`** — se o CI já está vermelho, não reporte à mão o que ele
+  já gritou. Aponte o que o CI **não** pega.
+
+### O diff
 
 **Nunca rode `gh pr diff <N>` sem filtro.** É o maior desperdício possível aqui:
 a PR #6 tinha 4.277 linhas, das quais 3.648 eram uma migration SQL gerada e o
@@ -139,6 +176,9 @@ Nunca use `main..pr-N`. O `main` local costuma estar velho, e o intervalo vem
 poluído com merges de PRs antigas que não são desta. Sempre pelo merge-base:
 
 ```sh
+# o ref local da PR: nada antes desta linha o cria, nem quando o `gh` está ok
+git fetch origin refs/pull/<N>/head:pr-<N> --force
+
 git fetch origin main
 MB=$(git merge-base origin/main pr-<N>)
 git log --oneline "$MB..pr-<N>"
@@ -149,7 +189,21 @@ git diff "$MB..pr-<N>" -- <caminho>
 Em PR grande, leia por área (plataforma, componentes, scripts, dados gerados) em
 vez de tudo de uma vez.
 
+**Se já revisou esta PR antes** e o autor empurrou commits novos, não releia tudo
+nem poste um comentário completo de novo. Escope no que mudou desde a última
+passada e diga no comentário que é a segunda:
+
+```sh
+git diff <head-da-revisao-anterior>..pr-<N>
+```
+
 ## 3. Rodar as verificações — sempre contra a linha de base
+
+**Pule esta seção se o `--name-only` da §1 não trouxe nenhum `.ts`/`.tsx`** — e
+diga no comentário que pulou. Dois `tsc --noEmit` completos para confirmar um
+empate garantido é o mesmo desperdício que o diff cru da §1, só que mais lento.
+PR de documentação, de skill ou de configuração não move o número. (A #7 foi
+exatamente isso: três arquivos, `.md` + `.mjs` + `.json`, e o delta deu 6/6.)
 
 Esta é a etapa que separa achado de ruído. **Um erro no head não é um erro
 introduzido pela PR até você provar que o merge-base não o tinha.** Rode nos
@@ -201,9 +255,11 @@ Checklist do que já mordeu aqui e não aparece no diff:
   `DELETE` de início é restrito por prefixo (`gid://catalog/` não pode encostar
   em `gid://shopify/`).
 - **Off-by-one de paginação mora em três lugares.** Loader
-  (`catalog.actions.ts`), montagem (`catalog.plp.ts`) e componente
-  (`SearchResult.tsx`, via `startingPage` dos blocos). Uma correção que só toca
-  um deles conserta metade.
+  (`src/platform/catalog/catalog.actions.ts`), montagem
+  (`src/platform/catalog/catalog.plp.ts`) e componente — e aqui existem **dois**
+  `SearchResult.tsx`, `src/components/search/` e `src/sections/Product/`, que é
+  o que recebe `startingPage` dos blocos. Uma correção que só toca um deles
+  conserta metade.
 - **Status 200 não é sinal de saúde.** As sections são lazy; loader que falha
   vira section vazia e a página segue 200. Nunca conclua "funciona" a partir de
   código HTTP.
@@ -214,8 +270,8 @@ Ordem que funciona:
 
 1. **Uma linha dizendo que não bloqueia**, logo no topo. É a primeira coisa que
    o autor precisa saber.
-2. **O que está certo na descrição**, quando estiver. Revisão que só aponta
-   defeito ensina a escrever descrição pior.
+2. **O que a PR acertou** — e isto vem *antes* dos achados, não como consolo
+   depois deles. Veja a regra de tom abaixo.
 3. **Achados numerados**, do mais grave ao menos. Cada um com `arquivo:linha`,
    a consequência concreta, e a correção sugerida. Sem consequência, é preferência.
 4. **Menores**, agrupados.
@@ -226,12 +282,48 @@ Ordem que funciona:
 Separe sempre **"achei um bug"** de **"eu teria feito diferente"**. As duas coisas
 cabem no comentário; misturá-las faz a segunda parecer a primeira.
 
+### O tom: específico nos dois sentidos
+
+O comentário aponta problema **e** reconhece força, e as duas coisas obedecem ao
+mesmo padrão de prova. Elogio genérico não vale nada — "bom trabalho", "ficou
+limpo" é ruído que o autor aprende a pular, e pular o elogio é como ele passa a
+pular o resto. **Elogie com a mesma precisão com que acusa:** nomeie a decisão,
+o arquivo, e por que aquilo foi a escolha certa.
+
+| Não | Sim |
+|---|---|
+| "PR bem feita, parabéns!" | "A descrição registra o `.ps1` descartado e o bug de encoding que ele trouxe — decisão que não se recupera lendo o diff." |
+| "O script está bom." | "O `finally` restaura o branch mesmo quando o `tsc` falha no meio; rodei e confirmei que a árvore volta limpa." |
+| "Só uns pontinhos." | "Um achado com consequência real, três menores." |
+
+Três regras que sustentam isso:
+
+- **Verifique o elogio.** Se disse que algo funciona, foi porque rodou. O item 5
+  da ordem existe para isso — é a seção que separa "eu li" de "eu testei".
+- **Não invente força para equilibrar.** Se a PR é fraca, o comentário é curto na
+  parte boa e honesto no resto. Simetria forçada é desonestidade educada.
+- **Ataque o código, nunca quem escreveu.** "Esta função conta crash como zero
+  erros" e não "você esqueceu de tratar o status". A primeira o autor conserta; a
+  segunda ele defende.
+
+O objetivo é o autor terminar a leitura sabendo **o que preservar** com a mesma
+clareza com que sabe o que mudar. Revisão que só lista defeito ensina o time a
+escrever PR pior — porque ninguém aprende qual parte valeu.
+
+### Quando o autor é você
+
+Auto-revisão é uso legítimo — foi assim que a #7 encontrou os próprios defeitos.
+Mas a cerimônia de postar comentário na própria PR normalmente não faz sentido:
+se você pode corrigir, corrija, e deixe o comentário para o que ficou como
+decisão consciente. Pergunte ao usuário qual dos dois ele quer antes de assumir.
+
 ## 6. Postar
 
-Mostre o texto ao usuário e pergunte antes. Depois:
+Mostre o texto ao usuário e pergunte antes. Depois, com o **mesmo `$ALVO`** da §1
+— aqui o repo errado publica de verdade, não só lê errado:
 
 ```sh
-gh pr comment <N> --body-file <arquivo.md>
+gh pr comment "$ALVO" --body-file <arquivo.md>
 ```
 
 Escreva o corpo num arquivo do scratchpad, nunca inline — o texto tem crase,
@@ -244,8 +336,8 @@ gh pr review <N> --request-changes   # bloqueia o merge
 gh pr close <N>                      # nem preciso explicar
 ```
 
-`gh pr review <N> --comment --body-file …` também não bloqueia e ancora melhor na
-timeline — use só se o usuário pedir "review" com essa palavra. O default é
+`gh pr review "$ALVO" --comment --body-file …` também não bloqueia e ancora melhor
+na timeline — use só se o usuário pedir "review" com essa palavra. O default é
 `gh pr comment`.
 
 ### Sem `gh` autenticado
