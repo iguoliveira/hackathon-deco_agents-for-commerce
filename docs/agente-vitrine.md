@@ -1,532 +1,364 @@
-# Agente da vitrine — decisões e problemas em aberto
+# Agente da vitrine
 
-Documento de trabalho da branch `feature/agente-vitrine`. Registra **o que foi
-decidido e por quê** antes de existir código, para que nenhuma dessas escolhas
-precise ser redescoberta por tentativa e erro.
+Quem tentou comprar uma peça e não pôde, porque o tamanho estava esgotado,
+ganha duas vitrines montadas por IA **a partir daquele item**: o que substitui
+o que faltou, e o que se veste junto.
 
-O que a feature é, e por que o sinal de "avise-me" vale mais que um e-mail, está
-em [`feature-back-in-stock-shelf.md`](feature-back-in-stock-shelf.md) — não
-repito aqui.
+O sinal de entrada — o clique em "avise-me quando voltar" — e por que ele vale
+mais que um e-mail estão em
+[`feature-back-in-stock-shelf.md`](feature-back-in-stock-shelf.md).
 
-## Em uma linha
+## Como rodar
 
-Quem tentou comprar uma peça e não pôde, por causa do tamanho esgotado, ganha
-uma vitrine montada a partir **daquele item** — alternativas e complementos que
-estão em estoque agora.
+```bash
+npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com              # imprime, não grava
+npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com --candidatos # mostra os pools
+npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com --gravar     # grava em `shelves`
+```
 
-## O que já existe (não reimplemente)
+O dry run é a única forma prática de olhar a saída do agente. As sections são
+diferidas: o HTML do SSR é esqueleto, e **status 200 não é sinal de saúde neste
+site** — um loader que falha vira section vazia e a página continua 200. Foi
+escrito antes da persistência e da tela de propósito.
 
-| O quê | Onde | Estado |
-|---|---|---|
-| Captura do desejo | `src/actions/notifyMe/subscribe.ts` → `stock_alerts` | pronto |
-| Desejo cruzado com catálogo | `findWaitedItems(email)` em `alerts.d1.ts` | pronto |
-| **Candidatos para a vitrine** | `findSimilarAvailable(variantId)` em `catalog.d1.ts` | pronto |
-| Identidade pela sessão | `alerts.session.ts` | pronto |
-| A section que renderiza | `src/sections/Product/ProductShelf.tsx` | pronto |
-| Catálogo com massa | 136 produtos, 29 com tamanho esgotado, 8 esgotados por inteiro | pronto |
+## O caminho completo
 
-`findSimilarAvailable` é a peça central e já foi construída para este consumidor
-específico: ela devolve **os componentes da nota, não só a nota** — `sameType`,
-`sameCollection`, `sharedTags` — porque o agente precisa saber se cada candidato
-é *alternativa* ou *complemento* para montar a vitrine e justificá-la em texto.
-Só entram produtos com ao menos uma variante disponível.
+```
+PDP de variante esgotada
+  └─ clique em "avise-me"
+       └─ src/actions/notifyMe/subscribe.ts
+            ├─ createStockAlert()            grava o desejo
+            ├─ marcarDonoDaVitrine(email)    cookie assinado, para reconhecer depois
+            └─ gerarVitrine(email)           SEM await — responde na hora
+                  │
+                  ▼
+            ┌───────────────────────────────────────────┐
+            │ etapa 1  findWaitedItems                  │ sem modelo
+            │          findSimilarAvailable      →  alternativas
+            │          findComplementsAvailable  →  complementos
+            ├───────────────────────────────────────────┤
+            │ etapa 2  UMA chamada ao Decopilot         │ ~35-60s
+            ├───────────────────────────────────────────┤
+            │ etapa 3  resolve handles contra os pools  │ sem modelo
+            └───────────────────────────────────────────┘
+                  │
+                  ▼
+            tabela `shelves`  (uma linha por comprador)
+                  │
+                  ▼
+       site/loaders/personalShelf.ts  →  PersonalShelf.tsx
+       (reconfere estoque a cada render)
+```
 
-## Onde a vitrine vai aparecer
+Cron a cada 3 dias como refresh — **ainda não construído**, ver *O que falta*.
 
-No lugar do **"Hottest Deals"** da home — hoje um `ProductShelfTabbed.tsx`
-dentro de `website/sections/Rendering/Lazy.tsx`, sétima seção de
-`.deco/blocks/pages-home.json`. Ele é uma vitrine tabulada por coleção
-(Accessories / Fashion / …), ou seja, exatamente o "genérico baseado em
-comportamento coletivo" que esta feature existe para substituir.
+## Arquivos
 
-Estar dentro de `Lazy.tsx` confirma o que já valia: **o HTML do SSR é esqueleto
-por design**, e status 200 não diz nada sobre a vitrine ter renderizado.
-
-**Usuário de teste: `ams.igorfigueiredo@gmail.com`.**
-
-## Conexão verificada
-
-Round trip completo contra o Decopilot, com candidatos reais do Supabase, antes
-de escrever qualquer código de produção.
-
-| | |
+| Caminho | Papel |
 |---|---|
-| Org | `igor-deco-core` |
-| Modelo | `anthropic/claude-sonnet-5` |
-| Credencial | `aik_ryREhrnwoXZOzgZTebCDv` (provisionada, funcionando) |
-| Sobrecarga por thread nova | ~15.900 tokens de entrada |
-| Vitrine real (12 candidatos, prompt de 10 KB) | **32,8s**, 20.888 entrada, 1.119 saída |
+| `src/platform/shelf/shelf.candidates.ts` | etapa 1: os dois espaços de escolha |
+| `src/platform/shelf/shelf.prompt.ts` | **a instrução do agente** e a montagem da mensagem |
+| `src/platform/shelf/shelf.decopilot.ts` | etapa 2: o único arquivo que fala HTTP com o modelo |
+| `src/platform/shelf/shelf.agent.ts` | etapa 3, orquestração e fallback |
+| `src/platform/shelf/shelf.d1.ts` | único arquivo com SQL de `shelves` |
+| `src/platform/shelf/shelf.cookie.ts` | assinatura do cookie de identidade (sem framework) |
+| `src/platform/shelf/shelf.identity.ts` | sessão ou cookie → dono da vitrine |
+| `src/platform/shelf/shelf.actions.ts` | o que a section consome |
+| `src/loaders/personalShelf.ts` | loader do CMS, prop `lista` |
+| `src/sections/Product/PersonalShelf.tsx` | a section, com "ver todos" |
+| `db/migrations/0012`, `0013` | a tabela e a segunda lista |
+| `scripts/shelf-dryrun.ts` | o dry run |
+| `.deco/blocks/pages-minha-vitrine*.json` | as páginas cheias |
 
-Resultado com `Classic Pullover Hoodie - Grey [M]` esgotado:
+**A instrução vive em `shelf.prompt.ts`, não neste doc.** Duas cópias
+divergiriam, e a divergência apareceria como "o agente parou de obedecer". O
+doc explica o porquê; o código é o texto que roda.
 
-```
-titulo: Enquanto o seu tamanho não volta   confianca: 0.85
-  zip-through-hoodie    Mesmo tipo de moletom, no seu tamanho, com zíper…
-  heavy-fleece-hoodie   Moletom cinza como o que você queria, disponível…
-  oversized-hoodie      Outro moletom com capuz no seu tamanho, corte mais amplo.
-  raglan-sweatshirt     Mesmo cinza e mesmo tamanho, para usar como camada por baixo.
-  winter-hat            Peça para usar junto com o moletom nos dias mais frios.
-```
-
-Três coisas que este teste provou, e que valem mais que o "funciona":
-
-- **JSON puro, sem preâmbulo.** O Decopilot tem persona própria e tende a
-  conversar; pôr o contrato de formato como **primeira seção** da instrução
-  (e não como regra no fim) foi o que resolveu.
-- **Zero handles inventados** entre os 5 escolhidos.
-- **Zero alucinação de cor**, e de um jeito que só se vê conferindo: ele
-  afirmou "cinza" nos dois candidatos que são de fato cinza
-  (`Heavy Fleece Hoodie - Grey`, `Raglan Sweatshirt - Grey`) e **não citou cor**
-  nos que não eram (`Zip-Through Hoodie - Blue`,
-  `Oversized Hoodie - White`). A regra "não afirme o que não está escrito"
-  está pegando.
-
-O que o teste **não** prova: qualidade sobre um comprador com histórico, porque
-não há histórico. Ver *A entrada é pobre*.
-
-### O Decopilot fica indisponível, e isso é normal
-
-Meia hora depois do teste acima, a **mesma** chamada passou a estourar o
-timeout de 120s. Não foi o nosso código nem o tamanho do prompt — uma mensagem
-trivial falhava igual. O stream conta o que acontece:
-
-```
-[11286ms] waiting-runner
-[11746ms] starting-run
-[12089ms] waiting-capacity
-[42088ms] waiting-capacity      <- preso aqui até o timeout
-```
-
-**`waiting-capacity` é fila do lado deles.** O runner satura e a tarefa não
-roda; nada no HTTP indica isso (a thread cria, o stream abre com 200, o POST
-devolve 202) — só o evento de status conta.
-
-Duas consequências de desenho, e a segunda é o que torna isso um não-problema:
-
-1. **O timeout e o fallback não são zelo, são requisito.** Sem eles, um clique
-   em "avise-me" ficaria pendurado até a plataforma matar a função. Os dois se
-   provaram sob falha real, não em teste sintético.
-2. **A vitrine por SQL é um estado intermediário válido, não só um modo de
-   falha.** Como ela fica persistida e o cron reescreve depois, uma geração que
-   caiu no fallback hoje vira vitrine do agente na próxima passada. O produto
-   degrada de "vitrine explicada" para "vitrine sem texto" — nunca para
-   "vitrine vazia" nem para "erro".
-
-Por isso não vale ficar tentando de novo dentro da mesma execução: o cron já é
-a repetição. Se a taxa de fallback for alta na demo, o lugar de olhar é o
-`waiting-capacity`, não o nosso cliente.
-
-## Decisões
-
-### 1. A vitrine é ancorada no item esgotado, não na loja
-
-Esta é a decisão que define o produto, e é fácil de perder de vista quando o
-código começa. A vitrine **não** é "os produtos em alta", "os mais vendidos" nem
-"o que combina com o seu perfil". É: *você quis esta peça e ela não tinha o seu
-tamanho — estas aqui têm*.
-
-Na prática isso significa que o pool de candidatos vem de
-`findSimilarAvailable(variantId)`, ancorado na variante desejada, e **nunca** de
-uma consulta geral ao catálogo. Um agente que recebesse o catálogo inteiro
-produziria uma vitrine plausível e genérica, que é exatamente o que já existe em
-qualquer loja e não usa o sinal que a feature captura.
-
-### 2. O gatilho é o clique, não o relógio
-
-**A execução principal acontece no ato do clique em "avise-me"**, fora do
-caminho da request (a pessoa não espera por ela). O cron a cada 3 dias é
-**refresh**, não gatilho.
-
-Isso mudou depois de uma conversa sobre o e-mail. Três razões que se somam:
-
-1. **É o pico de intenção.** A pessoa acabou de declarar que quer aquilo. Em
-   24h já esfriou; em 3 dias, muito.
-2. **É o e-mail que a loja já promete.** A tela diz hoje *"We'll email you when
-   this product is back in stock"* e **nada é enviado** — dívida registrada em
-   [`feature-back-in-stock-shelf.md`](feature-back-in-stock-shelf.md). O
-   e-mail de confirmação com a vitrine dentro entrega a hipótese e fecha a
-   mentira na mesma ação, sem precisar inventar um e-mail de marketing à parte.
-3. **Consentimento limpo.** Confirmação de "avise-me" é transacional e
-   esperada. Uma recomendação avulsa três dias depois é outra coisa.
-
-Nunca no render, em nenhum dos dois casos: **medido em 32,8s** para uma vitrine
-de verdade (ver *Conexão verificada*). Foi essa latência que travou o agente de
-busca em stub.
-
-**A cadência do e-mail não é a cadência da vitrine.** A vitrine pode regenerar
-a cada 3 dias sem incomodar ninguém — ela só regrava uma linha. E-mail a cada 3
-dias sobre o mesmo moletom esgotado é como se consegue marcação de spam, que
-estraga a entrega para todo mundo depois. **Um e-mail por alerta.**
-
-### 3. O provedor de LLM é o Decopilot do deco
-
-Não por preferência — é o único que funciona. O handoff do agente de busca
-documenta cinco tentativas fracassadas (chave tratada como Anthropic → 401;
-`api.decocms.com` → NXDOMAIN; app oficial do gateway → 404; conexão MCP → 500;
-endpoints compatíveis com OpenAI no studio → 405).
-
-O protocolo abaixo foi **verificado nesta branch, com as nossas credenciais**
-(`.dev.vars` → `STUDIO_*`, org `igor-deco-core`) — que são diferentes das da
-branch do agente de busca:
-
-```
-1. POST {ROOT}/api/{org}/tools/COLLECTION_THREADS_CREATE
-     body: { data: { title, virtual_mcp_id: <STUDIO_AGENT_ID> } }
-     -> 200 { item: { id: "thrd_…" } }        ← o id gerado, NÃO o que você mandar
-2. GET  {ROOT}/api/{org}/decopilot/threads/{id}/stream    SSE, ANTES do POST
-3. POST {ROOT}/api/{org}/decopilot/threads/{id}/messages  -> 202
-     body: { messages: [{ role, parts: [{ type:"text", text }] }], agent: { id } }
-4. ler os eventos `text-delta` até `finish`
-```
-
-**O passo 1 é a descoberta que faltava.** O handoff usava um `threadId` fixo,
-criado à mão pela UI do Studio, e não registrava de onde ele vinha. Uma thread
-inexistente falha de dois jeitos distintos e nenhum deles diz "crie a thread":
-o stream devolve `404 Thread not found`, e o POST de mensagem devolve **500 com
-violação de foreign key** em `thread_message_parts_thread_id_fkey`.
-
-Duas armadilhas de transporte, ambas custaram tempo:
-
-- O corpo de `messages` é validado por zod em modo estrito: aceita **exatamente**
-  `{ messages, agent }` e rejeita qualquer outra chave. Não há como criar a
-  thread por ali.
-- Existe um endpoint MCP em `/api/{org}/mcp`, **mas ele não aceita os nomes
-  do catálogo** (`COLLECTION_THREADS_CREATE` → `unknown namespace "COLLECTION"`).
-  O que funciona é o transporte REST: `POST /api/{org}/tools/{NOME_DA_TOOL}`
-  com os argumentos direto no corpo. `GET /api/{org}/tools` lista as 163
-  ferramentas disponíveis.
-
-A chamada sai do servidor para fora. Não depende de `/deco/meta`, de
-`/deco/render` nem do Fast Deploy que a migração para a Vercel removeu, e o CSP
-é irrelevante porque nada disso passa pelo navegador.
-
-**Uma thread por execução.** Verificado: o histórico acumula. A mesma pergunta
-trivial custou **15.940** tokens de entrada numa thread nova e **21.191** numa
-já usada. Reaproveitar thread entre compradores faria o custo crescer sem teto
-e — pior — deixaria os dados de um comprador no contexto do próximo. Criar
-thread é uma chamada barata; crie sempre.
-
-**O que se perde ao usar o Decopilot**, e que precisa ser compensado em código:
-
-- **Sem cache de prompt.** Os ~50 mil tokens de entrada por chamada (o
-  assistente carrega persona própria e 21 ferramentas) deixam de importar a 2
-  chamadas por dia; importariam muito a 2 por segundo. É outro argumento para o
-  lote.
-- **Sem saída estruturada garantida.** Ele tem prompt de sistema próprio, que
-  briga com "responda só JSON". Consequência direta: **parsing defensivo
-  obrigatório** — extrair o primeiro bloco JSON válido da resposta, nunca
-  `JSON.parse` no texto inteiro. Resposta que não parseia é tratada como
-  confiança zero e cai no fallback (decisão 6).
-
-### 4. O agente escolhe de uma lista; nunca consulta o catálogo
-
-Pipeline em três etapas, com o modelo tocando só o meio:
-
-| Etapa | Modelo? | O quê |
-|---|---|---|
-| 1 | não | `findWaitedItems` + `findSimilarAvailable` → candidatos |
-| 2 | **sim** | quais entram, em que ordem, título da vitrine, motivo por item |
-| 3 | não | cada `handle` volta a ser resolvido contra a lista da etapa 1 |
-
-A etapa 3 é o que torna alucinação de produto **estruturalmente impossível** em
-vez de mitigada: um handle fora da lista é descartado, nunca corrigido. Sem ela,
-o sintoma seria uma vitrine bonita cheia de links 404.
-
-### 5. A seleção persiste; a disponibilidade não
-
-O agente grava handles, motivos e título. **A conferência de estoque acontece no
-render**, não na geração.
-
-Com 3 dias de cadência a vitrine passa 72h envelhecendo enquanto o estoque muda.
-Uma vitrine cuja premissa inteira é *"não te mostro o que você não pode
-comprar"* recomendando item esgotado é o pior resultado possível desta feature —
-e é o bug mais provável de aparecer no dia da apresentação.
-
-O loader da section refaz o filtro de disponibilidade em todo pageview (um
-`EXISTS` sobre 4–6 handles, barato) e, se sobrarem menos de 3 itens, completa
-com o topo de `findSimilarAvailable` sem copy. Vitrine mirrada é pior que
-vitrine parcialmente sem justificativa.
-
-### 6. Todo caminho de falha tem saída
-
-Três saídas em cascata, uma função só:
-
-| Situação | O que renderiza |
-|---|---|
-| Agente respondeu e a etapa 3 validou | a vitrine com copy |
-| Falha, timeout, parsing quebrado, ou `confianca < 0.5` | top-6 de `findSimilarAvailable`, sem copy, título fixo |
-| Sem candidatos | nada — a section some |
-
-O terceiro caso já sai de graça: `ProductShelf.tsx` retorna `null` quando
-`products` é vazio. O que **não pode** existir é erro do agente virando section
-vazia com espaço reservado na página.
-
-O campo `confianca` no schema de saída existe justamente para o agente **poder
-se recusar**. Vitrine fraca declarada é melhor que vitrine fraca apresentada
-como boa.
-
-### 7. O agente não escreve `.deco/blocks/*.json`
-
-A section é um bloco que um humano posiciona **uma vez**; o conteúdo vem de uma
-linha no Postgres que o agente reescreve a cada 3 dias.
-
-O motivo é rollback, não organização: reverter uma vitrine ruim tem que ser um
-`UPDATE`, não um revert de commit num arquivo versionado que o próximo build
-sobrescreve. É também exclusão de escopo declarada na skill do time
-(`agent-creator`, Passo 1: "Escrever bloco CMS → **Pare**").
-
-> **A linha:** o deco é dono de *onde* a vitrine aparece. O agente é dono do
-> *que* entra nela.
-
-Isso vale independentemente de não usarmos o editor visual da Studio. "Studio
-como base" nesta feature significa **o Decopilot como provedor de LLM** e o
-decofile como substrato de composição — não o editor.
-
-### 8. O domínio é `src/platform/shelf/`, não `agent/`
+## O domínio é `shelf`, não `agent`
 
 `src/platform/agent/` e `src/platform/analytics/` **já existem, construídos, na
 branch `origin/feature/agente-vendas-ia-phase1`** (2028 linhas, não mergeada).
 Criar os mesmos diretórios aqui garantiria conflito.
 
-Essa branch também mexe em `src/worker-entry.ts`, `wrangler.jsonc` e
+Aquela branch também mexe em `src/worker-entry.ts`, `wrangler.jsonc` e
 `migrations/` na raiz — arquivos que a migração para Vercel + Supabase apagou ou
-moveu. **O merge dela vai doer, e não é este PR que resolve isso.** O que dá
-para fazer daqui é não piorar: domínio com nome próprio, migration em
-`db/migrations/` com a numeração corrente, nada em `wrangler.jsonc`.
+moveu. **O merge dela vai doer, e não é este PR que resolve.** O que dá para
+fazer daqui é não piorar.
 
-### 9. Só comprador logado, por enquanto
+## Decisões que não são óbvias no código
 
-A identidade é a sessão. Visitante anônimo não tem vitrine — não porque não
-pediu, mas porque não há como reconhecê-lo de volta três dias depois.
+### A vitrine é ancorada no item esgotado, não na loja
 
-Adiado de propósito, e a ordem importa: a mudança é puramente **aditiva** (altera
-*quem tem identidade*, não *o que o agente faz* — o agente recebe uma chave e
-devolve uma vitrine, sem saber se veio de sessão ou de cookie). Fazer depois
-significa que, quando a vitrine estiver estranha, já se sabe que não é a
-identidade. Ver *Deslogado* em Problemas em aberto.
+É a decisão que define o produto, e a mais fácil de perder quando alguém for
+"melhorar" o agente. A vitrine **não** é "os mais vendidos" nem "o que combina
+com o seu perfil". É: *você quis esta peça e ela não tinha o seu tamanho —
+estas aqui têm*.
 
-## Problemas em aberto
+Na prática isso proíbe qualquer consulta geral ao catálogo: os pools saem
+sempre de `findSimilarAvailable(variantId)` e `findComplementsAvailable(
+variantId)`. Um agente que recebesse a loja inteira produziria uma vitrine
+plausível e genérica — exatamente o que qualquer loja já tem, e que não usa o
+sinal que esta feature captura.
 
-### Comprador com mais de um item esperado
-
-`findWaitedItems` devolve até 20. Uma pessoa que esperou por três peças gera
-três pools de candidatos — e ninguém decidiu ainda se isso vira três vitrines,
-uma vitrine, ou uma vitrine com o item mais recente dominando.
-
-**Default proposto** (a confirmar quando houver dado real): **uma vitrine por
-comprador**, ancorada no desejo mais recente, com os demais contribuindo
-candidatos. Cada candidato carrega a **procedência** — de qual item esperado ele
-veio — para o motivo poder dizer "para a calça que você queria" em vez de um
-"combina com você" genérico que não se sustenta.
-
-Três vitrines empilhadas foi descartado por ser pior de ler e triplicar o custo
-de LLM sem triplicar o valor.
-
-### Orçamento do cron
-
-Plano Pro: `maxDuration` da ordem de 300s por function (configurável em
-`vercel.json`), cron com granularidade fina. A ~20s por comprador, isso é ~14
-por execução com folga.
-
-Mesmo assim o cron precisa de **prazo e retomada**, porque o teto existe e
-estourá-lo falha em silêncio, deixando metade das vitrines geradas e nenhuma
-indicação de onde parou:
+### Duas listas, duas perguntas
 
 ```
-cron
-  └─ SELECT compradores com vitrine mais velha que 3 dias
-     ORDER BY a mais antiga primeiro
-  └─ enquanto (agora - início) < orçamento:
-       roda, grava, marca generated_at
-  └─ acabou o orçamento? para. O próximo cron continua.
+itens     "no lugar do que você queria"   mesmo tipo
+combinam  "para usar junto"               outro tipo, mesmo estilo
 ```
 
-Ordenar pela vitrine mais antiga é o que torna isso auto-recuperável sem tabela
-de controle nem fila: quem ficou de fora hoje é o primeiro amanhã.
+A primeira versão misturava as duas numa lista só, e o resultado era uma
+prateleira onde o boné no meio de quatro camisetas parecia erro de ordenação em
+vez de sugestão de look.
 
-### A entrada é pobre, e isso não é culpa do agente
+`findComplementsAvailable` é **consulta separada**, não filtro sobre a outra:
+aquela soma +4 para mesmo tipo, então o topo dela é sempre alternativa. Medido
+antes de separar: de 16 candidatos, 12 eram camiseta.
 
-Só entra em `stock_alerts` quem clicou num produto esgotado — fração pequena dos
-visitantes. **Um agente excelente sobre entrada pobre produz vitrine que parece
-aleatória, e a conclusão fácil (errada) é culpar o modelo.**
+### O equilíbrio por tipo fica em TS, não em SQL
 
-Antes de julgar qualquer saída, semeie. O catálogo tem 29 itens com tamanho
-esgotado e 8 esgotados por inteiro, espalhados de propósito por camiseta,
-moletom, jaqueta, calça, vestido, tricô, calçado e acessório — são 8 âncoras
-distintas prontas para exercitar a vitrine em cenários diferentes.
+Um `DISTINCT ON (product_type)` escolheria o melhor de cada tipo **antes** de
+saber quantos tipos entram, e descartaria o segundo melhor tênis mesmo quando
+ele é melhor que a melhor bolsa. `equilibrarPorTipo` faz duas passadas —
+variedade primeiro, qualidade depois — porque enxerga a lista inteira.
 
-### Verificação exige navegador
+### O gatilho é o clique, e sem `await`
 
-A section vai ser diferida, como as outras. **Status 200 não é sinal de saúde
-neste site**: um loader que falha vira section vazia e a página continua 200.
-Isso já produziu duas conclusões erradas durante a migração.
+O agente leva ~35–60s, e às vezes 120s. Segurar o clique por isso é
+inaceitável: a pessoa não está esperando vitrine, está esperando "recebemos seu
+pedido".
 
-A ferramenta que substitui o curl é um **dry run em terminal** — a mesma função
-que o cron chama, imprimindo a vitrine escolhida com os motivos. Vale escrever
-**primeiro**, não por último: é ferramenta de desenvolvimento antes de ser
-feature, e é o que permite iterar no prompt sem subir nada.
+É **melhor esforço**, e é honesto dizer por quê: sem `waitUntil` a Vercel pode
+congelar a invocação assim que a resposta sai. Não é problema porque
+`acharVitrinesVencidas` inclui, por LEFT JOIN, quem tem alerta e **nenhuma**
+vitrine — o caso exato de uma geração interrompida. Pior cenário: aparece na
+próxima passada. `@vercel/functions` tornaria isto garantido; vale medir antes
+de trazer dependência.
 
-### Deslogado
+### A seleção persiste; a disponibilidade não
 
-O trabalho, quando for a hora (~meia diária), e o repo já tem o padrão em
-`src/loaders/_cookie.ts`, usado por wishlist e newsletter:
+O agente grava handles, motivos e títulos. **A conferência de estoque acontece
+no render**, em `findAvailableCatalogRecordsByHandles`.
 
-1. `visitor_id` (UUID) em cookie httpOnly, na primeira visita
-2. coluna `visitor_id` em `stock_alerts`, nullable, gravada junto com o e-mail
-3. `readShopperIdentity` devolve `{ email }` **ou** `{ visitorId }`
-4. no login, `UPDATE stock_alerts SET email = ? WHERE visitor_id = ?`
+A vitrine passa dias envelhecendo enquanto o estoque muda. Uma vitrine cuja
+premissa é *"não te mostro o que você não pode comprar"* recomendando item
+esgotado é o pior resultado possível desta feature — e passaria despercebido,
+porque a página continuaria respondendo 200.
 
-O passo 4 é onde moram os bugs — é o único que permite uma pessoa acabar com
-duas vitrines.
+Essa consulta também **preserva a ordem pedida**: a ordem é o julgamento do
+agente, e um `ORDER BY p.position` jogaria fora exatamente o que se pagou um
+minuto de LLM para obter.
 
-Ressalva de valor: com cadência de 3 dias, vitrine gerada para cookie anônimo
-pode nunca ser vista — o visitante some, o cookie expira, e gastamos 50 mil
-tokens por ninguém. Se for para deslogado, gere **só na escrita** para anônimos
-e reserve o cron para quem tem conta.
+### A vitrine do SQL é estado válido, não só falha
 
-### `AGENTS.md` está desatualizado
+Quando o modelo cai, o fallback é a ordenação determinística, sem motivos — e
+ela **também é gravada**. Não gravar deixaria o comprador sem vitrine nenhuma
+sempre que o provedor estivesse saturado. Como o cron reescreve depois, uma
+geração que caiu hoje vira vitrine do agente na próxima passada.
 
-Diz *"deployed to Cloudflare Workers via wrangler"*. Depois da migração isso é
-falso, e é o primeiro arquivo que uma ferramenta de IA lê neste repo — vai gerar
-código para o runtime errado. Correção de duas linhas, mas antes de alguém
-gerar código aqui.
+O produto degrada de "vitrine explicada" para "vitrine sem texto" — nunca para
+vazia, nunca para erro.
 
-## A instrução do agente
+### O cookie de identidade é assinado, e falha fechado
 
-Versão validada no dry run acima. Quatro escolhas que não são óbvias e que
-sairiam se alguém "limpasse" o texto:
+**O problema não era capturar, era reconhecer de volta.** O e-mail existe no
+instante do clique, mas `readShopperIdentity` só responde para quem tem sessão
+do Shopify, e quem clica nesse botão costuma estar deslogado.
 
-- **O contrato de formato vem primeiro**, não no fim. O Decopilot carrega
-  persona própria e quer conversar; a regra de formato como última seção não
-  segura, como primeira segura.
-- **`confianca` existe para o agente poder se recusar.** Vitrine fraca
-  declarada é melhor que vitrine fraca apresentada como boa.
-- **O `motivo` pede relação, não elogio.** É a diferença entre uma vitrine que
-  explica e uma que faz propaganda.
-- **A marca é proibida explicitamente.** A loja é de marca única
-  (`vendor = 'Deco Store'` em 136 produtos), então "da mesma marca" é verdade
-  vazia — e sem a proibição o modelo usa isso como motivo.
+O cookie decide de quem é a vitrine que a página mostra. Sem assinatura,
+qualquer um edita o valor para o e-mail de outra pessoa e vê o que ela quis
+comprar. HMAC, `HttpOnly`, comparação em tempo constante — `===` vazaria
+quantos caracteres iniciais estavam certos, o que permite forjar byte a byte.
 
-````text
-Você monta uma vitrine de recomendação para uma pessoa que acabou de tentar
-comprar uma peça de roupa e não conseguiu: o tamanho que ela queria está
-esgotado. Ela clicou em "avise-me quando voltar", e é esse o momento em que
-você é chamado.
+**Sem `SHELF_COOKIE_SECRET` o cookie não é emitido nem aceito**, degradando para
+identidade por sessão. Emitir sem assinar seria trocar segurança por
+conveniência em silêncio.
 
-Sua saída aparece em dois lugares: numa vitrine do site e num e-mail enviado
-logo em seguida. Escreva de modo que cada linha se sustente sozinha, sem o
-resto da página em volta.
+### O corte de 6 é de exibição, não de geração
 
-## FORMATO DA RESPOSTA — leia antes de tudo
+O agente escolhe até 10 alternativas e 8 complementos; a home mostra 6 e o
+resto fica atrás do "Ver todos os N", que leva a `/minha-vitrine`. O link só
+aparece quando sobrou algo — um "ver mais" que leva à mesma lista é pior que
+nenhum.
 
-Responda com UM único objeto JSON e mais nada. Sem saudação, sem explicação,
-sem markdown, sem bloco de código, sem comentário depois. Não use ferramentas,
-não consulte nada: tudo de que você precisa está nesta mensagem.
+### O agente não escreve `.deco/blocks/*.json`
 
-{
-  "titulo": "string, até 45 caracteres",
-  "confianca": 0.0,
-  "itens": [
-    { "handle": "string, copiado exatamente dos CANDIDATOS", "motivo": "string, até 90 caracteres" }
-  ]
-}
+A section é um bloco que um humano posiciona uma vez; o conteúdo vem de uma
+linha no Postgres. O motivo é rollback: reverter uma vitrine ruim tem que ser um
+`UPDATE`, não um revert de commit num arquivo que o próximo build sobrescreve.
+É também exclusão declarada na skill do time (`agent-creator`, Passo 1).
 
-## REGRAS RÍGIDAS
+> **A linha:** o deco é dono de *onde* a vitrine aparece. O agente é dono do
+> *que* entra nela.
 
-1. Escolha SOMENTE handles que aparecem na lista CANDIDATOS, copiados
-   caractere por caractere. Um handle que você invente ou corrija vira uma
-   página que não existe, e eu descarto o item inteiro. Na dúvida, escolha
-   menos.
-2. Não afirme material, gramatura, medida, composição, origem ou cuidado que
-   não esteja escrito no candidato. Você não tem essa informação. Omitir é
-   sempre melhor que inventar.
-3. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
-   controla nada disso.
-4. Não peça desculpas nem lamente o esgotamento. A pessoa já sabe. Fale do
-   que ela pode levar agora.
-5. Todos os candidatos já estão disponíveis. Nunca escreva que algo "ainda
-   está em estoque" ou "corre que está acabando" — é urgência falsa.
-6. Ignore a marca. A loja inteira é de uma marca só; dizer que algo é "da
-   mesma marca" não informa nada.
+## O provedor: Decopilot
 
-## COMO LER OS CANDIDATOS
+É o que funciona. O handoff do agente de busca documenta cinco caminhos que não
+funcionam (chave tratada como Anthropic → 401; `api.decocms.com` → NXDOMAIN;
+gateway oficial → 404; conexão MCP → 500; endpoints estilo OpenAI → 405).
 
-Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
+Protocolo verificado nesta branch, com as nossas credenciais:
 
-  mesmoTipo: true   -> ALTERNATIVA. Serve no lugar do que ela queria.
-  tagsEmComum: [..] -> afinidade real, nominal. Quanto mais tags, mais forte.
-  mesmaColecao      -> mesmo território da loja. Sinal fraco sozinho;
-                       nunca use isso como único motivo.
-  tamanhosDisponiveis -> o que dá para comprar hoje.
-
-Três papéis, e uma vitrine boa mistura pelo menos dois:
-
-  ALTERNATIVA  mesmoTipo = true
-  PARECIDO     tipo diferente, mas 2+ tags em comum
-  COMPLEMENTO  tipo diferente que se veste JUNTO com o desejado
-               (calça com moletom, boné com jaqueta, bolsa com vestido)
-
-## COMO COMPOR
-
-- Entre 4 e 6 itens. Menos de 4 só se os candidatos forem realmente ruins.
-- Comece por ALTERNATIVAS. Quem queria um moletom quer, antes de tudo, outro
-  moletom.
-- Inclua ao menos um COMPLEMENTO quando existir um que faça sentido vestir
-  junto. É o que faz a vitrine parecer montada por alguém em vez de filtrada
-  por máquina.
-- Não repita o mesmo tipo mais de três vezes.
-- Ordene por quanto você acredita em cada um, não por preço.
-
-## O MOTIVO
-
-Uma linha, em português do Brasil, até 90 caracteres. Diga a RELAÇÃO com o
-que a pessoa quis — não elogie o produto.
-
-  bom   "Mesmo corte e mesmo peso do moletom que você queria."
-  bom   "Veste por baixo do moletom sem apertar."
-  bom   "A calça que fecha esse look, e tem o seu tamanho."
-  ruim  "Uma peça incrível que você vai amar!"        (elogio, não relação)
-  ruim  "Moletom de algodão premium 400g."            (você não sabe disso)
-  ruim  "Também é da coleção de inverno."             (coleção sozinha não é motivo)
-  ruim  "Aproveite antes que acabe!"                  (urgência falsa)
-
-Não repita o nome do produto no motivo — ele já aparece na vitrine.
-
-## O TÍTULO
-
-Até 45 caracteres. Fale com a pessoa, não sobre o algoritmo.
-
-  bom   "Enquanto o seu tamanho não volta"
-  bom   "Perto do que você queria, e disponível"
-  ruim  "Produtos similares recomendados"
-  ruim  "Baseado no seu interesse"
-
-## CONFIANÇA
-
-Um número de 0 a 1: quanto os candidatos realmente respondem ao que a pessoa
-quis.
-
-  0.8+  há alternativas do mesmo tipo, com tamanho, e um complemento coerente
-  0.5   dá para montar algo defensável, mas sem alternativa direta
-  <0.5  os candidatos não têm relação real com o desejo
-
-Abaixo de 0.5 eu descarto o seu texto e mostro a ordenação por SQL. Declarar
-confiança baixa é a resposta certa quando ela é baixa — não é fracasso.
-````
-
-Cada candidato é entregue já reduzido ao que importa — não o `CatalogRecord`
-inteiro, que multiplicaria o prompt sem informar mais:
-
-```json
-{
-  "handle": "heavy-fleece-hoodie",
-  "titulo": "Heavy Fleece Hoodie - Grey",
-  "tipo": "Hoodie",
-  "preco": 249.9,
-  "mesmoTipo": true,
-  "mesmaColecao": true,
-  "tagsEmComum": ["unisex", "basic", "cotton", "winter", "layering"],
-  "tamanhosDisponiveis": ["XS", "S", "M", "L", "XL"],
-  "descricao": "…160 primeiros caracteres…"
-}
 ```
+1. POST {ROOT}/api/{org}/tools/COLLECTION_THREADS_CREATE
+     { data: { title, virtual_mcp_id: <STUDIO_AGENT_ID> } }
+     -> 200 { item: { id: "thrd_…" } }     ← o id gerado, NÃO o que você mandar
+2. GET  {ROOT}/api/{org}/decopilot/threads/{id}/stream    SSE, ANTES do POST
+3. POST {ROOT}/api/{org}/decopilot/threads/{id}/messages  -> 202
+     { messages: [{ role, parts: [{ type:"text", text }] }], agent: { id } }
+4. ler os eventos `text-delta` até `finish`
+```
+
+**O passo 1 é a peça que faltava no handoff**, que usava um `threadId` fixo sem
+dizer de onde vinha. Thread inexistente falha de dois jeitos e nenhum diz "crie
+a thread": o stream devolve `404 Thread not found` e o POST devolve **500 com
+violação de foreign key** em `thread_message_parts_thread_id_fkey`.
+
+Duas armadilhas de transporte:
+
+- O corpo de `messages` é validado por zod estrito: aceita **exatamente**
+  `{ messages, agent }`. Não há como criar a thread por ali.
+- Existe MCP em `/api/{org}/mcp`, **mas ele rejeita os nomes do próprio
+  catálogo** (`unknown namespace "COLLECTION"`). O que funciona é o transporte
+  REST `POST /api/{org}/tools/{NOME}`. `GET /api/{org}/tools` lista as 163
+  ferramentas.
+
+| | |
+|---|---|
+| Org | `igor-deco-core` |
+| Modelo | `anthropic/claude-sonnet-5` |
+| Credencial | `aik_ryREhrnwoXZOzgZTebCDv` |
+| Sobrecarga por thread nova | ~15.900 tokens de entrada |
+| Vitrine real | 35–60s, ~21k entrada, ~1,1k saída |
+
+**Uma thread por execução.** O histórico acumula — medido: a mesma pergunta
+trivial custou 15.940 tokens numa thread nova e 21.191 numa usada. Reaproveitar
+faria o custo crescer sem teto e deixaria os dados de um comprador no contexto
+do próximo.
+
+**Sem cache de prompt e sem saída estruturada garantida.** O Decopilot tem
+prompt de sistema próprio, que briga com "responda só JSON". Daí o parsing por
+balanceamento de chaves em `extrairJson`, e o `confianca` como rede: resposta
+que não parseia é tratada como confiança zero.
+
+### `waiting-capacity` é normal
+
+Meia hora depois de um teste bem-sucedido, a mesma chamada passou a estourar o
+timeout. Não era o código nem o tamanho do prompt — mensagem trivial falhava
+igual:
+
+```
+[11286ms] waiting-runner
+[11746ms] starting-run
+[12089ms] waiting-capacity
+[42088ms] waiting-capacity      <- preso até o timeout
+```
+
+**É fila do lado deles**, e nada no HTTP indica: a thread cria, o stream abre
+com 200, o POST devolve 202. Só o evento de status conta. Se a taxa de fallback
+subir na demo, o lugar de olhar é este, não o nosso cliente.
+
+## O que foi verificado
+
+Contra o Supabase e o Decopilot reais, não em teste sintético.
+
+**Vitrines geradas** com três desejos de tipos diferentes e com um só. Última
+execução: 9 alternativas e 5 complementos de cinco tipos distintos (camiseta,
+manga longa, sobrecamisa, calça de moletom, gorro).
+
+**Zero handles inventados** em todas as execuções.
+
+**Zero alucinação de cor**, conferindo item a item: o modelo afirmou "cinza" só
+nas peças cujo título traz `- Grey`, e **não citou cor** nas azuis e brancas.
+
+**As nove afirmações de tamanho conferidas uma a uma.** As seis peças que têm M
+foram citadas como tendo; as duas que **não** têm foram sinalizadas
+("Classic Pullover Hoodie… **sem** o M disponível" — real: S, XL, XS) ou tiveram
+o tamanho omitido.
+
+**Cookie**: legítimo aceito; forjado, sem assinatura e assinado com outro
+segredo, todos rejeitados.
+
+**Gatilho**: `POST /deco/invoke/…/notifyMe/subscribe` devolve `{"success":true}`
+na hora com o `Set-Cookie`, e a geração completa em segundo plano
+(`generated_at` avançou de 20:16 para 20:30).
+
+**Persistência e releitura**: 6 de 6 handles ainda disponíveis, ordem
+preservada.
+
+**Rotas**: `/minha-vitrine` casa `pages-minha-vitrine`, `/minha-vitrine/combina`
+casa `pages-minha-vitrine-combina`, e as duas diferem no `propsHash` da section
+— prova de que a prop `lista` chega distinta.
+
+**Não verificado: o render.** As sections são diferidas e dependem de identidade
+— precisa de navegador, logado ou com o cookie `deco_shelf`.
+
+## Armadilhas para quem chegar depois
+
+**`pkill` não mata o Vite neste ambiente.** A linha de comando real é
+`node .../vite.js dev`, então `pkill -f "vite dev"` não casa nada. Chegaram a
+existir **seis** dev servers em paralelo, e a porta 5173 ficou com o mais
+antigo — o que fez rotas novas parecerem quebradas por um bom tempo. Use
+PowerShell filtrando `CommandLine` pelo diretório do projeto.
+
+**`node:crypto` vaza para o bundle do cliente.** O dynamic import de
+`site/loaders/personalShelf` em `setup.ts` arrasta
+`shelf.actions → shelf.identity → shelf.cookie → node:crypto`, e o Rollup falha
+com `"createHmac" is not exported by "__vite-browser-external"`. Typecheck e dev
+**não pegam** — só o build do client. Há stub em `vite.config.ts`, e ele
+**lança** em vez de devolver no-op: assinatura de cookie não tem degradação
+aceitável.
+
+**Excluir dos complementos o que já é alternativa mata a segunda vitrine.**
+Parece obviamente certo e está errado: `findSimilarAvailable` não filtra por
+tipo, então boné e camiseta chegam como "alternativa" e o pool de composição
+esvazia (medido: 2 complementos). A não-repetição é imposta na **saída**, via
+`jaUsados` em `validar`.
+
+**As credenciais vivem no `.env`, não no `.dev.vars`.** O dev server só lê
+`.env` — `.dev.vars` é herança do wrangler. Quem ainda o lê é só o
+`scripts/shelf-dryrun.ts`, como fallback. Editar só o `.dev.vars` muda o dry run
+e não muda o site.
+
+**A entrada é pobre, e isso não é culpa do agente.** Só entra em `stock_alerts`
+quem clicou num produto esgotado. Um agente excelente sobre entrada pobre produz
+vitrine que parece aleatória, e a conclusão fácil (errada) é culpar o modelo.
+Com **um** desejo só, a procedência (`paraODesejo`) nunca aparece nos motivos —
+ela existe para o texto dizer "para a calça que você queria", e isso exige dois
+ou três desejos de tipos diferentes.
+
+## Variáveis de ambiente
+
+| Variável | Sem ela |
+|---|---|
+| `STUDIO_BASE_URL`, `STUDIO_ORG`, `STUDIO_AGENT_ID`, `STUDIO_API_KEY` | o agente cai no fallback por SQL |
+| `SHELF_COOKIE_SECRET` | a vitrine só aparece para quem está logado |
+| `DATABASE_URL` | nada funciona |
+
+As cinco primeiras foram adicionadas na Vercel (production e preview).
+
+> A `STUDIO_API_KEY` em uso já apareceu em texto puro no histórico de trabalho.
+> Vale rotacionar — junto com a senha do Supabase, pelo mesmo motivo.
+
+## O que falta
+
+**O cron de refresh.** `acharVitrinesVencidas` está escrito e testado, mas não
+há `crons` no `vercel.json` nem endpoint que o chame. No plano Pro,
+`maxDuration` de ~300s a ~60s por comprador dá ~5 por execução — o suficiente
+para a demo, e o cron precisa de **prazo e retomada**: processa até o orçamento
+acabar e para, ordenando pela vitrine mais antiga. É isso que o torna
+auto-recuperável sem fila.
+
+**O e-mail.** O passo que fecha a hipótese — e a tela promete hoje um e-mail que
+ninguém envia. Bloqueado em **domínio**: `vercel.app` não permite SPF/DKIM/DMARC
+porque não controlamos a zona DNS. Recomendação: e-mail curto com link para
+`/minha-vitrine` em vez da vitrine embutida (esquiva do HTML de e-mail, e o
+token no link resolve a identidade do deslogado de graça).
+
+**O visitante anônimo.** Hoje o cookie só nasce no clique. Quem nunca clicou não
+tem vitrine, e isso está certo; quem clicou em outro navegador também não, e
+isso é limitação.
+
+**Embeddings.** `products.embedding` existe e está vazia. Com `product_type` e
+tags em 100% do catálogo, a ordenação por SQL já entrega — vale medir antes de
+decidir que precisa de vetor.
