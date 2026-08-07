@@ -233,6 +233,44 @@ O script chama o `tsc` de `node_modules` com o próprio node, sem `npx` e sem
 a injeção de argumento que o array de args fecha. Se reclamar que não achou o
 TypeScript, falta `npm install`.
 
+### Sem o script
+
+**O script é atalho, não dependência.** Se ele não existir, quebrar, ou você
+estiver em outro repo, o mesmo delta sai à mão — e o raciocínio da seção vale
+igual:
+
+```sh
+MB=$(git merge-base origin/main pr-<N>)
+git switch --detach "$MB" && npm run typecheck > /tmp/base.txt 2>&1
+git switch --detach pr-<N> && npm run typecheck > /tmp/head.txt 2>&1
+git switch -                                    # volte ANTES de analisar
+comm -13 <(sort /tmp/base.txt) <(sort /tmp/head.txt)   # só o que o head tem a mais
+```
+
+O que se perde em relação ao script: se isso quebrar no meio (tsc travado,
+Ctrl+C), você fica em HEAD destacado sem aviso. Então **volte primeiro, analise
+depois** — a ordem acima não é estética.
+
+### Não troque isto por `git worktree`
+
+Parece a simplificação óbvia: montar o merge-base num diretório separado dispensa
+trocar de branch, e com isso some a razão de existir do `finally`. **Não funciona
+neste repo**, e falha em silêncio — medindo, no mesmo commit:
+
+| | Erros |
+|---|---|
+| Trocando branch no lugar | **6** |
+| Worktree novo | **14** |
+
+O worktree só recebe arquivo rastreado. `src/routeTree.gen.ts` é gerado pelo
+`tsr generate` e está no `.gitignore`, então lá ele não existe — e faltando, saem
+seis `TS2307` em cascata que não têm nada a ver com a PR.
+
+Trocar branch no lugar **preserva `node_modules` e os artefatos gerados não
+commitados** entre as duas medições. É isso que torna a comparação justa, e é o
+motivo real de o script fazer o que faz. Worktree só empata se você rodar os
+geradores dos dois lados — aí a "simplificação" custa mais que o script inteiro.
+
 Aqui `npm run build` **não** chama `tsc`. Então typecheck quebrado não impede o
 deploy, e uma PR pode chegar verde ao merge com erro de tipo dentro. Diga isso
 quando acontecer, e sugira `typecheck` no CI — mas como sugestão, não como
@@ -263,6 +301,13 @@ Checklist do que já mordeu aqui e não aparece no diff:
 - **Status 200 não é sinal de saúde.** As sections são lazy; loader que falha
   vira section vazia e a página segue 200. Nunca conclua "funciona" a partir de
   código HTTP.
+- **Parte do que o `tsc` precisa é gerado e não está no git.**
+  `src/routeTree.gen.ts` sai do `tsr generate` e está no `.gitignore:16`; os
+  `.deco/*.gen.ts` saem do `generate:blocks`/`sections`/`loaders`. Qualquer
+  medição feita numa cópia limpa do repositório — worktree, clone raso, checkout
+  de CI sem `npm run build` — mede *a ausência dos geradores*, não o código: são
+  seis `TS2307` a mais que somem depois de gerar. Se um número de typecheck vier
+  diferente do esperado, confira isto **antes** de suspeitar da PR.
 
 ## 5. Escrever
 
