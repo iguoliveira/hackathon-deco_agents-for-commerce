@@ -447,6 +447,105 @@ export interface SimilarCandidate {
  * textual em cima disso é difícil de justificar. O índice existe (0009) para
  * quando isso for medido e provado necessário.
  */
+/**
+ * Peças DISPONÍVEIS de **outro tipo** que combinam com a desejada — a matéria
+ * da vitrine "combina com": calça para a camiseta, tênis para a calça.
+ *
+ * Precisa ser uma consulta separada e não um filtro sobre `findSimilarAvailable`
+ * porque aquela soma +4 para mesmo tipo: o topo dela é sempre alternativa, e
+ * sobrariam poucos complementos, todos no fim da lista. Medido no catálogo
+ * real — de 16 candidatos, 12 eram camiseta.
+ *
+ * Aqui o mesmo tipo é **excluído** e a nota é só tag em comum (o eixo de
+ * estilo) mais coleção. Exigir ao menos um dos dois evita o efeito "combina com
+ * tudo": sem isso a consulta devolveria o catálogo inteiro ordenado por acaso.
+ *
+ * A diversidade de tipo NÃO é resolvida aqui. Um `DISTINCT ON (product_type)`
+ * escolheria o melhor de cada tipo antes de saber quantos tipos entram, e
+ * descartaria o segundo melhor tênis mesmo quando ele é melhor que a melhor
+ * bolsa. Quem equilibra é `shelf.candidates.ts`, que enxerga a lista inteira.
+ */
+export const findComplementsAvailable = async (
+  variantId: string,
+  limit = 12,
+): Promise<SimilarCandidate[]> => {
+  const db = getDb();
+  if (!db) return [];
+
+  const { results: rows } = await db
+    .prepare(
+      `WITH alvo AS (
+         SELECT p.product_group_id, p.product_type,
+                (SELECT pp.value_reference FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'COLLECTION' LIMIT 1) AS colecao,
+                COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                  WHERE pp.product_group_id = p.product_group_id
+                    AND pp.name = 'TAG'), '{}') AS tags
+           FROM products p
+           JOIN variants v ON v.product_group_id = p.product_group_id
+          WHERE v.variant_id = ?
+       )
+       SELECT p.*,
+              FALSE AS same_type,
+              EXISTS (SELECT 1 FROM product_props pp
+                       WHERE pp.product_group_id = p.product_group_id
+                         AND pp.name = 'COLLECTION'
+                         AND pp.value_reference = alvo.colecao)          AS same_collection,
+              COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                         WHERE pp.product_group_id = p.product_group_id
+                           AND pp.name = 'TAG'
+                           AND pp.value = ANY(alvo.tags)), '{}')          AS shared_tags
+         FROM products p, alvo
+        WHERE p.product_group_id <> alvo.product_group_id
+          -- O oposto de findSimilarAvailable: aqui mesmo tipo é o que sai.
+          AND (p.product_type <> alvo.product_type OR p.product_type = '')
+          AND EXISTS (SELECT 1 FROM variants v
+                       WHERE v.product_group_id = p.product_group_id AND v.available = 1)
+          -- Alguma afinidade real, senão "combina" vira sorteio.
+          AND (EXISTS (SELECT 1 FROM product_props pp
+                        WHERE pp.product_group_id = p.product_group_id
+                          AND pp.name = 'TAG' AND pp.value = ANY(alvo.tags))
+               OR EXISTS (SELECT 1 FROM product_props pp
+                           WHERE pp.product_group_id = p.product_group_id
+                             AND pp.name = 'COLLECTION'
+                             AND pp.value_reference = alvo.colecao))
+        ORDER BY
+          COALESCE((SELECT COUNT(*) FROM product_props pp
+                     WHERE pp.product_group_id = p.product_group_id
+                       AND pp.name = 'TAG' AND pp.value = ANY(alvo.tags)), 0) * 3
+          + CASE WHEN EXISTS (SELECT 1 FROM product_props pp
+                               WHERE pp.product_group_id = p.product_group_id
+                                 AND pp.name = 'COLLECTION'
+                                 AND pp.value_reference = alvo.colecao) THEN 2 ELSE 0 END
+          DESC, p.position ASC
+        LIMIT ?`,
+    )
+    .bind(variantId, limit)
+    .all<ProductRow & { same_type: boolean; same_collection: boolean; shared_tags: string[] }>();
+
+  if (rows.length === 0) return [];
+
+  const records = await withChildren(
+    db,
+    rows.map(({ same_type: _t, same_collection: _c, shared_tags: _s, ...produto }) => produto),
+  );
+
+  return records.map((record, indice) => {
+    const linha = rows[indice];
+    const sharedTags = linha.shared_tags ?? [];
+    // Sem o +4 de mesmo tipo: aqui ele nunca se aplica, e somá-lo faria a nota
+    // desta lista parecer comparável à da outra sem ser.
+    return {
+      record,
+      sameType: false,
+      sameCollection: !!linha.same_collection,
+      sharedTags,
+      score: sharedTags.length * 3 + (linha.same_collection ? 2 : 0),
+    };
+  });
+};
+
 export const findSimilarAvailable = async (
   variantId: string,
   limit = 12,

@@ -1,17 +1,31 @@
-import { vitrineDoComprador, type VitrinePersonalizada } from "~/platform/shelf/shelf.actions";
+import {
+  vitrineDoComprador,
+  type ListaDaVitrine,
+  type VitrinePersonalizada,
+} from "~/platform/shelf/shelf.actions";
+
+export interface Props {
+  /**
+   * @title Lista
+   * @description "alternativas" mostra o que substitui a peça esgotada (mesmo tipo). "combinam" mostra o que completa o look (outro tipo).
+   */
+  lista?: ListaDaVitrine;
+}
 
 /**
- * A vitrine pessoal montada pelo agente a partir do sinal de "avise-me".
+ * As vitrines pessoais montadas pelo agente a partir do sinal de "avise-me".
  *
- * Não tem props: o que ela mostra depende de quem está pedindo, não de
- * configuração. Um `count` aqui seria fachada — quantos itens entram é decisão
- * do agente, tomada na geração.
+ * A única prop é qual das duas listas renderizar — quantos itens entram e em
+ * que ordem é decisão do agente, tomada na geração. Um `count` aqui seria
+ * fachada.
  *
- * Devolve `null` quando não há comprador logado, quando ele não tem vitrine, ou
- * quando o que o agente escolheu esgotou desde então. A section some nos três
- * casos, que é o comportamento certo: vitrine pessoal para quem não tem uma é
- * pior que nenhuma seção.
+ * Devolve `null` quando não há comprador identificado, quando ele não tem
+ * vitrine, ou quando o que o agente escolheu esgotou desde então. A section
+ * some nos três casos, que é o comportamento certo: vitrine pessoal para quem
+ * não tem uma é pior que nenhuma seção.
  */
-export default async function personalShelfLoader(): Promise<VitrinePersonalizada | null> {
-  return vitrineDoComprador();
+export default async function personalShelfLoader({
+  lista = "alternativas",
+}: Props = {}): Promise<VitrinePersonalizada | null> {
+  return vitrineDoComprador(lista);
 }

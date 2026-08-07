@@ -27,6 +27,16 @@ export interface VitrinePersonalizada {
 const MIN_ITENS = 3;
 
 /**
+ * Qual das duas vitrines montar.
+ *
+ * `alternativas` responde "no lugar do que você queria"; `combinam` responde
+ * "para usar junto". São dois blocos no decofile, posicionáveis separadamente,
+ * e não uma section que renderiza as duas — assim dá para pôr uma logo abaixo
+ * do Hero e a outra depois do banner sem tocar em código.
+ */
+export type ListaDaVitrine = "alternativas" | "combinam";
+
+/**
  * `Product` carrega URLs absolutas, então precisa da origin da requisição.
  * Mesmo fallback de `catalog.actions.ts` para quando roda fora de um contexto
  * de request (build, preview do editor).
@@ -49,31 +59,39 @@ const origemAtual = (): string => {
  * repetir exatamente o problema que trouxe a pessoa até aqui, e passaria
  * despercebido porque a página continuaria respondendo 200.
  */
-export const vitrineDoComprador = async (): Promise<VitrinePersonalizada | null> => {
+export const vitrineDoComprador = async (
+  lista: ListaDaVitrine = "alternativas",
+): Promise<VitrinePersonalizada | null> => {
   const email = await donoDaVitrine();
   if (!email) return null;
 
   const gravada = await lerVitrine(email);
-  if (!gravada || gravada.itens.length === 0) return null;
+  if (!gravada) return null;
 
-  const handles = gravada.itens.map((item) => item.handle);
+  const escolhidos = lista === "combinam" ? gravada.combinam : gravada.itens;
+  const titulo = lista === "combinam" ? gravada.tituloCombina : gravada.titulo;
+  if (escolhidos.length === 0) return null;
+
+  const handles = escolhidos.map((item) => item.handle);
   const registros = await findAvailableCatalogRecordsByHandles(handles);
   if (registros.length < MIN_ITENS) {
-    console.warn(`[shelf] vitrine de ${email} caiu para ${registros.length} item(ns) disponíveis`);
+    console.warn(
+      `[shelf] vitrine "${lista}" de ${email} caiu para ${registros.length} item(ns) disponíveis`,
+    );
     return null;
   }
 
-  const origem = origemAtual();
-  const motivoPorHandle = new Map(gravada.itens.map((item) => [item.handle, item.motivo]));
+  const origemUrl = origemAtual();
+  const motivoPorHandle = new Map(escolhidos.map((item) => [item.handle, item.motivo]));
 
   const itens: ItemRenderizavel[] = [];
   for (const registro of registros) {
-    const product = recordToProduct(registro, origem);
+    const product = recordToProduct(registro, origemUrl);
     if (!product) continue;
     itens.push({ product, motivo: motivoPorHandle.get(registro.product.handle) ?? "" });
   }
 
   if (itens.length < MIN_ITENS) return null;
 
-  return { titulo: gravada.titulo, itens, origem: gravada.origem };
+  return { titulo, itens, origem: gravada.origem };
 };

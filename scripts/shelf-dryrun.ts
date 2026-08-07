@@ -80,16 +80,18 @@ const main = async (): Promise<void> => {
     console.log(`${i === 0 ? "âncora " : "        "}${d.titulo} [${d.tamanho}] — ${d.tipo}`);
   }
 
-  console.log(`\n=== ${espaco.candidatos.length} CANDIDATOS ===`);
+  console.log(
+    `\n=== ${espaco.alternativas.length} ALTERNATIVAS + ${espaco.complementos.length} COMPLEMENTOS ===`,
+  );
   if (verCandidatos) {
-    for (const c of espaco.candidatos) {
-      const papel = c.mesmoTipo
-        ? "ALTERNATIVA"
-        : c.tagsEmComum.length >= 2
-          ? "PARECIDO   "
-          : "fraco      ";
+    // O tipo de cada complemento é o que se olha aqui: se a lista tiver seis
+    // calças, o equilíbrio por tipo em shelf.candidates.ts não está pegando.
+    for (const c of espaco.alternativas) {
+      console.log(`  ALT  ${c.titulo.padEnd(34)} tags=${c.tagsEmComum.length} <- ${c.paraODesejo}`);
+    }
+    for (const c of espaco.complementos) {
       console.log(
-        `  ${papel} ${c.titulo.padEnd(34)} tags=${c.tagsEmComum.length} <- ${c.paraODesejo}`,
+        `  COMB ${c.titulo.padEnd(34)} ${c.tipo.padEnd(16)} tags=${c.tagsEmComum.length}`,
       );
     }
   } else {
@@ -106,16 +108,30 @@ const main = async (): Promise<void> => {
     console.log(`\n[gravar] ${ok ? "gravada em `shelves`" : "FALHOU"}`);
   }
 
-  const titulos = new Map(espaco.candidatos.map((c) => [c.handle, c.titulo]));
+  const rotulo = new Map(
+    [...espaco.alternativas, ...espaco.complementos].map((c) => [
+      c.handle,
+      `${c.titulo}  [${c.tipo}]`,
+    ]),
+  );
 
-  console.log(`\n=== VITRINE (${vitrine.origem}, ${decorrido}s) ===`);
+  // O tipo sai ao lado do título porque é o que se confere na vitrine de
+  // composição: quatro calças não são um look, e isso só se vê listando.
+  const imprimir = (itens: typeof vitrine.itens) => {
+    for (const item of itens) {
+      console.log(`  ${rotulo.get(item.handle)}`);
+      console.log(`    ${item.motivo || "(sem motivo — vitrine do SQL)"}`);
+    }
+  };
+
+  console.log(`\n=== VITRINES (${vitrine.origem}, ${decorrido}s) ===`);
   if (vitrine.motivoDoFallback) console.log(`fallback: ${vitrine.motivoDoFallback}`);
-  console.log(`"${vitrine.titulo}"   confiança ${vitrine.confianca}\n`);
 
-  for (const item of vitrine.itens) {
-    console.log(`  ${titulos.get(item.handle)}`);
-    console.log(`    ${item.motivo || "(sem motivo — vitrine do SQL)"}`);
-  }
+  console.log(`\n"${vitrine.titulo}"   confiança ${vitrine.confianca}`);
+  imprimir(vitrine.itens);
+
+  console.log(`\n"${vitrine.tituloCombina}"`);
+  imprimir(vitrine.combinam);
 
   console.log("");
   process.exit(0);

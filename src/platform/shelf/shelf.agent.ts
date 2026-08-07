@@ -19,9 +19,13 @@ import type { Candidato, ItemDaVitrine, RespostaCrua, Vitrine } from "./shelf.ty
 
 /** Título usado quando o texto do modelo é descartado. */
 const TITULO_PADRAO = "Disponíveis agora, perto do que você queria";
+/** Idem, para a vitrine de composição. */
+const TITULO_COMBINA_PADRAO = "Para usar com o que você queria";
 
 const MIN_ITENS = 3;
-const MAX_ITENS = 6;
+const MAX_ITENS = 10;
+const MIN_COMBINAM = 3;
+const MAX_COMBINAM = 6;
 
 /**
  * Extrai o primeiro objeto JSON completo de um texto.
@@ -81,17 +85,25 @@ const limitar = (texto: string, max: number): string =>
  * seria adivinhação, e a vitrine passaria a mostrar um produto que o modelo não
  * escolheu. Duplicata também sai — o modelo às vezes repete o melhor candidato.
  */
-export const validar = (crua: RespostaCrua, candidatos: Candidato[]): ItemDaVitrine[] => {
-  if (!Array.isArray(crua.itens)) return [];
+export const validar = (
+  lista: unknown,
+  candidatos: Candidato[],
+  maximo: number,
+  jaUsados: Set<string> = new Set(),
+): ItemDaVitrine[] => {
+  if (!Array.isArray(lista)) return [];
 
-  const validos = new Map(candidatos.map((c) => [c.handle, c]));
-  const vistos = new Set<string>();
+  const validos = new Set(candidatos.map((c) => c.handle));
+  const vistos = new Set<string>(jaUsados);
   const itens: ItemDaVitrine[] = [];
 
-  for (const bruto of crua.itens) {
+  for (const bruto of lista) {
     if (!bruto || typeof bruto !== "object") continue;
     const { handle, motivo } = bruto as { handle?: unknown; motivo?: unknown };
 
+    // `validos` é o pool DAQUELA vitrine, não a união dos dois. É o que impede
+    // um complemento de vazar para a lista de alternativas quando o modelo
+    // ignora a separação — o handle existe, mas não naquela lista.
     if (typeof handle !== "string" || !validos.has(handle) || vistos.has(handle)) continue;
 
     vistos.add(handle);
@@ -100,30 +112,43 @@ export const validar = (crua: RespostaCrua, candidatos: Candidato[]): ItemDaVitr
       motivo: typeof motivo === "string" ? limitar(motivo.trim(), 90) : "",
     });
 
-    if (itens.length === MAX_ITENS) break;
+    if (itens.length === maximo) break;
   }
 
   return itens;
 };
 
 /**
- * A vitrine determinística: os candidatos na ordem que o SQL já deu.
+ * As vitrines determinísticas: os candidatos na ordem que o SQL já deu.
  *
- * `findSimilarAvailable` ordena por nota (tag=3, mesmo tipo=4, mesma
- * coleção=2), então o topo desta lista já é defensável sem nenhum modelo. Sem
- * motivo, porque inventar texto aqui seria exatamente o que o agente existe
- * para fazer com julgamento.
+ * `findSimilarAvailable` e `findComplementsAvailable` ordenam por afinidade,
+ * então o topo de cada lista já é defensável sem nenhum modelo. Sem motivo,
+ * porque inventar texto aqui seria exatamente o que o agente existe para fazer
+ * com julgamento.
  */
-const vitrineDoSql = (candidatos: Candidato[], porque: string): Vitrine => ({
-  titulo: TITULO_PADRAO,
-  confianca: 0,
-  itens: candidatos.slice(0, MAX_ITENS).map((c) => ({ handle: c.handle, motivo: "" })),
-  origem: "sql",
-  motivoDoFallback: porque,
-});
+const vitrineDoSql = (espaco: EspacoDeEscolha, porque: string): Vitrine => {
+  const itens = espaco.alternativas.slice(0, MAX_ITENS);
+  // Os dois pools podem conter o mesmo produto de propósito (ver
+  // shelf.candidates.ts); quem impede a repetição na tela é sempre a saída,
+  // inclusive aqui, onde não houve modelo nenhum.
+  const usados = new Set(itens.map((c) => c.handle));
+
+  return {
+    titulo: TITULO_PADRAO,
+    confianca: 0,
+    itens: itens.map((c) => ({ handle: c.handle, motivo: "" })),
+    tituloCombina: TITULO_COMBINA_PADRAO,
+    combinam: espaco.complementos
+      .filter((c) => !usados.has(c.handle))
+      .slice(0, MAX_COMBINAM)
+      .map((c) => ({ handle: c.handle, motivo: "" })),
+    origem: "sql",
+    motivoDoFallback: porque,
+  };
+};
 
 /**
- * Monta a vitrine de um comprador **e grava**.
+ * Monta as vitrines de um comprador **e grava**.
  *
  * Roda em ~33s por causa do modelo, e às vezes muito mais (o Decopilot entra em
  * `waiting-capacity` e trava até o timeout) — **nunca chame isto de dentro de
@@ -137,7 +162,7 @@ const vitrineDoSql = (candidatos: Candidato[], porque: string): Vitrine => ({
  */
 export const gerarVitrine = async (email: string): Promise<Vitrine | null> => {
   const espaco = await montarEspacoDeEscolha(email);
-  if (espaco.candidatos.length === 0) return null;
+  if (espaco.alternativas.length === 0 && espaco.complementos.length === 0) return null;
 
   const vitrine = await montarVitrineDoEspaco(espaco, email);
   const ancora = espaco.brutos[0];
@@ -151,32 +176,59 @@ export const montarVitrineDoEspaco = async (
   espaco: EspacoDeEscolha,
   rotulo: string,
 ): Promise<Vitrine> => {
-  const { candidatos, desejos } = espaco;
+  const { alternativas, complementos, desejos } = espaco;
 
-  const resposta = await perguntar(montarMensagem(desejos, candidatos), `vitrine ${rotulo}`);
-  if (!resposta) return vitrineDoSql(candidatos, "modelo indisponível ou com erro");
+  const resposta = await perguntar(
+    montarMensagem(desejos, alternativas, complementos),
+    `vitrine ${rotulo}`,
+  );
+  if (!resposta) return vitrineDoSql(espaco, "modelo indisponível ou com erro");
 
   const crua = extrairJson(resposta.texto) as RespostaCrua | null;
-  if (!crua) return vitrineDoSql(candidatos, "resposta sem JSON parseável");
+  if (!crua) return vitrineDoSql(espaco, "resposta sem JSON parseável");
 
   const confianca = typeof crua.confianca === "number" ? crua.confianca : 0;
   if (confianca < PISO_DE_CONFIANCA) {
-    return vitrineDoSql(candidatos, `confiança ${confianca} abaixo do piso`);
+    return vitrineDoSql(espaco, `confiança ${confianca} abaixo do piso`);
   }
 
-  const itens = validar(crua, candidatos);
-  // Menos de 3 itens não é vitrine, é sobra. Melhor a ordenação completa do SQL
-  // do que três caixinhas com texto bonito.
+  const itens = validar(crua.itens, alternativas, MAX_ITENS);
+  // Menos de 3 alternativas não é vitrine, é sobra. Melhor a ordenação completa
+  // do SQL do que três caixinhas com texto bonito.
   if (itens.length < MIN_ITENS) {
-    return vitrineDoSql(candidatos, `só ${itens.length} item(ns) sobreviveram à validação`);
+    return vitrineDoSql(espaco, `só ${itens.length} alternativa(s) sobreviveram à validação`);
   }
 
-  const titulo = typeof crua.titulo === "string" && crua.titulo.trim() ? crua.titulo.trim() : "";
+  // A vitrine de "combina" não derruba a principal: se ela sair curta, cai
+  // sozinha para a ordenação do SQL enquanto as alternativas mantêm o texto do
+  // agente. Descartar o trabalho todo por causa da segunda lista seria trocar
+  // uma vitrine boa e uma média por duas médias.
+  // `jaUsados` é onde a não-repetição entre as duas vitrines é imposta — e não
+  // na montagem dos pools, que precisa deles ricos. Ver shelf.candidates.ts.
+  const usadosNasAlternativas = new Set(itens.map((item) => item.handle));
+  const combinamDoAgente = validar(
+    crua.combinam,
+    complementos,
+    MAX_COMBINAM,
+    usadosNasAlternativas,
+  );
+  const combinam =
+    combinamDoAgente.length >= MIN_COMBINAM
+      ? combinamDoAgente
+      : complementos
+          .filter((c) => !usadosNasAlternativas.has(c.handle))
+          .slice(0, MAX_COMBINAM)
+          .map((c) => ({ handle: c.handle, motivo: "" }));
+
+  const texto = (valor: unknown, padrao: string): string =>
+    typeof valor === "string" && valor.trim() ? limitar(valor.trim(), 45) : padrao;
 
   return {
-    titulo: titulo ? limitar(titulo, 45) : TITULO_PADRAO,
+    titulo: texto(crua.titulo, TITULO_PADRAO),
     confianca,
     itens,
+    tituloCombina: texto(crua.tituloCombina, TITULO_COMBINA_PADRAO),
+    combinam,
     origem: "agente",
   };
 };

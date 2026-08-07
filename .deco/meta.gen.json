@@ -381,6 +381,16 @@
               "site/loaders/personalShelf.ts"
             ],
             "default": "site/loaders/personalShelf.ts"
+          },
+          "lista": {
+            "type": "string",
+            "enum": [
+              "alternativas",
+              "combinam"
+            ],
+            "nullable": true,
+            "title": "Lista",
+            "description": "\"alternativas\" mostra o que substitui a peça esgotada (mesmo tipo). \"combinam\" mostra o que completa o look (outro tipo)."
           }
         }
       },

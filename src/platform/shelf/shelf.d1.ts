@@ -13,6 +13,8 @@ interface ShelfRow {
   title: string;
   confidence: number;
   items: string;
+  title_combina: string | null;
+  items_combina: string | null;
   source: string;
   fallback_reason: string | null;
   anchor_variant_id: string;
@@ -39,13 +41,16 @@ export const gravarVitrine = async (
     await db
       .prepare(
         `INSERT INTO shelves
-           (email, title, confidence, items, source, fallback_reason, anchor_variant_id, generated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?,
+           (email, title, confidence, items, title_combina, items_combina,
+            source, fallback_reason, anchor_variant_id, generated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
                  to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
          ON CONFLICT (email) DO UPDATE SET
            title = excluded.title,
            confidence = excluded.confidence,
            items = excluded.items,
+           title_combina = excluded.title_combina,
+           items_combina = excluded.items_combina,
            source = excluded.source,
            fallback_reason = excluded.fallback_reason,
            anchor_variant_id = excluded.anchor_variant_id,
@@ -56,6 +61,8 @@ export const gravarVitrine = async (
         vitrine.titulo,
         vitrine.confianca,
         JSON.stringify(vitrine.itens),
+        vitrine.tituloCombina,
+        JSON.stringify(vitrine.combinam),
         vitrine.origem,
         vitrine.motivoDoFallback ?? null,
         ancoraVariantId,
@@ -88,8 +95,8 @@ export const lerVitrine = async (email: string): Promise<VitrineGravada | null> 
   try {
     const linha = await db
       .prepare(
-        `SELECT email, title, confidence, items, source, fallback_reason,
-                anchor_variant_id, generated_at
+        `SELECT email, title, confidence, items, title_combina, items_combina,
+                source, fallback_reason, anchor_variant_id, generated_at
            FROM shelves WHERE email = ?`,
       )
       .bind(email)
@@ -108,10 +115,24 @@ export const lerVitrine = async (email: string): Promise<VitrineGravada | null> 
       return null;
     }
 
+    // NULL aqui é o estado normal de uma vitrine gerada antes da 0013: a
+    // section de composição some para ela até o cron regerar. Por isso lista
+    // vazia e não erro — ao contrário de `items`, que sem conteúdo não é
+    // vitrine nenhuma.
+    let combinam: ItemDaVitrine[] = [];
+    try {
+      const cru = linha.items_combina ? JSON.parse(linha.items_combina) : [];
+      if (Array.isArray(cru)) combinam = cru;
+    } catch {
+      console.warn(`[shelf] items_combina inválido para ${email} — ignorado`);
+    }
+
     return {
       titulo: linha.title,
       confianca: Number(linha.confidence) || 0,
       itens,
+      tituloCombina: linha.title_combina ?? "",
+      combinam,
       origem: linha.source === "agente" ? "agente" : "sql",
       motivoDoFallback: linha.fallback_reason ?? undefined,
       ancoraVariantId: linha.anchor_variant_id,

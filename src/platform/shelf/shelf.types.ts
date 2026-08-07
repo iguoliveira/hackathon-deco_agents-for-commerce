@@ -68,7 +68,19 @@ export interface ItemDaVitrine {
 export interface Vitrine {
   titulo: string;
   confianca: number;
+  /** Substituem o que faltou: mesmo tipo do desejado. */
   itens: ItemDaVitrine[];
+  /** Título da segunda vitrine. */
+  tituloCombina: string;
+  /**
+   * Completam o look: outro tipo, mesmo estilo.
+   *
+   * Lista separada e não uma flag em `itens` porque são duas vitrines na tela,
+   * com perguntas diferentes — "no lugar do quê" e "junto com o quê". Misturar
+   * as duas foi o que a primeira versão fazia, e o resultado era uma prateleira
+   * só, onde o boné no meio de quatro camisetas parecia erro de ordenação.
+   */
+  combinam: ItemDaVitrine[];
   origem: "agente" | "sql";
   /** Preenchido quando `origem === "sql"` — a razão exata da queda. */
   motivoDoFallback?: string;
@@ -79,4 +91,6 @@ export interface RespostaCrua {
   titulo?: unknown;
   confianca?: unknown;
   itens?: unknown;
+  tituloCombina?: unknown;
+  combinam?: unknown;
 }

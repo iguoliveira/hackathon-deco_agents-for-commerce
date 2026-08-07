@@ -130,7 +130,18 @@
       "section": {
         "__resolveType": "site/sections/Product/PersonalShelf.tsx",
         "vitrine": {
-          "__resolveType": "site/loaders/personalShelf.ts"
+          "__resolveType": "site/loaders/personalShelf.ts",
+          "lista": "alternativas"
+        }
+      }
+    },
+    {
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Product/PersonalShelf.tsx",
+        "vitrine": {
+          "__resolveType": "site/loaders/personalShelf.ts",
+          "lista": "combinam"
         }
       }
     },
