@@ -84,6 +84,38 @@ Três coisas que este teste provou, e que valem mais que o "funciona":
 O que o teste **não** prova: qualidade sobre um comprador com histórico, porque
 não há histórico. Ver *A entrada é pobre*.
 
+### O Decopilot fica indisponível, e isso é normal
+
+Meia hora depois do teste acima, a **mesma** chamada passou a estourar o
+timeout de 120s. Não foi o nosso código nem o tamanho do prompt — uma mensagem
+trivial falhava igual. O stream conta o que acontece:
+
+```
+[11286ms] waiting-runner
+[11746ms] starting-run
+[12089ms] waiting-capacity
+[42088ms] waiting-capacity      <- preso aqui até o timeout
+```
+
+**`waiting-capacity` é fila do lado deles.** O runner satura e a tarefa não
+roda; nada no HTTP indica isso (a thread cria, o stream abre com 200, o POST
+devolve 202) — só o evento de status conta.
+
+Duas consequências de desenho, e a segunda é o que torna isso um não-problema:
+
+1. **O timeout e o fallback não são zelo, são requisito.** Sem eles, um clique
+   em "avise-me" ficaria pendurado até a plataforma matar a função. Os dois se
+   provaram sob falha real, não em teste sintético.
+2. **A vitrine por SQL é um estado intermediário válido, não só um modo de
+   falha.** Como ela fica persistida e o cron reescreve depois, uma geração que
+   caiu no fallback hoje vira vitrine do agente na próxima passada. O produto
+   degrada de "vitrine explicada" para "vitrine sem texto" — nunca para
+   "vitrine vazia" nem para "erro".
+
+Por isso não vale ficar tentando de novo dentro da mesma execução: o cron já é
+a repetição. Se a taxa de fallback for alta na demo, o lugar de olhar é o
+`waiting-capacity`, não o nosso cliente.
+
 ## Decisões
 
 ### 1. A vitrine é ancorada no item esgotado, não na loja
