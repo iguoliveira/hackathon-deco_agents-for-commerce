@@ -4,10 +4,10 @@
 
 import type { Product } from "@decocms/apps-commerce/types";
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
-import { readShopperIdentity } from "../alerts";
 import { findAvailableCatalogRecordsByHandles } from "../catalog/catalog.d1";
 import { recordToProduct } from "../catalog/catalog.mapper";
 import { lerVitrine } from "./shelf.d1";
+import { donoDaVitrine } from "./shelf.identity";
 
 /** Um item pronto para a tela: o produto e a linha que o justifica. */
 export interface ItemRenderizavel {
@@ -50,18 +50,16 @@ const origemAtual = (): string => {
  * despercebido porque a página continuaria respondendo 200.
  */
 export const vitrineDoComprador = async (): Promise<VitrinePersonalizada | null> => {
-  const identidade = await readShopperIdentity(RequestContext.current?.request);
-  if (!identidade) return null;
+  const email = await donoDaVitrine();
+  if (!email) return null;
 
-  const gravada = await lerVitrine(identidade.email);
+  const gravada = await lerVitrine(email);
   if (!gravada || gravada.itens.length === 0) return null;
 
   const handles = gravada.itens.map((item) => item.handle);
   const registros = await findAvailableCatalogRecordsByHandles(handles);
   if (registros.length < MIN_ITENS) {
-    console.warn(
-      `[shelf] vitrine de ${identidade.email} caiu para ${registros.length} item(ns) disponíveis`,
-    );
+    console.warn(`[shelf] vitrine de ${email} caiu para ${registros.length} item(ns) disponíveis`);
     return null;
   }
 
