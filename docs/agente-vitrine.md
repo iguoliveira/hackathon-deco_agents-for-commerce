@@ -31,6 +31,59 @@ específico: ela devolve **os componentes da nota, não só a nota** — `sameTy
 é *alternativa* ou *complemento* para montar a vitrine e justificá-la em texto.
 Só entram produtos com ao menos uma variante disponível.
 
+## Onde a vitrine vai aparecer
+
+No lugar do **"Hottest Deals"** da home — hoje um `ProductShelfTabbed.tsx`
+dentro de `website/sections/Rendering/Lazy.tsx`, sétima seção de
+`.deco/blocks/pages-home.json`. Ele é uma vitrine tabulada por coleção
+(Accessories / Fashion / …), ou seja, exatamente o "genérico baseado em
+comportamento coletivo" que esta feature existe para substituir.
+
+Estar dentro de `Lazy.tsx` confirma o que já valia: **o HTML do SSR é esqueleto
+por design**, e status 200 não diz nada sobre a vitrine ter renderizado.
+
+**Usuário de teste: `ams.igorfigueiredo@gmail.com`.**
+
+## Conexão verificada
+
+Round trip completo contra o Decopilot, com candidatos reais do Supabase, antes
+de escrever qualquer código de produção.
+
+| | |
+|---|---|
+| Org | `igor-deco-core` |
+| Modelo | `anthropic/claude-sonnet-5` |
+| Credencial | `aik_ryREhrnwoXZOzgZTebCDv` (provisionada, funcionando) |
+| Sobrecarga por thread nova | ~15.900 tokens de entrada |
+| Vitrine real (12 candidatos, prompt de 10 KB) | **32,8s**, 20.888 entrada, 1.119 saída |
+
+Resultado com `Classic Pullover Hoodie - Grey [M]` esgotado:
+
+```
+titulo: Enquanto o seu tamanho não volta   confianca: 0.85
+  zip-through-hoodie    Mesmo tipo de moletom, no seu tamanho, com zíper…
+  heavy-fleece-hoodie   Moletom cinza como o que você queria, disponível…
+  oversized-hoodie      Outro moletom com capuz no seu tamanho, corte mais amplo.
+  raglan-sweatshirt     Mesmo cinza e mesmo tamanho, para usar como camada por baixo.
+  winter-hat            Peça para usar junto com o moletom nos dias mais frios.
+```
+
+Três coisas que este teste provou, e que valem mais que o "funciona":
+
+- **JSON puro, sem preâmbulo.** O Decopilot tem persona própria e tende a
+  conversar; pôr o contrato de formato como **primeira seção** da instrução
+  (e não como regra no fim) foi o que resolveu.
+- **Zero handles inventados** entre os 5 escolhidos.
+- **Zero alucinação de cor**, e de um jeito que só se vê conferindo: ele
+  afirmou "cinza" nos dois candidatos que são de fato cinza
+  (`Heavy Fleece Hoodie - Grey`, `Raglan Sweatshirt - Grey`) e **não citou cor**
+  nos que não eram (`Zip-Through Hoodie - Blue`,
+  `Oversized Hoodie - White`). A regra "não afirme o que não está escrito"
+  está pegando.
+
+O que o teste **não** prova: qualidade sobre um comprador com histórico, porque
+não há histórico. Ver *A entrada é pobre*.
+
 ## Decisões
 
 ### 1. A vitrine é ancorada no item esgotado, não na loja
@@ -46,43 +99,80 @@ uma consulta geral ao catálogo. Um agente que recebesse o catálogo inteiro
 produziria uma vitrine plausível e genérica, que é exatamente o que já existe em
 qualquer loja e não usa o sinal que a feature captura.
 
-### 2. Roda fora do caminho da request
+### 2. O gatilho é o clique, não o relógio
 
-Cron periódico (a cada 3 dias por comprador) **mais** uma execução na escrita do
-alerta. Nunca no render.
+**A execução principal acontece no ato do clique em "avise-me"**, fora do
+caminho da request (a pessoa não espera por ela). O cron a cada 3 dias é
+**refresh**, não gatilho.
 
-O motivo é medido, não estimado: o Decopilot leva **15–21s por chamada** (três
-execuções registradas no handoff do agente de busca). Isso é inviável num
-caminho bloqueante — foi o que travou o agente de busca em stub — e é
-irrelevante num lote.
+Isso mudou depois de uma conversa sobre o e-mail. Três razões que se somam:
 
-A execução na escrita existe porque, só com o cron, quem clica em "avise-me"
-hoje esperaria até 3 dias para ver qualquer coisa. É a mesma função chamada de
-dois lugares; `generated_at` resolve a idempotência entre elas.
+1. **É o pico de intenção.** A pessoa acabou de declarar que quer aquilo. Em
+   24h já esfriou; em 3 dias, muito.
+2. **É o e-mail que a loja já promete.** A tela diz hoje *"We'll email you when
+   this product is back in stock"* e **nada é enviado** — dívida registrada em
+   [`feature-back-in-stock-shelf.md`](feature-back-in-stock-shelf.md). O
+   e-mail de confirmação com a vitrine dentro entrega a hipótese e fecha a
+   mentira na mesma ação, sem precisar inventar um e-mail de marketing à parte.
+3. **Consentimento limpo.** Confirmação de "avise-me" é transacional e
+   esperada. Uma recomendação avulsa três dias depois é outra coisa.
+
+Nunca no render, em nenhum dos dois casos: **medido em 32,8s** para uma vitrine
+de verdade (ver *Conexão verificada*). Foi essa latência que travou o agente de
+busca em stub.
+
+**A cadência do e-mail não é a cadência da vitrine.** A vitrine pode regenerar
+a cada 3 dias sem incomodar ninguém — ela só regrava uma linha. E-mail a cada 3
+dias sobre o mesmo moletom esgotado é como se consegue marcação de spam, que
+estraga a entrega para todo mundo depois. **Um e-mail por alerta.**
 
 ### 3. O provedor de LLM é o Decopilot do deco
 
 Não por preferência — é o único que funciona. O handoff do agente de busca
 documenta cinco tentativas fracassadas (chave tratada como Anthropic → 401;
 `api.decocms.com` → NXDOMAIN; app oficial do gateway → 404; conexão MCP → 500;
-endpoints compatíveis com OpenAI no studio → 405) e uma que responde:
+endpoints compatíveis com OpenAI no studio → 405).
+
+O protocolo abaixo foi **verificado nesta branch, com as nossas credenciais**
+(`.dev.vars` → `STUDIO_*`, org `igor-deco-core`) — que são diferentes das da
+branch do agente de busca:
 
 ```
-Host: studio.decocms.com          (NÃO api.decocms.com)
-Org:  gustavo-baltazar            (slug, não o id interno)
-
-1. GET  /api/{org}/decopilot/threads/{id}/stream    → SSE, abrir ANTES do POST
-2. POST /api/{org}/decopilot/threads/{id}/messages  → 202 {taskId}
-3. ler os eventos `text-delta` do stream até `finish`
+1. POST {ROOT}/api/{org}/tools/COLLECTION_THREADS_CREATE
+     body: { data: { title, virtual_mcp_id: <STUDIO_AGENT_ID> } }
+     -> 200 { item: { id: "thrd_…" } }        ← o id gerado, NÃO o que você mandar
+2. GET  {ROOT}/api/{org}/decopilot/threads/{id}/stream    SSE, ANTES do POST
+3. POST {ROOT}/api/{org}/decopilot/threads/{id}/messages  -> 202
+     body: { messages: [{ role, parts: [{ type:"text", text }] }], agent: { id } }
+4. ler os eventos `text-delta` até `finish`
 ```
 
-Protocolo verificado e salvo em `scripts/deco-decopilot-probe.mjs`, **na branch
-`feature/agente-vendas-ia-phase1`** — vale portar o script antes de escrever
-cliente novo.
+**O passo 1 é a descoberta que faltava.** O handoff usava um `threadId` fixo,
+criado à mão pela UI do Studio, e não registrava de onde ele vinha. Uma thread
+inexistente falha de dois jeitos distintos e nenhum deles diz "crie a thread":
+o stream devolve `404 Thread not found`, e o POST de mensagem devolve **500 com
+violação de foreign key** em `thread_message_parts_thread_id_fkey`.
+
+Duas armadilhas de transporte, ambas custaram tempo:
+
+- O corpo de `messages` é validado por zod em modo estrito: aceita **exatamente**
+  `{ messages, agent }` e rejeita qualquer outra chave. Não há como criar a
+  thread por ali.
+- Existe um endpoint MCP em `/api/{org}/mcp`, **mas ele não aceita os nomes
+  do catálogo** (`COLLECTION_THREADS_CREATE` → `unknown namespace "COLLECTION"`).
+  O que funciona é o transporte REST: `POST /api/{org}/tools/{NOME_DA_TOOL}`
+  com os argumentos direto no corpo. `GET /api/{org}/tools` lista as 163
+  ferramentas disponíveis.
 
 A chamada sai do servidor para fora. Não depende de `/deco/meta`, de
 `/deco/render` nem do Fast Deploy que a migração para a Vercel removeu, e o CSP
 é irrelevante porque nada disso passa pelo navegador.
+
+**Uma thread por execução.** Verificado: o histórico acumula. A mesma pergunta
+trivial custou **15.940** tokens de entrada numa thread nova e **21.191** numa
+já usada. Reaproveitar thread entre compradores faria o custo crescer sem teto
+e — pior — deixaria os dados de um comprador no contexto do próximo. Criar
+thread é uma chamada barata; crie sempre.
 
 **O que se perde ao usar o Decopilot**, e que precisa ser compensado em código:
 
@@ -269,70 +359,142 @@ falso, e é o primeiro arquivo que uma ferramenta de IA lê neste repo — vai g
 código para o runtime errado. Correção de duas linhas, mas antes de alguém
 gerar código aqui.
 
-## Instruções do agente — primeira versão
+## A instrução do agente
 
-Sujeito a mudar assim que houver saída real para julgar. As escolhas menos
-óbvias: o campo `confianca` existe para o agente poder se recusar, e o `motivo`
-pede **relação**, não elogio — é a diferença entre uma vitrine que explica e uma
-que faz propaganda.
+Versão validada no dry run acima. Quatro escolhas que não são óbvias e que
+sairiam se alguém "limpasse" o texto:
 
-```
-Você monta uma vitrine para uma pessoa que tentou comprar uma peça de roupa
-e não pôde: o tamanho que ela queria estava esgotado.
+- **O contrato de formato vem primeiro**, não no fim. O Decopilot carrega
+  persona própria e quer conversar; a regra de formato como última seção não
+  segura, como primeira segura.
+- **`confianca` existe para o agente poder se recusar.** Vitrine fraca
+  declarada é melhor que vitrine fraca apresentada como boa.
+- **O `motivo` pede relação, não elogio.** É a diferença entre uma vitrine que
+  explica e uma que faz propaganda.
+- **A marca é proibida explicitamente.** A loja é de marca única
+  (`vendor = 'Deco Store'` em 136 produtos), então "da mesma marca" é verdade
+  vazia — e sem a proibição o modelo usa isso como motivo.
 
-Seu trabalho é escolher, entre os produtos DISPONÍVEIS que eu te der, quais
-mostrar para ela agora — e dizer, em uma linha por produto, por que aquele.
+````text
+Você monta uma vitrine de recomendação para uma pessoa que acabou de tentar
+comprar uma peça de roupa e não conseguiu: o tamanho que ela queria está
+esgotado. Ela clicou em "avise-me quando voltar", e é esse o momento em que
+você é chamado.
 
-REGRAS RÍGIDAS
-- Escolha SOMENTE handles da lista CANDIDATOS. Um handle fora da lista é
-  uma página que não existe. Se está em dúvida, escolha menos.
-- Nunca afirme material, medida, composição ou origem que não esteja no
-  texto do candidato. Você não tem essa informação; inventá-la é pior que
-  omiti-la.
-- Nunca prometa reposição, prazo ou aviso futuro. Ninguém envia esse e-mail.
-- Não mencione que o item desejado está esgotado com tom de desculpa. A
-  pessoa já sabe. Fale do que ela pode levar.
+Sua saída aparece em dois lugares: numa vitrine do site e num e-mail enviado
+logo em seguida. Escreva de modo que cada linha se sustente sozinha, sem o
+resto da página em volta.
 
-COMO LER OS CANDIDATOS
-Cada um vem com:
-  sameType=true    → é ALTERNATIVA: serve no lugar do que ela queria
-  sharedTags=[...] → é COMPLEMENTO: combina com o que ela queria
-  sameCollection   → mesmo território da loja, sinal fraco sozinho
+## FORMATO DA RESPOSTA — leia antes de tudo
 
-COMO COMPOR
-- 4 a 6 itens.
-- Comece por alternativas. Quem queria um moletom quer, antes de tudo,
-  outro moletom.
-- Inclua ao menos um complemento se houver com 2+ tags em comum. É o que
-  faz a vitrine parecer montada por alguém, e não filtrada por máquina.
-- Não repita o mesmo product_type mais de três vezes.
-- Uma cor só por peça: a cor está no título e é a única que existe.
+Responda com UM único objeto JSON e mais nada. Sem saudação, sem explicação,
+sem markdown, sem bloco de código, sem comentário depois. Não use ferramentas,
+não consulte nada: tudo de que você precisa está nesta mensagem.
 
-O MOTIVO (uma linha, português, até 90 caracteres)
-Diga a relação com o que a pessoa quis, não a qualidade do produto.
-  bom:  "Mesmo peso e mesmo corte do que você esperava, no seu tamanho."
-  bom:  "Fecha o look da calça que você queria."
-  ruim: "Uma peça incrível que você vai amar!"     (elogio, não relação)
-  ruim: "Moletom de algodão premium 400g."          (você não sabe disso)
+{
+  "titulo": "string, até 45 caracteres",
+  "confianca": 0.0,
+  "itens": [
+    { "handle": "string, copiado exatamente dos CANDIDATOS", "motivo": "string, até 90 caracteres" }
+  ]
+}
 
-TÍTULO DA VITRINE (até 45 caracteres)
-Fale com a pessoa, não sobre o algoritmo.
-  bom:  "Enquanto o seu tamanho não volta"
-  ruim: "Produtos similares recomendados"
+## REGRAS RÍGIDAS
 
-CONFIANÇA
-Devolva confianca < 0.5 quando os candidatos não têm relação real com o
-que a pessoa quis. Vitrine fraca declarada é melhor que vitrine fraca
-apresentada como boa — abaixo de 0.5 eu mostro a ordenação por SQL e
-descarto seu texto.
-```
+1. Escolha SOMENTE handles que aparecem na lista CANDIDATOS, copiados
+   caractere por caractere. Um handle que você invente ou corrija vira uma
+   página que não existe, e eu descarto o item inteiro. Na dúvida, escolha
+   menos.
+2. Não afirme material, gramatura, medida, composição, origem ou cuidado que
+   não esteja escrito no candidato. Você não tem essa informação. Omitir é
+   sempre melhor que inventar.
+3. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
+   controla nada disso.
+4. Não peça desculpas nem lamente o esgotamento. A pessoa já sabe. Fale do
+   que ela pode levar agora.
+5. Todos os candidatos já estão disponíveis. Nunca escreva que algo "ainda
+   está em estoque" ou "corre que está acabando" — é urgência falsa.
+6. Ignore a marca. A loja inteira é de uma marca só; dizer que algo é "da
+   mesma marca" não informa nada.
 
-Saída esperada:
+## COMO LER OS CANDIDATOS
+
+Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
+
+  mesmoTipo: true   -> ALTERNATIVA. Serve no lugar do que ela queria.
+  tagsEmComum: [..] -> afinidade real, nominal. Quanto mais tags, mais forte.
+  mesmaColecao      -> mesmo território da loja. Sinal fraco sozinho;
+                       nunca use isso como único motivo.
+  tamanhosDisponiveis -> o que dá para comprar hoje.
+
+Três papéis, e uma vitrine boa mistura pelo menos dois:
+
+  ALTERNATIVA  mesmoTipo = true
+  PARECIDO     tipo diferente, mas 2+ tags em comum
+  COMPLEMENTO  tipo diferente que se veste JUNTO com o desejado
+               (calça com moletom, boné com jaqueta, bolsa com vestido)
+
+## COMO COMPOR
+
+- Entre 4 e 6 itens. Menos de 4 só se os candidatos forem realmente ruins.
+- Comece por ALTERNATIVAS. Quem queria um moletom quer, antes de tudo, outro
+  moletom.
+- Inclua ao menos um COMPLEMENTO quando existir um que faça sentido vestir
+  junto. É o que faz a vitrine parecer montada por alguém em vez de filtrada
+  por máquina.
+- Não repita o mesmo tipo mais de três vezes.
+- Ordene por quanto você acredita em cada um, não por preço.
+
+## O MOTIVO
+
+Uma linha, em português do Brasil, até 90 caracteres. Diga a RELAÇÃO com o
+que a pessoa quis — não elogie o produto.
+
+  bom   "Mesmo corte e mesmo peso do moletom que você queria."
+  bom   "Veste por baixo do moletom sem apertar."
+  bom   "A calça que fecha esse look, e tem o seu tamanho."
+  ruim  "Uma peça incrível que você vai amar!"        (elogio, não relação)
+  ruim  "Moletom de algodão premium 400g."            (você não sabe disso)
+  ruim  "Também é da coleção de inverno."             (coleção sozinha não é motivo)
+  ruim  "Aproveite antes que acabe!"                  (urgência falsa)
+
+Não repita o nome do produto no motivo — ele já aparece na vitrine.
+
+## O TÍTULO
+
+Até 45 caracteres. Fale com a pessoa, não sobre o algoritmo.
+
+  bom   "Enquanto o seu tamanho não volta"
+  bom   "Perto do que você queria, e disponível"
+  ruim  "Produtos similares recomendados"
+  ruim  "Baseado no seu interesse"
+
+## CONFIANÇA
+
+Um número de 0 a 1: quanto os candidatos realmente respondem ao que a pessoa
+quis.
+
+  0.8+  há alternativas do mesmo tipo, com tamanho, e um complemento coerente
+  0.5   dá para montar algo defensável, mas sem alternativa direta
+  <0.5  os candidatos não têm relação real com o desejo
+
+Abaixo de 0.5 eu descarto o seu texto e mostro a ordenação por SQL. Declarar
+confiança baixa é a resposta certa quando ela é baixa — não é fracasso.
+````
+
+Cada candidato é entregue já reduzido ao que importa — não o `CatalogRecord`
+inteiro, que multiplicaria o prompt sem informar mais:
 
 ```json
 {
-  "titulo": "string",
-  "confianca": 0.0,
-  "itens": [{ "handle": "string", "motivo": "string" }]
+  "handle": "heavy-fleece-hoodie",
+  "titulo": "Heavy Fleece Hoodie - Grey",
+  "tipo": "Hoodie",
+  "preco": 249.9,
+  "mesmoTipo": true,
+  "mesmaColecao": true,
+  "tagsEmComum": ["unisex", "basic", "cotton", "winter", "layering"],
+  "tamanhosDisponiveis": ["XS", "S", "M", "L", "XL"],
+  "descricao": "…160 primeiros caracteres…"
 }
 ```
