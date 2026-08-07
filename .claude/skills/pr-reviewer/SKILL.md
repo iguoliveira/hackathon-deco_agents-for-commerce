@@ -240,16 +240,26 @@ estiver em outro repo, o mesmo delta sai à mão — e o raciocínio da seção 
 igual:
 
 ```sh
+# guarde o ponto de retorno ANTES de sair daqui
+VOLTAR=$(git symbolic-ref --short -q HEAD || git rev-parse HEAD)
+
 MB=$(git merge-base origin/main pr-<N>)
 git switch --detach "$MB" && npm run typecheck > /tmp/base.txt 2>&1
 git switch --detach pr-<N> && npm run typecheck > /tmp/head.txt 2>&1
-git switch -                                    # volte ANTES de analisar
+
+git switch "$VOLTAR"                                   # volte ANTES de analisar
 comm -13 <(sort /tmp/base.txt) <(sort /tmp/head.txt)   # só o que o head tem a mais
 ```
 
+**Não use `git switch -` para voltar.** Depois de dois `--detach` seguidos não
+existe "branch anterior", e ele falha com `fatal: a branch is expected, got
+commit …` — deixando você destacado justamente na hora de voltar. Guardar o nome
+antes é a única forma que funciona nos dois casos (branch e HEAD já destacado).
+
 O que se perde em relação ao script: se isso quebrar no meio (tsc travado,
-Ctrl+C), você fica em HEAD destacado sem aviso. Então **volte primeiro, analise
-depois** — a ordem acima não é estética.
+Ctrl+C), o `git switch "$VOLTAR"` nunca roda e você fica destacado sem aviso.
+Então **volte primeiro, analise depois** — a ordem acima não é estética. É
+exatamente essa linha que o `finally` do script torna incondicional.
 
 ### Não troque isto por `git worktree`
 
