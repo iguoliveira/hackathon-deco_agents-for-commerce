@@ -132,7 +132,10 @@
         "vitrine": {
           "__resolveType": "site/loaders/personalShelf.ts",
           "lista": "alternativas"
-        }
+        },
+        "maxItens": 6,
+        "formato": "carrossel",
+        "verMais": "/minha-vitrine"
       }
     },
     {
@@ -142,7 +145,10 @@
         "vitrine": {
           "__resolveType": "site/loaders/personalShelf.ts",
           "lista": "combinam"
-        }
+        },
+        "maxItens": 6,
+        "formato": "carrossel",
+        "verMais": "/minha-vitrine/combina"
       }
     },
     {

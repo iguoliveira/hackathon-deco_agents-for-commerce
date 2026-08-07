@@ -4631,7 +4631,29 @@
             ],
             "title": "Vitrine pessoal",
             "nullable": true,
-            "description": "Resolve com `site/loaders/personalShelf.ts`. Sem props: o conteúdo depende de quem está pedindo."
+            "description": "Resolve com `site/loaders/personalShelf.ts`. Escolha ali qual lista aparece."
+          },
+          "maxItens": {
+            "type": "number",
+            "nullable": true,
+            "title": "Quantos mostrar",
+            "description": "Vazio mostra todos. Na home vale limitar e apontar o \"ver mais\" para a página inteira."
+          },
+          "verMais": {
+            "type": "string",
+            "nullable": true,
+            "title": "Link do \"ver mais\"",
+            "description": "Ex.: \"/minha-vitrine\". Só aparece quando há mais itens do que os exibidos."
+          },
+          "formato": {
+            "type": "string",
+            "enum": [
+              "carrossel",
+              "grade"
+            ],
+            "nullable": true,
+            "title": "Formato",
+            "description": "Carrossel para a home; grade para uma página dedicada."
           }
         },
         "required": [

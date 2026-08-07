@@ -25,7 +25,9 @@ const TITULO_COMBINA_PADRAO = "Para usar com o que você queria";
 const MIN_ITENS = 3;
 const MAX_ITENS = 10;
 const MIN_COMBINAM = 3;
-const MAX_COMBINAM = 6;
+// 8 e nao 6: a home mostra 6, e sem folga o "ver mais" nunca apareceria —
+// a pagina de composicao ficaria sem porta de entrada.
+const MAX_COMBINAM = 8;
 
 /**
  * Extrai o primeiro objeto JSON completo de um texto.

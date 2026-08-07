@@ -111,7 +111,7 @@ Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
 
 ## COMO COMPOR "combinam" (o look)
 
-- Entre 4 e 6 itens.
+- Entre 6 e 8 itens.
 - Pense em peças que se VESTEM JUNTO com o que ela queria, montando uma roupa
   inteira: calça e tênis para uma camiseta; camiseta e boné para uma calça;
   bolsa ou casaco para um vestido.

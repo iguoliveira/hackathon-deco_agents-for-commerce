@@ -1,0 +1,21 @@
+{
+  "name": "Minha Vitrine",
+  "path": "/minha-vitrine",
+  "seo": {
+    "__resolveType": "website/sections/Seo/SeoV2.tsx"
+  },
+  "sections": [
+    {
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Product/PersonalShelf.tsx",
+        "vitrine": {
+          "__resolveType": "site/loaders/personalShelf.ts",
+          "lista": "alternativas"
+        },
+        "formato": "grade"
+      }
+    }
+  ],
+  "__resolveType": "website/pages/Page.tsx"
+}
