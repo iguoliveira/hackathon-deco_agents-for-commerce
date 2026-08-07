@@ -1,8 +1,13 @@
 /**
- * Dry run do agente da vitrine. **Não grava nada.**
+ * Dry run do agente da vitrine. **Não grava nada, salvo com `--gravar`.**
  *
  *   npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com
  *   npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com --candidatos
+ *   npm run shelf:dryrun -- ams.igorfigueiredo@gmail.com --gravar
+ *
+ * O padrão é não gravar porque o uso comum é iterar no prompt, e cada execução
+ * sobrescreveria a vitrine boa da vez anterior por uma pior enquanto se
+ * experimenta. `--gravar` é o modo "semear a demo".
  *
  * Existe porque a vitrine vai virar uma section diferida, e neste site
  * **status 200 não é sinal de saúde**: um loader que falha vira section vazia
@@ -23,6 +28,7 @@ process.loadEnvFile(".env");
 import { readFileSync } from "node:fs";
 import { montarEspacoDeEscolha } from "../src/platform/shelf/shelf.candidates";
 import { montarVitrineDoEspaco } from "../src/platform/shelf/shelf.agent";
+import { gravarVitrine } from "../src/platform/shelf/shelf.d1";
 
 /**
  * `.dev.vars` guarda as credenciais do Decopilot em desenvolvimento.
@@ -77,7 +83,11 @@ const main = async (): Promise<void> => {
   console.log(`\n=== ${espaco.candidatos.length} CANDIDATOS ===`);
   if (verCandidatos) {
     for (const c of espaco.candidatos) {
-      const papel = c.mesmoTipo ? "ALTERNATIVA" : c.tagsEmComum.length >= 2 ? "PARECIDO   " : "fraco      ";
+      const papel = c.mesmoTipo
+        ? "ALTERNATIVA"
+        : c.tagsEmComum.length >= 2
+          ? "PARECIDO   "
+          : "fraco      ";
       console.log(
         `  ${papel} ${c.titulo.padEnd(34)} tags=${c.tagsEmComum.length} <- ${c.paraODesejo}`,
       );
@@ -89,6 +99,12 @@ const main = async (): Promise<void> => {
   const inicio = Date.now();
   const vitrine = await montarVitrineDoEspaco(espaco, `dryrun ${email}`);
   const decorrido = ((Date.now() - inicio) / 1000).toFixed(1);
+
+  if (args.includes("--gravar")) {
+    const ancora = espaco.brutos[0];
+    const ok = ancora ? await gravarVitrine(email, vitrine, ancora.variantId) : false;
+    console.log(`\n[gravar] ${ok ? "gravada em `shelves`" : "FALHOU"}`);
+  }
 
   const titulos = new Map(espaco.candidatos.map((c) => [c.handle, c.titulo]));
 

@@ -128,34 +128,10 @@
     {
       "__resolveType": "website/sections/Rendering/Lazy.tsx",
       "section": {
-        "__resolveType": "site/sections/Product/ProductShelfTabbed.tsx",
-        "title": "Hottest Deals",
-        "tabs": [
-          {
-            "products": {
-              "__resolveType": "site/loaders/catalogProductList.ts",
-              "collection": "accessories",
-              "count": 10
-            },
-            "title": "Accessories"
-          },
-          {
-            "products": {
-              "__resolveType": "site/loaders/catalogProductList.ts",
-              "collection": "shirts",
-              "count": 10
-            },
-            "title": "Fashion"
-          },
-          {
-            "products": {
-              "__resolveType": "site/loaders/catalogProductList.ts",
-              "collection": "jackets-outerwear",
-              "count": 10
-            },
-            "title": "Jackets & Outerwear"
-          }
-        ]
+        "__resolveType": "site/sections/Product/PersonalShelf.tsx",
+        "vitrine": {
+          "__resolveType": "site/loaders/personalShelf.ts"
+        }
       }
     },
     {

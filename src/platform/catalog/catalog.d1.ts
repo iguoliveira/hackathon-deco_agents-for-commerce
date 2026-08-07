@@ -371,6 +371,47 @@ export const findCatalogRecordByHandle = async (handle: string): Promise<Catalog
   return record ?? null;
 };
 
+/**
+ * Lê vários produtos por handle, **só os que ainda têm variante disponível**,
+ * preservando a ordem pedida.
+ *
+ * É o que reidrata uma vitrine persistida. Os dois comportamentos acima são o
+ * ponto:
+ *
+ * - **Filtrar por disponibilidade aqui, e não na geração**, porque a vitrine
+ *   fica gravada por dias enquanto o estoque muda. Uma vitrine cuja premissa é
+ *   "não te mostro o que você não pode comprar" recomendando item esgotado é o
+ *   pior resultado possível desta feature — e seria invisível em teste, porque
+ *   a página continuaria respondendo 200.
+ * - **Preservar a ordem pedida**, porque a ordem é decisão do agente. O
+ *   `ORDER BY p.position` das outras consultas jogaria fora exatamente o
+ *   julgamento que se pagou para obter.
+ */
+export const findAvailableCatalogRecordsByHandles = async (
+  handles: string[],
+): Promise<CatalogRecord[]> => {
+  const db = getDb();
+  if (!db || handles.length === 0) return [];
+
+  const marcadores = handles.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT p.* FROM products p
+        WHERE p.handle IN (${marcadores})
+          AND EXISTS (SELECT 1 FROM variants v
+                       WHERE v.product_group_id = p.product_group_id AND v.available = 1)`,
+    )
+    .bind(...handles)
+    .all<ProductRow>();
+
+  const registros = await withChildren(db, results);
+  const porHandle = new Map(registros.map((r) => [r.product.handle, r]));
+
+  return handles
+    .map((handle) => porHandle.get(handle))
+    .filter((registro): registro is CatalogRecord => !!registro);
+};
+
 /** Um candidato a entrar na vitrine, com o PORQUÊ separado da nota. */
 export interface SimilarCandidate {
   record: CatalogRecord;

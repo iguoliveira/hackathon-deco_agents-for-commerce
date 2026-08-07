@@ -86,6 +86,10 @@
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9OZXdzbGV0dGVyL05ld3NsZXR0ZXIudHN4",
           "namespace": "site"
         },
+        "site/sections/Product/PersonalShelf.tsx": {
+          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
+          "namespace": "site"
+        },
         "site/sections/Product/ProductDetails.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
           "namespace": "site"
@@ -142,6 +146,10 @@
         },
         "site/loaders/catalogProductListingPage.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/personalShelf.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=",
           "namespace": "site"
         },
         "site/loaders/productByHandle.ts": {
@@ -357,6 +365,22 @@
             "type": "number",
             "nullable": true,
             "title": "Produtos por página"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=": {
+        "title": "site/loaders/personalShelf.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/personalShelf.ts"
+            ],
+            "default": "site/loaders/personalShelf.ts"
           }
         }
       },
@@ -4583,6 +4607,48 @@
           }
         }
       },
+      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props": {
+        "type": "object",
+        "properties": {
+          "vitrine": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Resolvable"
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
+              }
+            ],
+            "title": "Vitrine pessoal",
+            "nullable": true,
+            "description": "Resolve com `site/loaders/personalShelf.ts`. Sem props: o conteúdo depende de quem está pedindo."
+          }
+        },
+        "required": [
+          "vitrine"
+        ]
+      },
+      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4": {
+        "title": "site/sections/Product/PersonalShelf.tsx",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
+          }
+        ],
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/sections/Product/PersonalShelf.tsx"
+            ],
+            "default": "site/sections/Product/PersonalShelf.tsx"
+          }
+        }
+      },
       "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props": {
         "type": "object",
         "properties": {
@@ -4941,7 +5007,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -4956,7 +5022,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
             "default": 1
           }
         },
@@ -5068,7 +5134,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5083,7 +5149,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
             "default": 1
           }
         },
@@ -5652,6 +5718,10 @@
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL05ld3NsZXR0ZXIvTmV3c2xldHRlci50c3g=@Props"
           },
           {
+            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
+            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
+          },
+          {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props"
           },
@@ -5708,6 +5778,9 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="

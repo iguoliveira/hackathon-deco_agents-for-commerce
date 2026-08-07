@@ -12,6 +12,7 @@
  */
 
 import { montarEspacoDeEscolha, type EspacoDeEscolha } from "./shelf.candidates";
+import { gravarVitrine } from "./shelf.d1";
 import { perguntar } from "./shelf.decopilot";
 import { montarMensagem, PISO_DE_CONFIANCA } from "./shelf.prompt";
 import type { Candidato, ItemDaVitrine, RespostaCrua, Vitrine } from "./shelf.types";
@@ -122,17 +123,27 @@ const vitrineDoSql = (candidatos: Candidato[], porque: string): Vitrine => ({
 });
 
 /**
- * Monta a vitrine de um comprador.
+ * Monta a vitrine de um comprador **e grava**.
  *
- * Roda em ~33s por causa do modelo — **nunca chame isto de dentro de uma
- * request que alguém esteja esperando.** O lugar dela é o gatilho do clique
+ * Roda em ~33s por causa do modelo, e às vezes muito mais (o Decopilot entra em
+ * `waiting-capacity` e trava até o timeout) — **nunca chame isto de dentro de
+ * uma request que alguém esteja esperando.** O lugar dela é o gatilho do clique
  * (fora do caminho da resposta) e o cron de refresh.
+ *
+ * Grava inclusive a vitrine do SQL. Ela não é só um modo de falha: é um estado
+ * intermediário válido, que a próxima passada do cron substitui por uma do
+ * agente. Não gravar deixaria o comprador sem vitrine nenhuma sempre que o
+ * provedor estivesse saturado.
  */
-export const montarVitrine = async (email: string): Promise<Vitrine | null> => {
+export const gerarVitrine = async (email: string): Promise<Vitrine | null> => {
   const espaco = await montarEspacoDeEscolha(email);
   if (espaco.candidatos.length === 0) return null;
 
-  return montarVitrineDoEspaco(espaco, email);
+  const vitrine = await montarVitrineDoEspaco(espaco, email);
+  const ancora = espaco.brutos[0];
+  if (ancora) await gravarVitrine(email, vitrine, ancora.variantId);
+
+  return vitrine;
 };
 
 /** A parte que o dry run reaproveita sem repetir a consulta. */
