@@ -3,15 +3,12 @@
  * acima nunca fala com D1 nem vê linha de SQL.
  */
 
-import type {
-  Product,
-  ProductDetailsPage,
-  ProductListingPage,
-} from "@decocms/apps-commerce/types";
+import type { Product, ProductDetailsPage, ProductListingPage } from "@decocms/apps-commerce/types";
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import {
   findCatalogRecordByHandle,
   findCatalogRecords,
+  findCollectionHandles,
   findOptionNames,
   searchCatalog,
 } from "./catalog.d1";
@@ -129,9 +126,12 @@ export interface ListingPageOptions {
  * opção inexistente, e a PLP voltaria vazia — sem erro, sem log, só zero
  * resultados para quem chegou pelo anúncio.
  */
-export const getProductListingPage = async (
-  { collection, query, perPage = 12, pageUrl }: ListingPageOptions = {},
-): Promise<ProductListingPage | null> => {
+export const getProductListingPage = async ({
+  collection,
+  query,
+  perPage = 12,
+  pageUrl,
+}: ListingPageOptions = {}): Promise<ProductListingPage | null> => {
   const url = resolvePageUrl(pageUrl);
   const optionNames = await findOptionNames();
 
@@ -141,20 +141,59 @@ export const getProductListingPage = async (
     options[key] = url.searchParams.getAll(key);
   }
 
-  const page = Math.max(0, Number(url.searchParams.get("page") ?? 0) || 0);
+  // `?page=` é 1-BASED: `page=1` é a primeira página, e a primeira página
+  // também é a ausência do parâmetro.
+  //
+  // Antes era 0-based aqui e 1-based nos blocos (`startingPage: 1`), e o número
+  // ia direto como multiplicador do OFFSET. O resultado eram dois bugs de uma
+  // vez: "página 1" mostrava a segunda, e clicar na última pedia um OFFSET além
+  // do total — a página vinha vazia em vez de não existir.
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
 
-  const result = await searchCatalog({
+  // A coleção pode vir do CAMINHO — `/shirts`, `/accessories`. É o que faz as
+  // abas do menu pré-selecionarem o filtro.
+  //
+  // Sem isto, a Category Page (`/*`) chamava este loader sem coleção nenhuma e
+  // toda aba mostrava o catálogo inteiro: o bloco `PLP Loader` é compartilhado
+  // por todas elas e não tem como declarar uma coleção por rota.
+  //
+  // Só vale se o segmento for MESMO uma coleção (ver findCollectionHandles) —
+  // caso contrário `/s`, `/login` ou `/wishlist` virariam filtro por coleção
+  // inexistente e a listagem voltaria vazia, sem erro e sem log.
+  const primeiroSegmento = url.pathname.split("/").filter(Boolean)[0];
+  const colecaoDoCaminho =
+    primeiroSegmento && (await findCollectionHandles()).has(primeiroSegmento)
+      ? primeiroSegmento
+      : undefined;
+
+  const busca = {
     // `?q=` do usuário ganha da query fixa da página: buscar dentro de /kids
     // deve buscar, não continuar preso ao recorte da landing.
     term: url.searchParams.get("q") ?? query ?? undefined,
-    collection: collection ?? url.searchParams.get("collection") ?? undefined,
+    collection: collection ?? url.searchParams.get("collection") ?? colecaoDoCaminho,
     options,
     sort: parseSort(url.searchParams.get("sort")),
-    page,
     perPage,
-  });
+  };
 
-  return toProductListingPage(result, url, { page, perPage });
+  // searchCatalog conta a partir de 0 (é OFFSET de SQL).
+  let result = await searchCatalog({ ...busca, page: page - 1 });
+  let paginaFinal = page;
+
+  // Página além da última devolve zero linhas — uma listagem vazia com filtros
+  // e contagem preenchidos, que parece "nada encontrado" e não é. A navegação
+  // nunca linka para lá, mas URL digitada, link antigo e robô chegam. Grampeia
+  // na última que existe.
+  //
+  // A segunda consulta só acontece nesse caso: no caminho normal, `page` já é
+  // válida e nada extra roda.
+  const ultimaPagina = Math.max(1, Math.ceil(result.total / perPage));
+  if (page > ultimaPagina && result.total > 0) {
+    paginaFinal = ultimaPagina;
+    result = await searchCatalog({ ...busca, page: ultimaPagina - 1 });
+  }
+
+  return toProductListingPage(result, url, { page: paginaFinal, perPage });
 };
 
 /**

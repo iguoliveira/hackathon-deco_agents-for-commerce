@@ -29,6 +29,22 @@ export interface Props {
 const isColorAttr = (name: string) => /color|cor(es)?/i.test(name);
 
 /**
+ * Nomes que chegam em `additionalProperty` mas NÃO são opção de variante, e
+ * portanto não podem virar uma linha de seletor.
+ *
+ * `productType` e `descriptionHtml` são sintéticos: `catalog.mapper.ts` os
+ * anexa a toda variante junto com as opções reais, e o
+ * `useVariantPossibilities` não distingue uns dos outros.
+ *
+ * Isso ficou invisível enquanto `product_type` era vazio em 90% do catálogo —
+ * sem valor, o atributo resolvia para zero entradas e caía no filtro logo
+ * abaixo. Ao preenchê-lo em 135/135 (migration 0008), ele passou a resolver e
+ * apareceu como um seletor "productType" na PDP, com um valor só e sem
+ * utilidade nenhuma para quem compra.
+ */
+const NAO_E_OPCAO = new Set(["title", "default title", "producttype", "descriptionhtml"]);
+
+/**
  * Hrefs of the sibling variants that are out of stock, keyed by the same
  * relative href the pills link to.
  *
@@ -67,10 +83,7 @@ export default function ProductVariantSelector({ product, config }: Props) {
 
   const unavailableHrefs = unavailableHrefsOf(hasVariant);
 
-  const attrNames = Object.keys(possibilities).filter((n) => {
-    const lower = n.toLowerCase();
-    return lower !== "title" && lower !== "default title";
-  });
+  const attrNames = Object.keys(possibilities).filter((n) => !NAO_E_OPCAO.has(n.toLowerCase()));
 
   // Only attributes with at least one navigable value are worth a row —
   // some Shopify option groups (e.g. a single-value "Product Type") resolve

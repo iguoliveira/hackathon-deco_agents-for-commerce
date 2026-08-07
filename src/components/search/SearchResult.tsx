@@ -15,12 +15,10 @@ import SearchResultGridSkeleton from "./SearchResultGridSkeleton";
 import SearchSortBar from "./SearchSortBar";
 
 export interface Layout {
-  /**
-   * @title Pagination
-   * @description Format of the pagination
-   * @default "show-more"
-   */
-  pagination?: "show-more" | "pagination";
+  // A opção `pagination` ("show-more" | "pagination") foi removida: a listagem
+  // é sempre numerada. O "show more" só empilhava itens e não permitia saltar
+  // para o fim de uma listagem longa — com 26 camisetas em 3 páginas isso já
+  // incomodava. Deixar o campo no CMS sem efeito seria pior que não ter.
   /**
    * @title Pré-carregar página do produto
    * @description Quando ativado, a página do produto começa a carregar assim
@@ -37,9 +35,11 @@ export interface Props {
   /** @title Layout */
   layout?: Layout;
   /**
-   * @title Starting page
-   * @description 0 for ?page=0 as your first page
-   * @default 0
+   * @title Primeira página
+   * @description Número que a primeira página tem na URL. O catálogo é
+   * 1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o
+   * loader mudar junto.
+   * @default 1
    */
   startingPage?: 0 | 1;
 }
@@ -55,7 +55,10 @@ function NotFound() {
 function Result({
   page,
   layout,
-  startingPage = 0,
+  // 1 e não 0: `?page=` do catálogo é 1-based, e os blocos já declaravam
+  // `startingPage: 1`. O default antigo (0) era a outra metade do off-by-one —
+  // um bloco que não declarasse a prop mostraria "2" na primeira página.
+  startingPage = 1,
   url,
 }: SectionProps<typeof loader> & { page: ProductListingPage }) {
   const filterDrawerId = useId();
@@ -74,6 +77,24 @@ function Result({
   const zeroIndexedOffsetPage = pageInfo.currentPage - startingPage;
   const offset = zeroIndexedOffsetPage * perPage;
   const { prev, next } = rebasePaginationHrefs(pageInfo.previousPage, pageInfo.nextPage, href);
+
+  // Quantas páginas o total de itens produz — é o que permite numerar em vez
+  // de só oferecer "próxima".
+  const totalRecords = pageInfo.records ?? products.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / (perPage || 1)));
+
+  // Destino de uma página qualquer, preservando os filtros/ordenação da URL
+  // atual. `search` é obrigatório: `to` carrega só o caminho, e o `page` vive
+  // na query — passar apenas `to` navegaria para a própria página.
+  const pageTarget = (page: number) => {
+    const atual = new URL(href, "http://localhost");
+    const search = Object.fromEntries(atual.searchParams);
+    // A tela e a URL usam a mesma numeração (1-based). A primeira página omite
+    // o parâmetro, para `?page=1` e a URL limpa não virarem duas URLs iguais.
+    if (page <= 1) delete search.page;
+    else search.page = String(page);
+    return { to: atual.pathname, search };
+  };
 
   const viewItemListEvent = useSendEvent({
     on: "view",
@@ -130,11 +151,14 @@ function Result({
             )}
 
             <div className="grid place-items-center pt-2 sm:pt-8">
+              {/* Sempre numerada. O "show more" saiu: ele só empilhava itens e
+                  não deixava saltar para o fim de uma listagem longa. */}
               <SearchPagination
                 currentPage={zeroIndexedOffsetPage + 1}
+                totalPages={totalPages}
+                pageTarget={pageTarget}
                 prev={prev}
                 next={next}
-                variant={layout?.pagination ?? "show-more"}
               />
             </div>
           </div>

@@ -13,6 +13,7 @@
     "db:query": "tsx scripts/query.ts",
     "db:alerts": "tsx scripts/query.ts --file db/queries/waited-items.sql",
     "catalog:generate": "tsx scripts/generate-catalog-migration.ts",
+    "catalog:apparel": "tsx scripts/generate-apparel-catalog.ts",
     "generate:blocks": "bun node_modules/@decocms/blocks-cli/scripts/generate-blocks.ts",
     "generate:routes": "tsr generate",
     "generate:schema": "bun node_modules/@decocms/blocks-cli/scripts/generate-schema.ts --site demo-storefront",

@@ -30,6 +30,16 @@ type AsButton = CommonProps &
 
 type AsLink = CommonProps & {
   href: string;
+  /**
+   * Query string do destino, repassada ao `<Link>` do router.
+   *
+   * Existe porque `href` carrega só o caminho: sem isto, um link para
+   * `/shirts?page=1` navegava para `/shirts` e a página não mudava. Era o
+   * "Show more" da listagem, que ficou anos sem aparecer porque nenhuma
+   * coleção passava de uma página — o bug só ficou visível quando o catálogo
+   * cresceu.
+   */
+  search?: Record<string, string>;
   prefetch?: "intent" | false;
   disabled?: undefined;
 };
@@ -53,7 +63,12 @@ export default function Button(props: Props) {
 
   if ("href" in props && props.href) {
     return (
-      <Link to={props.href} preload={props.prefetch ?? "intent"} className={classes}>
+      <Link
+        to={props.href}
+        search={props.search}
+        preload={props.prefetch ?? "intent"}
+        className={classes}
+      >
         {children}
       </Link>
     );

@@ -92,19 +92,23 @@ const buildFilters = (result: SearchCatalogResult, url: URL): Filter[] => {
       key,
       label: key,
       quantity: facets.length,
-      values: facets.map((facet) =>
-        toFilterValue(url, { ...facet, value: facet.label }, selected),
-      ),
+      values: facets.map((facet) => toFilterValue(url, { ...facet, value: facet.label }, selected)),
     });
   }
 
   return filters;
 };
 
+/**
+ * URL de uma página, 1-based. A primeira página é a AUSÊNCIA do parâmetro —
+ * `?page=1` e a URL limpa devem ser a mesma coisa, senão viram duas URLs para
+ * o mesmo conteúdo.
+ */
 const pageUrl = (url: URL, page: number): string | undefined => {
-  if (page < 0) return undefined;
+  if (page < 1) return undefined;
   const next = new URL(url.href);
-  next.searchParams.set("page", String(page));
+  if (page === 1) next.searchParams.delete("page");
+  else next.searchParams.set("page", String(page));
   return next.toString();
 };
 
@@ -113,9 +117,7 @@ const buildBreadcrumb = (url: URL, term: string | null): BreadcrumbList => {
   return {
     "@type": "BreadcrumbList",
     numberOfItems: 1,
-    itemListElement: [
-      { "@type": "ListItem", name: label, position: 1, item: url.pathname },
-    ],
+    itemListElement: [{ "@type": "ListItem", name: label, position: 1, item: url.pathname }],
   };
 };
 
@@ -125,7 +127,8 @@ export const toProductListingPage = (
   { page, perPage }: { page: number; perPage: number },
 ): ProductListingPage => {
   const term = url.searchParams.get("q");
-  const lastPage = Math.max(0, Math.ceil(result.total / perPage) - 1);
+  // 1-based: com 26 itens e 12 por página, a última é a 3.
+  const lastPage = Math.max(1, Math.ceil(result.total / perPage));
 
   return {
     "@type": "ProductListingPage",
@@ -137,7 +140,7 @@ export const toProductListingPage = (
     pageInfo: {
       currentPage: page,
       nextPage: page < lastPage ? pageUrl(url, page + 1) : undefined,
-      previousPage: page > 0 ? pageUrl(url, page - 1) : undefined,
+      previousPage: page > 1 ? pageUrl(url, page - 1) : undefined,
       records: result.total,
       recordPerPage: perPage,
     },

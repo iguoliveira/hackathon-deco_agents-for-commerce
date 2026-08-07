@@ -3566,7 +3566,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4798,7 +4798,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4937,17 +4937,6 @@
           "layout": {
             "type": "object",
             "properties": {
-              "pagination": {
-                "type": "string",
-                "enum": [
-                  "show-more",
-                  "pagination"
-                ],
-                "nullable": true,
-                "title": "Pagination",
-                "description": "Format of the pagination",
-                "default": "show-more"
-              },
               "enablePrefetch": {
                 "type": "boolean",
                 "nullable": true,
@@ -4966,9 +4955,9 @@
               1
             ],
             "nullable": true,
-            "title": "Starting page",
-            "description": "0 for ?page=0 as your first page",
-            "default": 0
+            "title": "Primeira página",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
+            "default": 1
           }
         },
         "required": [
@@ -5075,17 +5064,6 @@
           "layout": {
             "type": "object",
             "properties": {
-              "pagination": {
-                "type": "string",
-                "enum": [
-                  "show-more",
-                  "pagination"
-                ],
-                "nullable": true,
-                "title": "Pagination",
-                "description": "Format of the pagination",
-                "default": "show-more"
-              },
               "enablePrefetch": {
                 "type": "boolean",
                 "nullable": true,
@@ -5104,9 +5082,9 @@
               1
             ],
             "nullable": true,
-            "title": "Starting page",
-            "description": "0 for ?page=0 as your first page",
-            "default": 0
+            "title": "Primeira página",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
+            "default": 1
           }
         },
         "required": [

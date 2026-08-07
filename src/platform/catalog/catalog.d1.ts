@@ -327,6 +327,34 @@ export const findOptionNames = async (): Promise<Set<string>> => {
   return optionNames;
 };
 
+/**
+ * Handles de coleção que existem no catálogo — `shirts`, `accessories`, …
+ *
+ * É a whitelist que permite tratar `/shirts` como filtro de coleção sem tratar
+ * `/s`, `/login` ou `/products/x` do mesmo jeito. Sem ela, qualquer caminho
+ * viraria um filtro por coleção inexistente e a listagem voltaria vazia.
+ *
+ * Cacheado por isolate, como `findOptionNames`: o conjunto só muda quando uma
+ * migration nova entra, e aí o processo reinicia de qualquer forma.
+ */
+let collectionHandles: Set<string> | null = null;
+
+export const findCollectionHandles = async (): Promise<Set<string>> => {
+  if (collectionHandles) return collectionHandles;
+
+  const db = getDb();
+  if (!db) return new Set();
+
+  const { results } = await db
+    .prepare(
+      "SELECT DISTINCT value_reference FROM product_props WHERE name = 'COLLECTION' AND value_reference IS NOT NULL",
+    )
+    .all<{ value_reference: string }>();
+
+  collectionHandles = new Set(results.map((row) => row.value_reference));
+  return collectionHandles;
+};
+
 /** Lê um produto pelo handle. `null` quando não existe. */
 export const findCatalogRecordByHandle = async (handle: string): Promise<CatalogRecord | null> => {
   const db = getDb();

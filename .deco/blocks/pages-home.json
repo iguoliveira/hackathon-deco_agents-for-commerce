@@ -14,7 +14,7 @@
           "image": "https://decoims.com/demo-storefront/2026/07/57440993-8c68-4943-9084-1c947c1d0fd5-banner1.png?quality=original",
           "mobileImage": "https://decoims.com/demo-storefront/2026/07/611a7feb-6906-4d6e-9965-ca2bcf0e7081-banner1-mob.png",
           "headline": "NEW SEASON, UP TO 60% OFF",
-          "href": "/s?q=shoes&page=0",
+          "href": "/products/deco-tee",
           "product": {
             "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-tee"
@@ -23,8 +23,8 @@
         {
           "image": "https://decoims.com/demo-storefront/2026/07/ba0261c3-bee6-40bd-b7a4-ce12083c7be5-banner2.png",
           "mobileImage": "https://decoims.com/demo-storefront/2026/07/9b92f808-9ae1-40ed-8a88-8a9929347647-banner2-mob.png",
-          "headline": "THE DENIM EDIT IS HERE",
-          "href": "/s?q=jeans",
+          "headline": "ACCESSORIES THAT FINISH THE LOOK",
+          "href": "/products/deco-cap",
           "product": {
             "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-cap"
@@ -33,8 +33,8 @@
         {
           "image": "https://decoims.com/demo-storefront/2026/07/5a5dbcb8-eaaa-494f-8476-f32a029facf3-banner3.png",
           "mobileImage": "https://decoims.com/demo-storefront/2026/07/62941bd2-b774-4445-8533-2ca6db199f15-banner3-mob.png",
-          "headline": "ACCESSORIES THAT FINISH THE LOOK",
-          "href": "/accessories",
+          "headline": "BUILT FOR COMFORT, CUT FOR STYLE",
+          "href": "/products/deco-sweatpants",
           "product": {
             "__resolveType": "site/loaders/catalogProductByHandle.ts",
             "handle": "deco-sweatpants"
@@ -116,7 +116,7 @@
       "title": "Capybara Helper",
       "cta": {
         "label": "Shop now",
-        "href": "/s?q=jeans"
+        "href": "/products/capybara-helper"
       },
       "price": "79,99",
       "priceLabel": "Starting at",
@@ -160,31 +160,31 @@
     },
     {
       "__resolveType": "site/sections/Content/PromoGrid.tsx",
-      "title": "Combine tecnologia avançada, design elegante e desempenho",
+      "title": "Peças que combinam entre si",
       "tabs": [
         {
           "label": "Melhores Ofertas",
           "cards": [
             {
-              "label": "Moto Watch Fit",
-              "headline": "Seu estilo, seu tempo",
-              "cta": "Shop Now",
-              "href": "/s?q=watch",
-              "image": "https://decoims.com/storefront-tanstack/24f19e67-c8f4-4601-8c86-379a92747535/1742560227121-f6bea2b8-b248-4b42-9246-6e924a0acc8b.png"
+              "label": "Moletons",
+              "headline": "A camada que resolve o frio",
+              "cta": "Ver moletons",
+              "href": "/hoodies-sweatshirts",
+              "image": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=900&q=80&auto=format&fit=crop"
             },
             {
-              "label": "Motorola Razr™",
-              "headline": "Brilho e atitude com Motorola Razr™",
-              "cta": "Shop Now",
-              "href": "/s?q=razr",
-              "image": "https://decoims.com/storefront-tanstack/5ad15dbc-205a-4546-9801-5d18ed393caa/1742560225714-38c33c9f-14a1-4048-973b-dc2a75caf1fa.png"
+              "label": "Denim",
+              "headline": "Jeans que amoldam ao uso",
+              "cta": "Ver denim",
+              "href": "/bottoms",
+              "image": "https://images.unsplash.com/photo-1582552938357-32b906df40cb?w=900&q=80&auto=format&fit=crop"
             },
             {
-              "label": "Edge 60 Fusion",
-              "headline": "Desafie seus limites com Edge 60 Fusion",
-              "cta": "Shop Now",
-              "href": "/s?q=edge-60-fusion",
-              "image": "https://decoims.com/storefront-tanstack/adfa8d1d-9a08-427b-ab0a-32dec0cc8fc3/1742560228502-1b0ecaa2-9a13-4de2-bf17-5196948ed128.png"
+              "label": "Acessórios",
+              "headline": "O detalhe que fecha o look",
+              "cta": "Ver acessórios",
+              "href": "/accessories",
+              "image": "https://images.unsplash.com/photo-1547949003-9792a18a2601?w=900&q=80&auto=format&fit=crop"
             }
           ]
         },
@@ -192,25 +192,25 @@
           "label": "Lançamentos",
           "cards": [
             {
-              "label": "Moto Watch Fit",
-              "headline": "Seu estilo, seu tempo",
-              "cta": "Shop Now",
-              "href": "/s?q=watch",
-              "image": "https://decoims.com/storefront-tanstack/ba682b53-64d8-44b7-8e57-18d02f5dcf5a/1742560230067-92129655-fe40-4b29-8fdb-e7f71e67a5d1.png"
+              "label": "Camisetas",
+              "headline": "O básico bem feito",
+              "cta": "Ver camisetas",
+              "href": "/shirts",
+              "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80&auto=format&fit=crop"
             },
             {
-              "label": "Motorola Razr™",
-              "headline": "Brilho e atitude com Motorola Razr™",
-              "cta": "Shop Now",
-              "href": "/s?q=razr",
-              "image": "https://decoims.com/storefront-tanstack/24f19e67-c8f4-4601-8c86-379a92747535/1742560227121-f6bea2b8-b248-4b42-9246-6e924a0acc8b.png"
+              "label": "Jaquetas",
+              "headline": "Para quando o vento vira",
+              "cta": "Ver jaquetas",
+              "href": "/jackets-outerwear",
+              "image": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=900&q=80&auto=format&fit=crop"
             },
             {
-              "label": "Edge 60 Fusion",
-              "headline": "Desafie seus limites com Edge 60 Fusion",
-              "cta": "Shop Now",
-              "href": "/s?q=edge-60-fusion",
-              "image": "https://decoims.com/storefront-tanstack/5ad15dbc-205a-4546-9801-5d18ed393caa/1742560225714-38c33c9f-14a1-4048-973b-dc2a75caf1fa.png"
+              "label": "Calçados",
+              "headline": "Do tênis ao slide",
+              "cta": "Ver calçados",
+              "href": "/shoes",
+              "image": "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=900&q=80&auto=format&fit=crop"
             }
           ]
         }
