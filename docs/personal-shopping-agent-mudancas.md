@@ -1,6 +1,19 @@
 # Personal Shopping Agent — o que precisa mudar no repositório
 
-> **Este arquivo está em vigor.** Os outros da série, com o estado de cada um —
+> **⚠️ PARCIALMENTE SUPERADO em 2026-08-08 por
+> [`agente-de-combinacoes.md`](agente-de-combinacoes.md).**
+>
+> Caíram: §3 (as migrations 0012/0013/0014 — **0012 e 0013 já estão ocupadas** por
+> `create_shelves` e `shelf_complements`), §4 (`src/platform/seeds/` e
+> `scripts/enrich/` — o domínio novo é `src/platform/look/` e não há passadas
+> offline), §6 (o contrato das passadas) e §8 (a ordem de execução).
+>
+> Continuam valendo, e são a parte mais importante deste arquivo: **§1 — genérico
+> por construção** (nenhum literal de catálogo no código; `occasion` é `string`) e
+> **§10 — o que não muda** (sem carrinho, sem chat, disponibilidade é do banco).
+> A armadilha de cache da §5 continua sendo o bug mais provável do dia da demo.
+
+> Os outros da série, com o estado de cada um —
 > os revogados ficam listados porque continuam no repositório, não porque valem:
 >
 > - `personal-shopping-agent-proposta.md` — **em vigor**: o desenho aterrado neste

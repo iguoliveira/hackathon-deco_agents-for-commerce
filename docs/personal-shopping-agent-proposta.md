@@ -1,8 +1,25 @@
 # Personal Shopping Agent — proposta de MVP (tools, MCPs e agentes)
 
-> **Este é o documento em vigor** — o **onde**: o desenho aterrado neste
+> **⚠️ PARCIALMENTE SUPERADO em 2026-08-08 por
+> [`agente-de-combinacoes.md`](agente-de-combinacoes.md), que é o documento em
+> vigor para a feature do hackathon.** Leia aquele primeiro.
+>
+> O que **caiu**: a arquitetura offline em duas passadas (§3), `product_affinity`
+> e as migrations 0012/0013/0014 como numeradas aqui (§4), a lista de tools (§5),
+> as passadas A e B (§7) e o plano de execução (§11). O motivo é factual, não de
+> opinião: enquanto este arquivo era escrito, **o agente de runtime foi construído
+> e verificado** (`src/platform/shelf/`, ver [`agente-vitrine.md`](agente-vitrine.md)),
+> e **0012/0013 já estão ocupadas** por `create_shelves` e `shelf_complements`.
+> Duas passadas offline produziriam a mesma resposta com menos contexto — um
+> `reason` escrito no sábado não sabe onde a pessoa mora.
+>
+> O que **continua valendo integralmente**: §1 (o que o repo tem), §2 (correções
+> de premissa), as quatro sementes, e §12 (privacidade). Ler as seções superadas
+> como plano custa o fim de semana.
+
+> **Contexto histórico abaixo** — o **onde**: o desenho aterrado neste
 > repositório, com os nomes de arquivo, tabelas e funções que já existem, e o que
-> falta criar. Onde ele discordar de qualquer outro arquivo de `docs/`, ele ganha.
+> falta criar.
 >
 > Os outros da série, com o estado de cada um:
 >

@@ -8,6 +8,17 @@
 
 ## ⚠️ Status neste repositório — leia antes de implementar qualquer coisa daqui
 
+> **08/08 — FORA DO ESCOPO DO FIM DE SEMANA, por inteiro.** Nenhuma tela de admin,
+> nenhuma tabela `proposals`, nenhum gate de autonomia é construído. O documento
+> em vigor é [`agente-de-combinacoes.md`](agente-de-combinacoes.md), e ele não
+> tem superfície de admin: o agente escreve numa tabela de cache e a section lê.
+>
+> Isto **não revoga a tese**. O §12 ("os agentes são o produto") e o §11
+> (honestidade sobre métricas) continuam sendo o enquadramento certo do pitch — e
+> o §11 é o que obriga a dizer no slide que a tabela `orders` é semeada. O que sai
+> é o andaime, exatamente como o §2 deste arquivo manda: *toda vez que surgir a
+> escolha entre polir o admin e aprofundar um agente, aprofundar o agente ganha.*
+
 Este documento foi escrito **antes** da spec de vocês e descreve um desenho **mais amplo** que o aprovado. Ele está aqui como material de visão e de pitch, **não como plano de execução**.
 
 **A spec aprovada é [`tese-agente-vendas-ia.md`](tese-agente-vendas-ia.md).** Onde os dois divergirem, a spec ganha. Em particular, ela exclui explicitamente (`explicit_exclusions`) a escrita programática de bloco CMS — que é a fundação de boa parte deste documento.
