@@ -40,3 +40,6 @@ vite.config.timestamp_*
 .vscode/
 .idea/
 .env*
+
+# Saída de scripts/look-eval.ts — medições locais, não versionadas.
+.eval/

@@ -31,6 +31,49 @@ Repare também que três dos valores mais frequentes — `Pastel`, `Floral`,
 `Multicolor` — **não são cores**. São famílias e padrões. Um classificador em
 código teria de decidir o que fazer com eles; um modelo já sabe.
 
+## 1.1 O recorte — decidido
+
+Três coisas se confundem sob "preferência de cor", e separá-las foi o que
+destravou a discussão:
+
+| | O que faz | Ancorado em | Precisa de histórico? |
+|---|---|---|---|
+| **(a) Granularidade** | quão específico o agente é ao **falar** da preferência | a pessoa | sim |
+| **(b) Peso** | quanto a cor **pesa na seleção**, junto dos outros critérios | a pessoa | sim |
+| **(c) Harmonia** | as peças **combinarem entre si e com a âncora** | a peça aberta | **não** |
+
+**A escolha foi (b), implementado no prompt** — a cor entra como mais um
+critério que o modelo pondera junto de tags, tipo, coleção e clima. Não como
+coeficiente numérico: este sistema não tem onde calibrar um.
+
+Duas razões para não perseguir peso no lugar onde ele *seria* numérico (o score
+do pool, em `catalog.d1.ts`): exigiria derivar a cor em código — que é a tarefa
+condicional da §8, e que **mente nos 23% de produtos sem hífen** — e devolveria
+ao código a decisão que a §2 quer no modelo.
+
+### A regra: um critério, duas fontes
+
+Como `orders` está em 0 (§4), o peso de uma preferência sobre um histórico
+inexistente **é zero**. Implementar (b) puro hoje entregaria (c) com o rótulo
+errado, sem que ninguém percebesse. Daí a formulação que resolve os dois:
+
+> A cor é um critério de composição. A fonte primária é **a peça aberta** —
+> sempre existe. A fonte secundária é **o histórico da pessoa** — quando houver
+> massa que sustente uma paleta.
+
+Funciona hoje para visitante anônimo pela âncora, e melhora sozinha quando o
+seed chegar, sem reescrever nada. A regra do silêncio (§5) passa a valer só
+sobre a fonte secundária: o agente cala sobre *a preferência* quando não há
+evidência, e continua falando sobre *a composição*, que não depende de
+histórico.
+
+### O que isso obriga
+
+Como (b) mexe na **seleção** e não só no texto, ele é o único dos três que pode
+**piorar** o produto — e hoje o look está bom (confiança medida: 0,75–0,80).
+Por isso a avaliação da §8 deixa de ser desejável e passa a ser **condição de
+merge**, comparando as peças escolhidas, não só os motivos.
+
 ## 2. A decisão de arquitetura
 
 > **O código não sabe o que é "tom neutro". O agente sabe.**
@@ -180,23 +223,43 @@ monocromático, que é feio e é pior que o de hoje.
 
 ### Nesta branch
 
-| # | Tarefa | Onde | Bloqueado? |
+| # | Tarefa | Onde | Estado |
 |---|---|---|---|
-| 1 | **Baseline** — contar quantos motivos citam cor hoje, com sementes concordantes e dispersas | medição via `look:dryrun --semente` | não |
-| 2 | Seção nova: **A PALETA DA PESSOA** | `look.prompt.ts` | não |
-| 3 | Reescrever a regra 3 separando *afirmar* de *agrupar* (§6) | `look.prompt.ts` | não |
-| 4 | Regra do silêncio como padrão (§5) | `look.prompt.ts` | não |
-| 5 | Precedência âncora × preferência (§7) | `look.prompt.ts` | não |
-| 6 | **Avaliação comparativa** — mesmo produto, mesma cidade, paletas opostas | `look:dryrun` | parcial (ver abaixo) |
-| 7 | *(condicional)* cor derivada do título no `Candidato` | `look.candidates.ts` | não |
+| 0 | **Ferramenta de avaliação** — repetições, estabilidade, comparação antes/depois | `scripts/look-eval.ts` | **feito** |
+| 1 | **Baseline** — quais peças saem hoje e com que estabilidade | `npm run look:eval -- --rotulo antes` | **feito** |
+| 2 | Reescrever a regra 3 separando *afirmar* de *agrupar* (§6) | `look.prompt.ts` | a fazer |
+| 3 | A cor como critério de composição, com as duas fontes (§1.1) | `look.prompt.ts` | a fazer |
+| 4 | Regra do silêncio sobre a fonte secundária (§5) | `look.prompt.ts` | a fazer |
+| 5 | Precedência âncora × preferência (§7) | `look.prompt.ts` | a fazer |
+| 6 | **Avaliação comparativa** — `--comparar antes depois` | `look:eval` | condição de merge |
+| 7 | *(condicional)* cor derivada do título no `Candidato` | `look.candidates.ts` | provavelmente não |
 
-**Nada de 1 a 5 está bloqueado.** O `--semente <handle>` do dry run marca a peça
-como `purchased`, então dá para exercitar o comportamento inteiro hoje, sem
-tabela nenhuma. Iterar no prompt é trabalho disponível agora.
+**Nada de 2 a 5 está bloqueado.** As sementes das condições de avaliação são
+forjadas como `purchased`, então dá para exercitar o comportamento inteiro hoje,
+sem tabela nenhuma.
 
 O que está bloqueado é **provar que funciona para uma pessoa real**: a tarefa 6
-roda com sementes forjadas e valida a *instrução*, não o *fluxo*. A validação de
-ponta a ponta espera o seed.
+valida a *instrução*, não o *fluxo*. A validação de ponta a ponta espera o seed.
+
+### Por que a ferramenta veio antes do prompt
+
+`perguntar()` não expõe temperatura nem seed, e **o modelo não é
+determinístico** — duas execuções idênticas devolvem looks diferentes. Como a
+escolha de (b) faz o trabalho mexer na *seleção*, uma execução por condição não
+distingue efeito de ruído.
+
+`scripts/look-eval.ts` roda N repetições por condição e reporta a
+**estabilidade**: a fração de peças presentes em *todas* as repetições. É esse
+número que diz se uma diferença entre antes e depois significa alguma coisa.
+
+Ele também registra o **tamanho do pool** por condição, porque sementes
+`purchased` saem dos candidatos (`jaComprados`) — sem isso, comparar condições
+entre si engana.
+
+A ferramenta conhece termos de cor em português, e isso **não viola a §2**: o
+medidor não é o medido, e a lista não pode migrar para `src/`. Derivá-la do
+catálogo não funcionaria — lá as cores estão em inglês e os motivos saem em
+português.
 
 A tarefa 7 fica condicional de propósito. Derivar cor do título em código é
 fácil (`split(" - ")`), mas cria um campo que **mente em 23% do catálogo** — os
@@ -231,19 +294,24 @@ Especificação mínima, derivada da §4:
 - Nada de seletor de paleta na UI. A preferência se lê do histórico, não se
   pergunta.
 
-## 10. Perguntas em aberto
+## 10. Perguntas — resolvidas e abertas
 
-1. **"Especificidade" é granularidade do vocabulário ou peso na escolha?**
-   - *(a)* o agente decide entre dizer *"preto"*, *"neutro escuro"* ou *"a paleta
-     sóbria que você vem montando"*, conforme o quanto as sementes concordam;
-   - *(b)* quanto o eixo cor pesa contra tags, tipo e clima na hora de escolher.
+**Resolvida.** *"Especificidade" é granularidade ou peso?* → **peso, via
+prompt**, com a formulação de um critério e duas fontes (§1.1). Granularidade
+continua valendo como consequência: a fonte secundária só autoriza afirmação
+quando há evidência, e é isso que decide se o agente nomeia a cor, a família ou
+se cala.
 
-   São ortogonais e dá para fazer as duas, mas **(a) é quase só prompt e (b) é
-   onde mora o risco do look monocromático.** Muda o tamanho da branch.
+**Resolvida.** *A cor da âncora entra na paleta ou é tratada à parte?* → é a
+**fonte primária**, e sempre vence (§7). Ela não é semente: é a escolha
+deliberada de agora.
 
-2. **A cor da âncora entra na paleta ou é tratada à parte?** Ela não é semente —
-   é a peça aberta agora, e a §7 já diz que ela vence a preferência.
+**Aberta.** *Qual o critério de aceite da tarefa 6?* A proposta: o look não pode
+piorar em **variedade de tipo** nem em **confiança**, e as peças que entrarem por
+cor precisam de motivo que as justifique. Falta acordar os limiares contra os
+números do baseline.
 
-3. **Enquanto o seed não chega, a branch para na tarefa 5 ou seguimos para a 7?**
-   Seguir sem avaliação real significa afinar o prompt contra sementes forjadas,
-   o que tende a superajustar ao caso que inventamos.
+**Aberta.** *A regra do silêncio vale também para a fonte primária?* O plano diz
+que não — o agente sempre pode falar da composição, porque a âncora sempre tem
+cor. Mas 23% do catálogo não tem cor no título, e para essas peças nem a fonte
+primária existe. Falta decidir o que o agente faz aí.

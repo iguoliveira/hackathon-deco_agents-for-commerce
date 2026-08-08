@@ -33,7 +33,8 @@
     "tailwind:fix": "tsx scripts/tailwind-lint.ts --fix",
     "update": "bunx npm-check-updates -u -f '@decocms/*' && bun install",
     "shelf:dryrun": "tsx scripts/shelf-dryrun.ts",
-    "look:dryrun": "tsx scripts/look-dryrun.ts"
+    "look:dryrun": "tsx scripts/look-dryrun.ts",
+    "look:eval": "tsx scripts/look-eval.ts"
   },
   "author": "deco.cx",
   "license": "MIT",
