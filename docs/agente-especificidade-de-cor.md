@@ -41,7 +41,7 @@ estação, **não deve existir lista de cores, mapa de famílias cromáticas, ne
 
 Um `const NEUTROS = ["preto", "cinza", "bege"]` seria a forma mais silenciosa de
 travar o sistema em moda para sempre — exatamente o que a §1 de
-`personal-shopping-agent-mudancas.md` proíbe, e exatamente a regra que a PR #12
+`personal-shopping-agent-mudancas.md` proíbe, e exatamente a regra que a #12
 preservou no recurso mais tentador para violá-la. Trocar o catálogo por um de
 vinho e a mesma linha precisa continuar produzindo *"você vem preferindo tintos
 encorpados"* sem editar nada.
@@ -70,7 +70,72 @@ Consequência prática boa: `hashDoContexto` **não precisa mudar**. As sementes
 entram na chave, então a paleta muda junto com elas e o cache continua correto
 sem migration.
 
-## 4. O obstáculo real: a regra 3 do prompt
+## 4. A dependência de dados — e por que ela NÃO é desta branch
+
+Esta é a seção que faltava na primeira versão do plano, e ela quase inverteu a
+conclusão. O estado real das quatro sementes, medido:
+
+| Semente | Peso | Estado hoje |
+|---|---|---|
+| `purchased` (`orders`) | 4 | **0 registros.** A `0014` cria a tabela e não semeia nada |
+| `waited` (`stock_alerts`) | 3 | 2 alertas / 2 e-mails = **1 semente por pessoa** |
+| `wishlist` (cookie) | 2 | só existe se a pessoa favoritar |
+| `recent` (cookie) | 1 | até **8** handles (`RECENT_MAX`), enche sozinho só de navegar |
+
+### Densidade não é o mesmo que qualidade
+
+A feature **não depende tecnicamente de `orders`** — três das quatro fontes
+funcionam sem ela, sendo duas cookies de primeira parte que nem exigem login.
+O problema é outro, e é pior.
+
+**Paleta exige concordância entre várias peças.** Uma semente não revela
+preferência de cor; duas peças pretas podem ser coincidência. São necessárias
+**3 ou mais concordantes** para afirmar "prefere neutros escuros" sem inventar.
+
+E aí a conta não fecha: a única fonte que hoje gera massa sozinha é `recent` —
+que é justamente **a de pior qualidade para este fim**. Olhar não é preferir.
+Quem abriu seis produtos de uma listagem viu o que a listagem ordenou, não o que
+gosta. Inferir paleta daí produz uma afirmação confiante sobre um sinal que não
+a sustenta.
+
+### A diferença estrutural com o clima
+
+O eixo do clima precisa de **zero** sementes: cidade e mês bastam, e é por isso
+que ele funciona para visitante anônimo desde o primeiro acesso.
+
+**Cor é o primeiro eixo que depende de densidade de histórico.** Os dois não têm
+a mesma natureza, e tratá-los como se tivessem foi o erro da primeira versão
+deste documento.
+
+### A fronteira
+
+**O seed do banco é de outra frente e não entra nesta branch.** Aqui não se
+escreve migration de `orders`, não se semeia cor e não se mexe em dado de
+catálogo. O que esta branch faz é deixar o agente **pronto para usar** esse
+sinal quando ele existir, e **degradar com honestidade** enquanto não existe.
+
+O que precisamos combinar com quem fizer o seed está na §8.
+
+## 5. O silêncio é o caso comum, não a exceção
+
+Consequência direta da §4, e a regra mais importante do desenho:
+
+> Quando as sementes não concordam em cor, **o agente não cita paleta.**
+
+O precedente existe e é do próprio prompt, na seção do clima:
+
+> *"Se você não reconhecer a cidade, não invente clima: componha pela peça e
+> pelas sementes, e não cite lugar nenhum."*
+
+Com os dados de hoje — e provavelmente com os de amanhã, para visitante novo —
+**o silêncio será o caminho mais percorrido**. A feature precisa ser escrita a
+partir dele: o texto sobre paleta é o caso especial que exige prova, não o
+padrão que às vezes falha.
+
+Isso também protege a única coisa que esta feature tem a perder: um agente que
+afirma preferência de cor errada soa pior do que um que não afirma nada.
+
+## 6. O obstáculo real: a regra 3 do prompt
 
 `look.prompt.ts` hoje diz:
 
@@ -94,7 +159,7 @@ atos que a regra hoje trata como um só:
 
 Escrever isso sem reabrir a porta da alucinação é o trabalho fino desta branch.
 
-## 5. Precedência: a âncora manda
+## 7. Precedência: a âncora manda
 
 O look é composto em volta de uma peça que **já tem cor**. Se a pessoa prefere
 tons terrosos e abriu uma peça vermelha, quem vence?
@@ -111,59 +176,74 @@ candidatos** — não como filtro.
 Risco a vigiar: um agente que leve preferência longe demais devolve um look
 monocromático, que é feio e é pior que o de hoje.
 
-## 6. O "nível de especificidade"
+## 8. O que precisamos fazer
 
-O termo comporta duas leituras, e elas levam a features diferentes:
+### Nesta branch
 
-- **(a) Granularidade do vocabulário** — o agente decide se diz *"preto"*,
-  *"neutro escuro"* ou *"a paleta sóbria que você vem montando"*, conforme o
-  quanto as sementes concordam entre si. Três peças pretas autorizam ser
-  específico; três peças de cores dispersas só autorizam falar em família.
-- **(b) Força com que a preferência puxa a escolha** — quanto o eixo cor pesa
-  contra tags, tipo e clima na hora de escolher.
+| # | Tarefa | Onde | Bloqueado? |
+|---|---|---|---|
+| 1 | **Baseline** — contar quantos motivos citam cor hoje, com sementes concordantes e dispersas | medição via `look:dryrun --semente` | não |
+| 2 | Seção nova: **A PALETA DA PESSOA** | `look.prompt.ts` | não |
+| 3 | Reescrever a regra 3 separando *afirmar* de *agrupar* (§6) | `look.prompt.ts` | não |
+| 4 | Regra do silêncio como padrão (§5) | `look.prompt.ts` | não |
+| 5 | Precedência âncora × preferência (§7) | `look.prompt.ts` | não |
+| 6 | **Avaliação comparativa** — mesmo produto, mesma cidade, paletas opostas | `look:dryrun` | parcial (ver abaixo) |
+| 7 | *(condicional)* cor derivada do título no `Candidato` | `look.candidates.ts` | não |
 
-São ortogonais e dá para fazer as duas, mas a ordem importa e o esforço é
-diferente. **(a) é quase só prompt; (b) mexe em como o agente pondera e é onde
-mora o risco do look monocromático.**
+**Nada de 1 a 5 está bloqueado.** O `--semente <handle>` do dry run marca a peça
+como `purchased`, então dá para exercitar o comportamento inteiro hoje, sem
+tabela nenhuma. Iterar no prompt é trabalho disponível agora.
 
-Esta é a pergunta que precisa de resposta antes da implementação.
+O que está bloqueado é **provar que funciona para uma pessoa real**: a tarefa 6
+roda com sementes forjadas e valida a *instrução*, não o *fluxo*. A validação de
+ponta a ponta espera o seed.
 
-## 7. Fases
-
-| # | O quê | Entrega |
-|---|---|---|
-| 0 | **Baseline** — rodar o dry run atual com sementes de cores concordantes e dispersas, e contar quantos motivos citam cor hoje | Números, antes de mudar nada |
-| 1 | Seção nova no prompt: **A PALETA DA PESSOA** | `look.prompt.ts` |
-| 2 | Reescrever a regra 3 separando *afirmar* de *agrupar* | `look.prompt.ts` |
-| 3 | Precedência âncora × preferência | `look.prompt.ts` |
-| 4 | **Avaliação comparativa** — mesmo produto, mesma cidade, sementes de paletas opostas | Evidência de que mudou |
-| 5 | *(condicional)* Expor a cor derivada do título no `Candidato` | `look.candidates.ts` |
-
-A fase 0 não é burocracia: **o agente já cita cor**, então sem medir o antes não
-há como afirmar que a feature fez diferença. Foi exatamente o teste
-Porto Alegre × Recife que provou o eixo do clima na #12; aqui o análogo é
-sementes-pretas × sementes-coloridas, mesmo produto, mesma cidade.
-
-A fase 5 fica condicional de propósito. Derivar cor do título em código é fácil
-(`split(" - ")`), mas cria um campo que **mente em 23% do catálogo** — os
+A tarefa 7 fica condicional de propósito. Derivar cor do título em código é
+fácil (`split(" - ")`), mas cria um campo que **mente em 23% do catálogo** — os
 produtos sem hífen — e reintroduz em código uma decisão que a §2 quer no modelo.
-Só entra se a avaliação da fase 4 mostrar que o modelo erra sem ela.
+Só entra se a avaliação mostrar que o modelo erra sem ela.
 
-## 8. O que este plano NÃO propõe
+### Da outra frente (o seed) — o que pedimos
+
+Não é trabalho desta branch, mas é o que ela precisa receber para ser validada.
+Especificação mínima, derivada da §4:
+
+- **`orders` semeada por persona, com pelo menos 4 compras.** Menos que isso e as
+  sementes fracas (`recent`, peso 1) tomam as vagas restantes de `MAX_SEMENTES`
+  (6) e diluem a paleta.
+- **Ao menos 3 dessas 4 concordando em família de cor.** É o mínimo para o agente
+  poder afirmar preferência sem inventar.
+- **Duas personas de paletas opostas**, para a comparação da tarefa 6 ter
+  contraste. O catálogo comporta:
+  - *neutros escuros* — `Black` (11), `Grey` (7), `Navy` (3), `Charcoal` (2) = **23 produtos**
+  - *claros e terrosos* — `Cream` (8), `Off White` (4), `Tan` (4), `Ivory` (2), `Sage` (2) = **20 produtos**
+- **Uma terceira persona de cores dispersas**, que é o caso de controle: com ela
+  o agente tem de **se calar** sobre paleta (§5). Sem esse caso, a regra mais
+  importante do desenho fica sem teste.
+
+## 9. O que este plano NÃO propõe
 
 - Nenhuma tabela nova, nenhuma migration, nenhum campo em `looks`.
-- Nenhuma mudança em `hashDoContexto` (ver §3).
+- **Nenhum seed** — nem de `orders`, nem de cor, nem de catálogo (§4).
+- Nenhuma mudança em `hashDoContexto` (§3).
 - Nenhuma lista de cores, família cromática ou união de literais em TypeScript.
 - Nenhum filtro de candidatos por cor — preferência desempata, não elimina.
 - Nada de seletor de paleta na UI. A preferência se lê do histórico, não se
   pergunta.
 
-## 9. Perguntas em aberto
+## 10. Perguntas em aberto
 
-1. **Especificidade é (a) ou (b) da §6?** — muda o tamanho da branch.
-2. **Quando as sementes não concordam em cor nenhuma, o agente cita paleta
-   assim mesmo ou se cala?** O precedente do clima manda calar
-   (*"Se você não reconhecer a cidade, não invente clima"*), e provavelmente é a
-   resposta certa aqui também.
-3. **A cor da âncora entra na paleta ou é tratada à parte?** Ela não é semente —
-   é a peça aberta agora.
+1. **"Especificidade" é granularidade do vocabulário ou peso na escolha?**
+   - *(a)* o agente decide entre dizer *"preto"*, *"neutro escuro"* ou *"a paleta
+     sóbria que você vem montando"*, conforme o quanto as sementes concordam;
+   - *(b)* quanto o eixo cor pesa contra tags, tipo e clima na hora de escolher.
+
+   São ortogonais e dá para fazer as duas, mas **(a) é quase só prompt e (b) é
+   onde mora o risco do look monocromático.** Muda o tamanho da branch.
+
+2. **A cor da âncora entra na paleta ou é tratada à parte?** Ela não é semente —
+   é a peça aberta agora, e a §7 já diz que ela vence a preferência.
+
+3. **Enquanto o seed não chega, a branch para na tarefa 5 ou seguimos para a 7?**
+   Seguir sem avaliação real significa afinar o prompt contra sementes forjadas,
+   o que tende a superajustar ao caso que inventamos.
