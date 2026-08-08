@@ -194,6 +194,13 @@ registerCommerceLoaders({
     (await import("./loaders/catalogProductListingPage")).default(props),
   "site/loaders/catalogProductListingPage": async (props: any) =>
     (await import("./loaders/catalogProductListingPage")).default(props),
+  // Vitrine montada pelo agente a partir do sinal de "avise-me". Sem props: o
+  // conteúdo depende de quem está pedindo, e a identidade sai do
+  // RequestContext, não de configuração de bloco.
+  "site/loaders/personalShelf.ts": async (props: any) =>
+    (await import("./loaders/personalShelf")).default(props),
+  "site/loaders/personalShelf": async (props: any) =>
+    (await import("./loaders/personalShelf")).default(props),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --

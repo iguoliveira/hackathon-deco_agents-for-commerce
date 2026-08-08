@@ -1,5 +1,7 @@
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { createStockAlert, readShopperIdentity } from "../../platform/alerts";
+import { gerarVitrine } from "../../platform/shelf/shelf.agent";
+import { marcarDonoDaVitrine } from "../../platform/shelf/shelf.identity";
 
 export interface NotifyMeProps {
   /** SKU/variant the shopper wants — already identifies item + size + colour. */
@@ -54,7 +56,45 @@ async function action(props: NotifyMeProps, req?: Request): Promise<NotifyMeResu
   if (outcome === "unknown_variant") throw new Error("unknown product variant");
   if (outcome === "failed") throw new Error("could not record the request, please try again");
 
+  // Marca de quem é a vitrine, para esta pessoa ser reconhecida quando voltar.
+  // Precisa vir antes do retorno: depois dele não há mais resposta onde
+  // pendurar o Set-Cookie.
+  marcarDonoDaVitrine(email);
+
+  dispararGeracaoDaVitrine(email);
+
   return { success: true };
+}
+
+/**
+ * Dispara a montagem da vitrine sem segurar a resposta.
+ *
+ * Este é o pico de intenção: a pessoa acabou de declarar que quer aquela peça.
+ * Esperar o cron de 3 dias significaria a vitrine dela nascer muito depois de o
+ * interesse esfriar.
+ *
+ * **Deliberadamente sem `await`.** O agente leva ~33s e às vezes 120s (o
+ * Decopilot entra em `waiting-capacity`); segurar o clique por isso é
+ * inaceitável, e a pessoa não está esperando por vitrine nenhuma — ela está
+ * esperando "recebemos seu pedido".
+ *
+ * Isso é **melhor esforço**, e é honesto dizer por quê: sem `waitUntil` a
+ * plataforma pode congelar a invocação assim que a resposta sai, matando a
+ * geração no meio. Não é problema porque o cron é a rede: `acharVitrinesVencidas`
+ * inclui, por LEFT JOIN, quem tem alerta e **nenhuma** vitrine — exatamente o
+ * caso de uma geração interrompida. Pior cenário: a vitrine aparece na próxima
+ * passada em vez de agora.
+ *
+ * Instalar `@vercel/functions` e envolver em `waitUntil` tornaria isto
+ * garantido, e é o próximo passo se a taxa de interrupção incomodar. Vale medir
+ * antes de trazer dependência.
+ */
+function dispararGeracaoDaVitrine(email: string): void {
+  void gerarVitrine(email).catch((erro) => {
+    // Telemetria nunca derruba o caminho do usuário: neste ponto o alerta já
+    // está gravado e a pessoa já recebeu o sucesso dela.
+    console.error(`[shelf] falha ao gerar vitrine de ${email}:`, erro);
+  });
 }
 
 export default action;

@@ -84,6 +84,36 @@ export default defineConfig({
         }
       },
     },
+    // Mesma história do postgres, um nível acima: `src/platform/shelf/
+    // shelf.cookie.ts` assina o cookie de identidade com `node:crypto`, e chega
+    // ao grafo do client pela mesma porta — o dynamic import de
+    // `site/loaders/personalShelf` em setup.ts arrasta a cadeia. O Rollup falha
+    // com `"createHmac" is not exported by "__vite-browser-external"`.
+    //
+    // A assinatura só faz sentido no servidor: é ela que decide de quem é a
+    // vitrine, e uma versão que rodasse no browser seria pior que inútil —
+    // exporia o segredo. As funções que a usam já degradam para `null` quando
+    // não há segredo, então o stub lança: se este código executar no browser é
+    // bug de arquitetura, e falhar alto é melhor que assinar com lixo.
+    {
+      name: "deco-stub-node-crypto",
+      enforce: "pre" as const,
+      resolveId(id, _importer, options) {
+        if (!options?.ssr && (id === "node:crypto" || id === "crypto")) {
+          return "\0stub:node-crypto";
+        }
+      },
+      load(id) {
+        if (id === "\0stub:node-crypto") {
+          return `const naoAqui = () => {
+            throw new Error("node:crypto não existe no browser — isto é código de servidor");
+          };
+          export const createHmac = naoAqui;
+          export const timingSafeEqual = naoAqui;
+          export default { createHmac, timingSafeEqual };`;
+        }
+      },
+    },
   ],
   build: {
     sourcemap: "hidden",
