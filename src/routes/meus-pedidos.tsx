@@ -1,6 +1,7 @@
 import { formatPrice } from "@decocms/apps-commerce/sdk/formatPrice";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import BackButton from "~/components/ui/BackButton";
 import Image from "~/components/ui/Image";
 // Do módulo, não do barrel — ver a nota em Minicart.tsx.
 import { listarPedidosServerFn } from "../platform/orders/orders.actions";
@@ -60,6 +61,7 @@ function MeusPedidos() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
+      <BackButton />
       <h1 className="text-3xl font-semibold mb-1">Meus pedidos</h1>
       <p className="text-base-content/70 mb-8">
         Compras simuladas — nenhum pagamento é processado.

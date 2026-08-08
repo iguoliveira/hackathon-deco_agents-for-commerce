@@ -4,6 +4,7 @@ import Alert from "../../components/header/Alert";
 import Bag from "../../components/header/Bag";
 import HeaderNav from "../../components/header/HeaderNav";
 import Menu from "../../components/header/Menu";
+import Orders from "../../components/header/Orders";
 import SignIn from "../../components/header/SignIn";
 import { type SearchbarProps } from "../../components/search/Searchbar/Form";
 import Drawer from "../../components/ui/Drawer";
@@ -68,6 +69,7 @@ const Desktop = ({ navItems, logo, shippingNote }: Props) => (
       />
 
       <div className="flex items-center gap-1.5">
+        <Orders variant="desktop" />
         <SignIn variant="desktop" />
         <Bag />
       </div>
@@ -99,6 +101,7 @@ const Mobile = ({ logo }: Props) => (
       )}
 
       <div className="flex items-center gap-1">
+        <Orders variant="mobile" />
         <SignIn variant="mobile" />
         <Bag size="sm" />
       </div>
