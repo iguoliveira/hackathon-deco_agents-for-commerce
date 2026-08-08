@@ -86,6 +86,10 @@
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9OZXdzbGV0dGVyL05ld3NsZXR0ZXIudHN4",
           "namespace": "site"
         },
+        "site/sections/Product/CompleteTheLook.tsx": {
+          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
+          "namespace": "site"
+        },
         "site/sections/Product/PersonalShelf.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
           "namespace": "site"
@@ -146,6 +150,14 @@
         },
         "site/loaders/catalogProductListingPage.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/completeTheLook.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==",
+          "namespace": "site"
+        },
+        "site/loaders/lookLocal.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==",
           "namespace": "site"
         },
         "site/loaders/personalShelf.ts": {
@@ -365,6 +377,44 @@
             "type": "number",
             "nullable": true,
             "title": "Produtos por página"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==": {
+        "title": "site/loaders/completeTheLook.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/completeTheLook.ts"
+            ],
+            "default": "site/loaders/completeTheLook.ts"
+          },
+          "handle": {
+            "type": "string",
+            "nullable": true,
+            "title": "Handle da peça",
+            "description": "Deixe vazio na PDP: o handle é lido da URL. Preencher só serve para fixar uma peça numa página que não é de produto."
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==": {
+        "title": "site/loaders/lookLocal.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/lookLocal.ts"
+            ],
+            "default": "site/loaders/lookLocal.ts"
           }
         }
       },
@@ -3491,6 +3541,15 @@
             "description": "Small promo line shown at the bottom of the mega menu",
             "default": "Frete grátis em compras acima de R$500."
           },
+          "cidades": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "title": "Cidades do seletor",
+            "description": "Atalhos oferecidos no seletor de local, como \"Porto Alegre,RS,BR\". É de onde o agente parte para compor o look. Lista vazia usa o padrão da demo."
+          },
           "loading": {
             "type": "string",
             "enum": [
@@ -3600,7 +3659,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4617,6 +4676,54 @@
           }
         }
       },
+      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props": {
+        "type": "object",
+        "properties": {
+          "look": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Resolvable"
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
+              }
+            ],
+            "title": "O look",
+            "nullable": true,
+            "description": "Resolve com `site/loaders/completeTheLook.ts`. Na PDP, deixe o handle vazio lá."
+          },
+          "mostrarProcedencia": {
+            "type": "boolean",
+            "nullable": true,
+            "title": "Mostrar a procedência",
+            "description": "A linha \"montado para <cidade>, a partir de N sinais\". Deixe ligado na demo — é o que torna a personalização visível."
+          }
+        },
+        "required": [
+          "look"
+        ]
+      },
+      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=": {
+        "title": "site/sections/Product/CompleteTheLook.tsx",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
+          }
+        ],
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/sections/Product/CompleteTheLook.tsx"
+            ],
+            "default": "site/sections/Product/CompleteTheLook.tsx"
+          }
+        }
+      },
       "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props": {
         "type": "object",
         "properties": {
@@ -4896,7 +5003,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -5039,7 +5146,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5054,7 +5161,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
             "default": 1
           }
         },
@@ -5166,7 +5273,7 @@
                 "type": "boolean",
                 "nullable": true,
                 "title": "Pré-carregar página do produto",
-                "description": "Quando ativado, a página do produto começa a carregar assim\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\nPode aumentar o consumo de dados em listas muito grandes.",
+                "description": "Quando ativado, a página do produto começa a carregar assim\r\nque o usuário passa o mouse sobre o card, deixando a navegação mais rápida.\r\nPode aumentar o consumo de dados em listas muito grandes.",
                 "default": true
               }
             },
@@ -5181,7 +5288,7 @@
             ],
             "nullable": true,
             "title": "Primeira página",
-            "description": "Número que a primeira página tem na URL. O catálogo é\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\nloader mudar junto.",
+            "description": "Número que a primeira página tem na URL. O catálogo é\r\n1-based (`?page=2` é a segunda), então mudar isto só faz sentido se o\r\nloader mudar junto.",
             "default": 1
           }
         },
@@ -5750,6 +5857,10 @@
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL05ld3NsZXR0ZXIvTmV3c2xldHRlci50c3g=@Props"
           },
           {
+            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
+            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
+          },
+          {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
           },
@@ -5810,6 +5921,12 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw=="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="

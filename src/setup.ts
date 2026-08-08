@@ -224,6 +224,11 @@ registerInvokeHandlers({
     (await import("./actions/look/setLocal")).default(props as any, req),
   "site/actions/look/setLocal": async (props, req) =>
     (await import("./actions/look/setLocal")).default(props as any, req),
+  // O outro lado do seletor: qual local está em vigor agora. Lido pelo cliente
+  // porque o Header é `layout` e tem cache compartilhado entre visitantes —
+  // ver o comentário em `src/loaders/lookLocal.ts`.
+  "site/loaders/lookLocal.ts": async () => (await import("./loaders/lookLocal")).default(),
+  "site/loaders/lookLocal": async () => (await import("./loaders/lookLocal")).default(),
   "site/actions/shipping/simulate.ts": async (props, req) =>
     (await import("./actions/shipping/simulate")).default(props, req),
   "site/actions/shipping/simulate": async (props, req) =>

@@ -29,7 +29,12 @@
  * não dá para automatizar.
  */
 
-process.loadEnvFile(".env");
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // Sem .env: o erro de "DATABASE_URL não definida" que vem depois é o útil,
+  // não um ENOENT com stack trace antes de qualquer diagnóstico.
+}
 
 import { readFileSync } from "node:fs";
 import { comporLook, jaComprados } from "../src/platform/look/look.agent";

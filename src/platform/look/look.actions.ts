@@ -187,6 +187,38 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   return montar(lookDoSql(candidatos, "geração em andamento"), contexto);
 };
 
+/**
+ * Compõe o look de uma peça **esperando o agente terminar**, e grava.
+ *
+ * É o passo 7 do plano (docs/agente-de-combinacoes.md §8): pré-aquecer os
+ * produtos do roteiro para que a demo responda do cache em vez de mostrar a
+ * ordenação do SQL enquanto alguém fala.
+ *
+ * A diferença para o `--gravar` do dry run é a única que importa: aquele grava
+ * sob `contexto_hash = 'dryrun'`, que a PDP **nunca lê**. Aqui o contexto e o
+ * hash são os mesmos que `lookDaPeca` calcularia — é por isso que isto vive
+ * aqui, ao lado de `hashDoContexto`, e não no script.
+ *
+ * O contexto é o de quem chama. Rodado do terminal, é "visitante sem histórico
+ * em São Paulo"; rodado dentro de uma request, é o de quem está pedindo. Para
+ * pré-aquecer a persona da demo, abrir a PDP como ela continua sendo o caminho.
+ *
+ * **Não use no caminho de uma request que alguém esteja esperando** — leva os
+ * mesmos 22-41s do agente.
+ */
+export const aquecerLook = async (handle: string): Promise<Look | null> => {
+  const alvo = await acharAncora(handle);
+  if (!alvo) return null;
+
+  const contexto: Contexto = {
+    sementes: await colherSementes(await donoDaVitrine()),
+    local: localDaRequisicao(),
+    mes: mesAtual(),
+  };
+
+  return gerarLook(alvo.ancora.handle, contexto, hashDoContexto(contexto));
+};
+
 const montar = async (look: Look, contexto: Contexto): Promise<LookPersonalizado | null> => {
   const blocos = await montarBlocos(look);
   const total = blocos.reduce((soma, bloco) => soma + bloco.pecas.length, 0);
