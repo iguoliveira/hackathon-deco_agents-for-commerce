@@ -27,6 +27,16 @@ A spec precisava mudar junto: a própria skill diz que *"se algo aqui contradiz 
 spec, a spec ganha"*. Corrigir só a skill teria criado uma regra que perde para
 a versão antiga.
 
+**Quarta emenda, mesma data — o agente no comando (r7).** O time decidiu que o
+agente é o protagonista do produto: ele monta as coleções em vez de classificar
+intenção para um ranker fixo. A decisão inteira, com o descartado à vista, está
+em `personal-shopping-agent-proposta.md` §15. Ela cruzava a exclusão
+*"No LLM-authored filter query params"* da spec, então a spec foi para **r7** —
+pela mesma razão do parágrafo acima. As §1, §4, §6, §8, §9 e §10 deste documento
+já refletem a mudança; o §1 (genérico por construção) ficou **mais** importante
+com ela, não menos, porque agora é o vocabulário do banco que limita o que o
+agente pode inventar.
+
 Tudo abaixo está **por fazer**.
 
 ---
@@ -51,7 +61,7 @@ diferença — ele lê `findOptionNames()` e trabalha com o que voltar.
 
 ### A regra
 
-> **Nenhum literal de catálogo dentro de `src/platform/{context,ranking,agent,analytics}`.**
+> **Nenhum literal de catálogo dentro de `src/platform/{context,collections,ranking,agent,analytics}`.**
 > Sem `"T-Shirt"`, sem `"winter"`, sem `"shoes"`, sem `Size`. Todo vocabulário é
 > lido do banco em runtime.
 
@@ -81,10 +91,14 @@ export const getCatalogVocabulary = (): Promise<CatalogVocabulary> => { /* ... *
 
 Três consumidores, e é o que torna tudo portável:
 
-1. **Prompt do `intent-agent`** — a parte volátil do prompt (depois do breakpoint
-   de cache) carrega o vocabulário. O prompt estável não cita nenhum produto.
+1. **Prompt do `collection-agent`** — a parte volátil do prompt (depois do
+   breakpoint de cache) carrega o vocabulário. É literalmente o que o agente pode
+   usar para inventar um recorte: sem isso, ele não tem o que compor. O prompt
+   estável não cita nenhum produto.
 2. **Validação da saída do LLM** — atributo que não está no vocabulário é
-   descartado antes de virar filtro.
+   descartado antes de virar filtro. Com o agente autorando critério
+   (`CollectionBrief`, §6), esta passagem deixou de ser rede de segurança e
+   virou a **única** coisa entre o modelo e o SQL.
 3. **Ranking** — as faixas de preço saem de percentis do próprio catálogo, não de
    `R$ 150–350` escrito à mão.
 
@@ -210,19 +224,26 @@ src/platform/context/          ← identidade, eventos, perfil, intenção
   context.processor.ts         eventos → snapshot, em SQL agregado
   index.ts
 
-src/platform/ranking/          ← o ranker determinístico, zero LLM
+src/platform/collections/      ← O AGENTE NO COMANDO (novo, 2026-08-07)
+  collections.types.ts         CollectionBrief, ResolvedCollection
+  collections.agent.ts         a chamada que MONTA as coleções (Opus)
+  collections.validate.ts      criteria → criteria seguro, contra o vocabulário
+  collections.d1.ts            resolve_collection: executa · conta · afrouxa
+  collections.actions.ts       buildPersonalCollections(visitorId)
+  index.ts
+
+src/platform/ranking/          ← desempate DENTRO da coleção, não decisão
   ranking.types.ts             ScoredProduct, ScoreBreakdown
-  ranking.ts                   rankProducts(snapshot, intent, candidates)
+  ranking.ts                   orderWithin(brief.order, products, snapshot)
   ranking.weights.ts           pesos num objeto só, para tunar sem mexer na lógica
   index.ts
 
-src/platform/agent/            ← já previsto na spec aprovada
+src/platform/agent/            ← já previsto na spec aprovada — agente de BUSCA
   agent.types.ts               FilterCandidate, AgentSelection, StructuredFilters
   agent.claude.ts              chamada única, structured output, cache breakpoint
-  agent.intent.ts              intent-agent (Haiku)
   agent.filters.ts             ProductListingPage["filters"] → FilterCandidate[]
   agent.d1.ts                  query_cache
-  agent.actions.ts             resolveSearchQuery(), inferIntent()
+  agent.actions.ts             resolveSearchQuery()
   index.ts
 
 src/platform/analytics/        ← já previsto na spec aprovada
@@ -249,8 +270,8 @@ Regras que o validador vai cobrar e que é mais barato lembrar agora:
 | `src/server.ts` | middleware que garante `deco_session` e `deco_visitor` na resposta | **médio** — é o entry. O `RequestContext.run` e a dedup de `Set-Cookie` que já vivem lá não podem ser quebrados; ver `docs/deploy-vercel-supabase.md` §"O que precisou ser reimplementado" |
 | `src/setup.ts` | registrar `site/actions/events/track` no `registerInvokeHandlers` e o loader da shelf | baixo — padrão existente, copiar de `notifyMe/subscribe` |
 | `src/routes/__root.tsx` | captura de eventos do browser (ver abaixo) | baixo |
-| `src/loaders/` | `personalShelf.ts` novo | baixo |
-| `src/sections/Product/` | section `PersonalShelf.tsx`, **dados buscados client-side** | baixo, mas ver a armadilha de cache abaixo |
+| `src/loaders/` | `personalCollections.ts` novo | baixo |
+| `src/sections/Product/` | section `PersonalCollections.tsx` — renderiza **N coleções**, não uma prateleira fixa; **dados buscados client-side** | baixo, mas ver a armadilha de cache abaixo, e o layout tem que aguentar 0 a 4 blocos |
 | `.deco/blocks/pages-home.json` | posicionar a section na home | conteúdo, não código |
 | `db/README.md` | **está desatualizado** e engana quem chega novo | doc |
 
@@ -339,6 +360,67 @@ export interface Intent {
 dimensões descobertas, não um campo `size`. Um `size?: string` aqui seria a
 forma mais silenciosa de tornar o sistema específico de moda para sempre.
 
+### `CollectionBrief` — a saída do agente (novo, 2026-08-07)
+
+Este é **o contrato mais importante do projeto** desde a decisão de pôr o agente
+no comando (`personal-shopping-agent-proposta.md` §15). É o que o modelo escreve
+e o que o banco executa — a fronteira entre "quem decide" e "quem garante".
+
+```ts
+// src/platform/collections/collections.types.ts
+
+export interface CollectionBrief {
+  /** Título autoral. Aparece na home exatamente como o agente escreveu. */
+  title: string;
+  /** A narrativa: por que ESTA pessoa está vendo ESTA coleção. */
+  why: string;
+
+  /** O recorte. Todo valor aqui é validado contra CatalogVocabulary
+   *  antes de virar SQL — valor inexistente é descartado, não erra. */
+  criteria: {
+    types?: string[];
+    collections?: string[];
+    tags?: { all?: string[]; any?: string[] };
+    priceBand?: { min?: number; max?: number };
+    /** Dimensões descobertas, não `size`: { Size: ["M"] }, { Voltagem: ["220V"] } */
+    optionValues?: Record<string, string[]>;
+    requireAvailable?: boolean;
+  };
+
+  /** Desempate DENTRO do que casou. Não decide quem entra. */
+  order?: "affinity" | "popularity" | "price:asc" | "price:desc" | "newest";
+  limit: number;
+  /** Abaixo disto a coleção não vale a pena existir. */
+  minResults: number;
+  /**
+   * Ordem de afrouxamento, decidida pelo agente. Só ele sabe qual restrição
+   * carrega a narrativa do título: em "no seu M, pronto pra levar",
+   * optionValues é a ÚLTIMA coisa que pode cair.
+   */
+  relaxOrder: Array<keyof CollectionBrief["criteria"]>;
+}
+
+export interface ResolvedCollection {
+  brief: CollectionBrief;
+  products: Product[];
+  matched: number;
+  /** O que precisou ser removido para chegar ao mínimo. A UI LÊ isto:
+   *  título que promete o que o critério não entregou mais é título que mente. */
+  relaxedBy: string[];
+}
+```
+
+Três regras que não são estéticas:
+
+1. **`criteria` nunca vira SQL sem passar pela validação.** É o que mantém a
+   promessa da §1 deste documento e a da spec — filtro alucinado é
+   estruturalmente impossível, não "mitigado".
+2. **`optionValues` é `Record<string, string[]>`, não `size`.** Mesma razão do
+   `optionAffinity` acima, e o mesmo erro seria fatal aqui.
+3. **`relaxedBy` não é log, é dado de UI.** Se o agente pediu M e o resolvedor
+   teve que soltar essa restrição para não devolver uma coleção vazia, o card
+   precisa parar de dizer "no seu M".
+
 `topicKey` normalizado **igual em todo lugar** — é o que costura o agente, o
 dashboard e a `TrendingCollections`. Dois formatos significam ranking partido ao
 meio, e o sintoma é "o ranking está estranho", não um erro.
@@ -377,20 +459,33 @@ Cada linha só está pronta quando a prova passa. "Está implementado" não é p
 | 3 | Cookies + `visitors` | duas abas anônimas diferentes = dois `visitor_id`; a mesma aba recarregada = o mesmo | 2h |
 | 4 | Captura + `user_events` | navegar 2 min gera linhas com `session_id` correto; `select count(*)` sobe | 3h |
 | 5 | `context.processor` | dois perfis navegando diferente produzem `user_context.profile` **diferentes** — no SQL, antes de qualquer UI | 2h |
-| 6 | `rankProducts()` | mesma lista de candidatos, dois snapshots, duas ordens; `reasons[]` explica cada posição | 3h |
-| 7 | Section "Para você" | **a home dos dois perfis mostra produtos diferentes** ← é a tese inteira | 3h |
-| 8 | `intent-agent` | busca nova muda a intenção; `product_view` da mesma categoria **não** dispara LLM | 3h |
-| 9 | `recommendation_log` + A/B | bucket 0 vê vitrine fixa, bucket 1 a personalizada; CTR comparável | 3h |
+| 6 | `collections.validate` + `resolve_collection` | um brief escrito à mão vira produtos reais; um brief com tag inventada é **limpo, não quebra**; um brief impossível afrouxa na ordem pedida e reporta `relaxedBy` | 3h |
+| 7 | **`collections.agent`** | **dois contextos entram, saem coleções com número, eixos e títulos diferentes — em JSON, sem UI nenhuma** ← é a tese inteira | 4h |
+| 8 | Section de coleções na home | a home dos dois perfis mostra **estruturas** diferentes, não só produtos diferentes | 3h |
+| 9 | `recommendation_log` + A/B | bucket 0 vê vitrine fixa, bucket 1 as coleções do agente; o brief fica gravado ao lado do resultado | 3h |
 | 10 | `/mcp` (3 toolsets) | um cliente MCP externo lista as tools e busca produtos | 3h |
 | 11 | `search-resolver` no `/s` | busca livre que hoje dá zero resulta em PLP filtrada | 4h |
 
-**O passo 7 é o corte.** Do 1 ao 7 existe demonstração; antes disso, não. Se o
-tempo apertar, tudo depois do 7 é upside, e a ordem de corte é 11 → 10 → 9 → 8.
+**O passo 7 é o corte, e mudou de natureza.** Na versão anterior deste plano, o
+passo 7 era a UI e o LLM só entrava no 8 — a ideia era provar que dava para
+personalizar sem modelo nenhum. Com a decisão de pôr o agente no comando
+(`personal-shopping-agent-proposta.md` §15), isso se inverteu: **o passo 7 é o
+agente, e ele vem antes da UI de propósito.**
 
-Reparem que o **passo 8 é o primeiro que usa LLM**. Do 1 ao 7 não há nenhuma
-chamada de modelo, e a personalização já é visível. Isso não é economia — é a
-tese dos dois documentos originais, tornada verificável: se o passo 7 impressiona
-sem LLM, a arquitetura está certa.
+A razão é econômica, não estética. Se o agente não produz recortes interessantes,
+descobrir isso olhando um JSON no passo 7 custa meio dia; descobrir olhando a
+home montada custa dois. E se ele produz, a section vira renderização de uma
+saída que já se sabe boa.
+
+**Ordem de corte:** 11 → 10 → 9. Do 1 ao 8 não há o que cortar — juntos, são o
+produto. Dentro do passo 7, o corte é o número de coleções por pessoa (uma, em
+vez de até quatro), nunca a autoria do recorte.
+
+**O passo 6 antes do 7 não é acidente.** O resolvedor precisa estar de pé e
+testado *antes* de existir agente para alimentá-lo, senão a primeira vez que uma
+coleção voltar vazia ninguém vai saber se a culpa é do modelo, do critério ou do
+catálogo. Com o passo 6 provado com briefs escritos à mão, a resposta é sempre:
+é do modelo.
 
 ---
 
@@ -400,12 +495,16 @@ Isto é o que precisa ser verdade para a mesma pipeline rodar noutra loja. Vale
 como critério de revisão de PR, não como aspiração:
 
 - [ ] Nenhum `product_type`, tag, coleção ou nome de opção escrito à mão em
-      `src/platform/{context,ranking,agent,analytics}`
+      `src/platform/{context,collections,ranking,agent,analytics}`
 - [ ] Faixas de preço vêm de percentis do catálogo, não de números no código
 - [ ] Prompt estável (antes do breakpoint de cache) não cita nenhum produto,
       categoria ou atributo desta loja
 - [ ] Saída do LLM validada contra `CatalogVocabulary` antes de virar filtro
-- [ ] `optionAffinity` é mapa de dimensões descobertas — não existe campo `size`
+- [ ] `optionAffinity` e `CollectionBrief.criteria.optionValues` são mapas de
+      dimensões descobertas — não existe campo `size` em lugar nenhum
+- [ ] Nenhuma lista de coleções possíveis no código. Se existir um
+      `SHELVES = [...]` para o agente escolher, a decisão da §15 da proposta foi
+      desfeita sem ninguém perceber
 - [ ] Trocar o `DATABASE_URL` por um catálogo diferente não quebra nada nem
       exige mudança de código
 
@@ -420,7 +519,11 @@ como se perde uma tarde:
   `/s?q=`. A spec é explícita: o Searchbar é **estendido, não substituído**.
 - **Nenhuma ação de carrinho ou checkout.** O agente é read-only. Exclusão da
   spec, ainda em vigor.
-- **Nenhuma UI de chat.** A explicação da shelf é texto no card, não conversa.
+- **Nenhuma UI de chat.** A narrativa da coleção é texto no card, não conversa.
+  O agente ganhou autoridade sobre o recorte, não uma caixa de diálogo.
+- **O agente não escolhe produto por ID.** Ele escreve o critério; o SQL responde
+  quem atende. Essa fronteira é o que sustenta a especificidade — ver
+  `personal-shopping-agent-proposta.md` §15.
 - **Nenhum componente de produto precisa ser instrumentado** — os eventos já
   são disparados.
 - **Nenhuma escrita em `.deco/blocks/*.json` por código.** Proposta se aplica

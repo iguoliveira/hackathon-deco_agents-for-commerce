@@ -124,8 +124,19 @@ serviço próprio.
 
 ## 3. Arquitetura proposta
 
-O princípio dos dois docs se mantém: **LLM entende, SQL ordena**. O que muda é
-onde cada peça mora.
+> **Revisada em 2026-08-07 (ver §15).** A versão anterior desta seção dizia
+> "LLM entende, SQL ordena" e mantinha o agente fora do caminho crítico. O time
+> decidiu o contrário: **o agente é o protagonista do produto**, ele fica no
+> caminho da vitrine por escolha, e é ele quem decide o que a pessoa vê. O
+> princípio novo é **o agente decide, o banco garante**.
+
+A diferença entre os dois princípios não é de quantidade de LLM — é de quem tem
+autoridade. Antes, o agente classificava intenção e entregava um rótulo para um
+ranker fixo montar sempre a mesma vitrine de 4 produtos. Agora o agente decide
+**quantas coleções existem, quais são os eixos de cada uma, como se chamam, em
+que ordem aparecem e se vale a pena mostrar alguma**. O banco não escolhe nada:
+ele executa o critério que o agente escreveu e responde com o que de fato existe
+em estoque.
 
 ```text
                          VISITANTE
@@ -153,40 +164,42 @@ onde cada peça mora.
                                     │  (1 linha/pessoa)│
                                     └────────┬─────────┘
                                              │
-                     gatilho relevante?──────┤──────não──────┐
-                             │ sim                           │
-                             ▼                               │
-                    ┌─────────────────┐                      │
-                    │  INTENT AGENT   │  Haiku, fora do      │
-                    │  (LLM)          │  caminho crítico     │
-                    └────────┬────────┘                      │
-                             │ grava user_intent             │
-                             └───────────────┬───────────────┘
                                              ▼
-   ═══════════════ CAMINHO CRÍTICO (sem LLM) ════════════════
-                                             │
-     GET /  ou  GET /s  ou  PDP              │
-                    │                        │
-                    ▼                        ▼
-          leitura de 1 linha         candidate retrieval
-          (snapshot + intent)      searchCatalog / findSimilarAvailable
-                    │                        │
-                    └───────────┬────────────┘
-                                ▼
-                          RANKER (TypeScript puro, ≤100 candidatos)
-                                │
-                                ▼
-                     recommendation_log  +  UI "Para você"
-   ═══════════════════════════════════════════════════════════
-                                │
-                                ▼
+                        getCatalogVocabulary()  ── o que a loja vende
+                                             │      (§1 do doc de mudanças)
+   ══════════════ O AGENTE DECIDE ═══════════│════════════════════
+                                             ▼
+                            ┌────────────────────────────┐
+                            │     COLLECTION AGENT       │
+                            │  1 chamada, structured     │
+                            │  output, no caminho da     │
+                            │  vitrine — por escolha     │
+                            └─────────────┬──────────────┘
+                                          │
+                     devolve N CollectionBriefs, cada um com
+                     título · narrativa · critério · ordem de
+                     afrouxamento · e a decisão de não mostrar
+                                          │
+   ══════════════ O BANCO GARANTE ════════│════════════════════════
+                                          ▼
+                        ┌──────────────────────────────┐
+                        │  RESOLVER DE CRITÉRIO (SQL)  │
+                        │  valida contra o vocabulário │
+                        │  executa · conta · afrouxa   │
+                        └──────────────┬───────────────┘
+                                       │ produtos que EXISTEM,
+                                       │ com estoque e opção reais
+                                       ▼
+                     recommendation_log  +  UI (N coleções autorais)
+   ═══════════════════════════════════════════════════════════════
+                                       │
+                                       ▼
                           nova ação → novo evento → volta ao topo
 
 
-   FORA DO CAMINHO CRÍTICO, quando há decisão que exige raciocínio:
+   TAMBÉM AGENTE, nas outras superfícies:
 
         SEARCH RESOLVER (Opus, effort low)     — /s, spec já aprovada
-        SHELF COPY (Haiku, cacheado)           — o "por que recomendamos"
         MERCHANDISING (Opus)                   — propostas no admin
 
    INTEGRAÇÃO:
@@ -194,8 +207,10 @@ onde cada peça mora.
                  (as mesmas funções, empacotadas — não um caminho novo)
 ```
 
-Meta de custo: **≤ 2 chamadas de LLM por sessão**, nenhuma delas bloqueando
-render de página.
+Meta de custo: **1 chamada de LLM por vitrine montada**, cacheada por
+(`visitorId`, `contextVersion`). Enquanto o contexto não muda, a mesma vitrine é
+servida de novo sem chamar o modelo — é a §16 do doc de otimização, aplicada a
+uma saída que agora é autoral em vez de derivada.
 
 ---
 
@@ -308,7 +323,7 @@ na hora da apresentação — e é o que salva a depuração da demo.
 
 ## 5. As tools
 
-Dez tools. **Cinco já existem** e só precisam de casca. Nenhuma delas escreve no
+Onze tools. **Cinco já existem** e só precisam de casca. Nenhuma delas escreve no
 carrinho ou no checkout — a exclusão da spec aprovada continua valendo.
 
 | # | Tool | Assinatura | Onde mora | Estado |
@@ -321,8 +336,9 @@ carrinho ou no checkout — a exclusão da spec aprovada continua valendo.
 | 6 | `get_product` | `(handle) → Product` | `catalog.d1.ts:359` | **existe** |
 | 7 | `find_similar_available` | `(variantId, limit) → SimilarCandidate[]` | `catalog.d1.ts:409` | **existe** |
 | 8 | `get_filter_candidates` | `(url) → FilterCandidate[]` | `agent.filters.ts` sobre `catalog.plp.ts:124` | criar (spec) |
-| 9 | `get_inventory` | `(productHandles, size?) → {handle, sizesAvailable[]}` | `platform/catalog` | criar (trivial) |
-| 10 | `rank_products` | `(snapshot, intent, candidates) → Scored[]` | `platform/ranking/ranking.ts` | criar — **TypeScript puro, sem LLM** |
+| 9 | `get_inventory` | `(productHandles, option?) → {handle, optionValuesAvailable[]}` | `platform/catalog` | criar (trivial) |
+| 10 | `resolve_collection` | `(CollectionBrief) → {products, matched, relaxedBy[]}` | `platform/collections/collections.d1.ts` | criar — **executa o critério do agente** |
+| 11 | `get_catalog_vocabulary` | `() → CatalogVocabulary` | `catalog.vocabulary.ts` | criar — é o que o agente lê antes de decidir |
 
 Duas regras que valem para todas:
 
@@ -332,41 +348,55 @@ Duas regras que valem para todas:
 - **Nenhuma tool devolve payload cru da Shopify.** Convenção já cobrada pelo
   validador em `.claude/skills/agent-creator/scripts/validate-domain.mjs`.
 
-### Tool 10 em detalhe — o ranker
+### Tool 10 em detalhe — o resolvedor de critério
 
-É o coração e é determinístico. Adaptação da fórmula do §14 do MVP doc ao que
-este catálogo de fato tem:
+Esta tool substitui o `rank_products` das versões anteriores desta proposta. A
+mudança é de autoridade, não de tecnologia: o ranker antigo **escolhia** os
+produtos com uma fórmula fixa de pesos; este aqui **executa a escolha que o
+agente já fez**. Ele não tem opinião sobre o que é bom — tem a obrigação de só
+devolver o que é verdade.
 
-```
-score = 0.30 × intent_match       -- product_type ∈ intent.types (.5)
-                                  -- + coleção (.2) + Jaccard de tags (.2)
-                                  -- + preço dentro da faixa (.1)
-      + 0.20 × profile_match      -- afinidade de tags/cores do histórico longo
-      + 0.15 × waited_similarity  -- reusa findSimilarAvailable dos stock_alerts
-      + 0.15 × session_affinity   -- co-visualização na sessão, com decay temporal
-      + 0.10 × popularity         -- COUNT de view_item/add_to_cart, 7 dias (§2.5)
-      + 0.10 × business           -- profundidade de estoque + em promoção
-```
-
-**Multiplicador de opção** — provavelmente o sinal de maior retorno por linha de
-código, e genérico por construção (§2.1):
+Recebe um `CollectionBrief` (contrato em `personal-shopping-agent-mudancas.md`
+§6) e faz quatro coisas, nesta ordem:
 
 ```
-× option_fit  -- 1.0 se os valores de opção que esta pessoa demonstrou preferir
-              --     estão disponíveis neste produto
-              -- 0.3 se o produto existe mas o valor dela não
+1. VALIDA    todo valor de types/collections/tags/optionValues é conferido
+             contra getCatalogVocabulary(). Valor que não existe no catálogo é
+             DESCARTADO antes de virar SQL — nunca causa erro, nunca vaza.
+
+2. EXECUTA   uma query: WHERE product_type IN (...) AND tags @> (...) AND
+             price BETWEEN ... AND EXISTS (variante com a opção pedida
+             E available = true)
+
+3. CONTA     se matched >= brief.minResults, devolve e acabou.
+
+4. AFROUXA   se veio pouco, remove a primeira restrição de brief.relaxOrder e
+             volta ao passo 2. Registra o que removeu em relaxedBy[], porque a
+             UI precisa saber que a promessa do título encolheu.
 ```
 
-A dimensão não é escolhida no código: vem de `findOptionNames()`. Nesta loja ela
-resolve para `Size`; noutra, para `Voltagem` ou `Capacidade`. E os valores saem
-de graça de três lugares que já gravamos — variante vista na PDP, variante no
-carrinho e `stock_alerts.variant_id` — com `variants.available` dizendo o resto.
-Recomendar a peça perfeita num tamanho que não existe é o erro mais caro de uma
-loja de roupa, e o equivalente vale em qualquer categoria com variante.
+O passo 4 é o que impede a falha mais provável deste desenho. Quanto mais
+específico o agente for — que é exatamente o que queremos dele — mais fundo ele
+corta um catálogo de ~136 produtos, e um recorte fino demais volta com um item
+ou nenhum. Coleção vazia no telão é pior que coleção genérica. **O agente diz em
+que ordem afrouxar**, porque só ele sabe qual restrição carrega a narrativa: numa
+coleção chamada "no seu M, pronto pra levar", a opção `Size=M` é a última coisa
+que pode cair — antes dela sai o preço, saem as tags, sai o tipo.
 
-Cada componente da nota vira uma string em `reasons[]` (`"mesmo tipo"`,
-`"3 tags em comum: winter, layering, cotton"`, `"seu tamanho M disponível"`).
-É o que alimenta a explicação na UI **sem chamar LLM**.
+**A ordenação interna continua determinística e continua existindo**, mas foi
+rebaixada de decisão para desempate: dentro dos produtos que casaram com o
+critério, ordena por afinidade de opção, depois por popularidade
+(`COUNT` de `user_events` em 7 dias, §2.5), depois por profundidade de estoque. O
+agente pode sobrescrever com `brief.order`. Nada disso decide *quais* produtos
+aparecem — só em que sequência.
+
+**Disponibilidade nunca é decisão do modelo.** Os valores de opção que a pessoa
+prefere saem de três lugares que já gravamos — variante vista na PDP, variante no
+carrinho e `stock_alerts.variant_id` — e `variants.available` dá a palavra final.
+A dimensão não é escolhida no código: vem de `findOptionNames()`. Nesta loja
+resolve para `Size`; noutra, para `Voltagem` ou `Capacidade`. Recomendar a peça
+perfeita num tamanho que não existe é o erro mais caro de uma loja de roupa, e é
+justo o tipo de fato que um LLM não tem como saber com confiança.
 
 ---
 
@@ -414,7 +444,20 @@ se a fase 5 terminar cedo.
 
 Quatro. Cada um com gatilho, modelo e fallback explícitos.
 
-### 7.1 `intent-agent` — Haiku, assíncrono
+### 7.1 `intent-agent` — Haiku, assíncrono — **rebaixado a opcional em 2026-08-07**
+
+> Na versão anterior deste documento, este agente era o único que raciocinava
+> sobre a pessoa, e o resto do sistema consumia o rótulo que ele produzia. Com o
+> `collection-agent` (§7.3) lendo o contexto bruto e decidindo por conta própria,
+> inferir intenção num passo separado passou a ser **pré-digestão do trabalho de
+> quem manda** — e um rótulo estreito demais é justamente o que limitaria a
+> especificidade que queremos do protagonista.
+>
+> O que sobra dele: `user_intent` continua útil como **memória entre requests**
+> (o que essa pessoa parecia querer há 5 minutos), e o `search-resolver` já grava
+> lá de graça (§7.2). Como agente próprio, sai do caminho crítico do MVP e vira
+> corte de primeira hora. A ficha abaixo fica registrada para o caso de o
+> `collection-agent` se provar caro demais para rodar a cada vitrine.
 
 | | |
 |---|---|
@@ -436,29 +479,51 @@ A única adição desta proposta: quando ele resolve uma busca, ele **também**
 grava `user_intent` — a intenção já foi inferida ali, e inferir de novo no
 `intent-agent` seria pagar duas vezes pela mesma pergunta.
 
-### 7.3 `shelf-agent` — o Personal Shopping Agent propriamente dito
+### 7.3 `collection-agent` — o Personal Shopping Agent propriamente dito
 
-Este é o produto. E ele é **majoritariamente código, não LLM**:
+Este é o produto, e desde a revisão de 2026-08-07 ele é **o agente no comando**,
+não uma etapa de pré-processamento. Substitui o `shelf-agent` das versões
+anteriores, que só classificava intenção e deixava um ranker fixo montar sempre
+a mesma prateleira de 4 produtos.
 
 ```text
-1. lê user_context + user_intent          (1 query)
-2. candidate retrieval                     (1 query: searchCatalog OU findSimilarAvailable)
-3. rank_products                           (TypeScript, ~100 candidatos)
-4. decide a experiência:
-     confidence ≥ 0.6  → 4 produtos + explicação personalizada
-     0.4 – 0.6         → 4 produtos + explicação genérica ("popular esta semana")
-     < 0.4             → NÃO personaliza: vitrine padrão
-5. copy do "por quê"  → Haiku, cacheado por (topicKey, hash dos handles)
-6. recommendation_log
+1. lê user_context + user_events recentes            (1 query)
+2. lê getCatalogVocabulary()                          (cacheado por isolate)
+3. ┌─ UMA chamada, Opus, structured output ─────────────────────┐
+   │  O agente recebe quem é a pessoa e o que a loja vende.     │
+   │  Ele decide, sozinho:                                      │
+   │    · quantas coleções montar (0 a 4)                       │
+   │    · o eixo de cada uma (não há eixo pré-definido)         │
+   │    · o título e a narrativa de cada uma                     │
+   │    · a ordem em que aparecem na página                     │
+   │    · o critério estruturado que define cada uma            │
+   │    · em que ordem afrouxar se vier pouco resultado         │
+   └────────────────────────────────────────────────────────────┘
+4. para cada brief → resolve_collection (§5, tool 10)
+5. descarta coleção que ficou abaixo do mínimo mesmo depois de afrouxar
+6. recommendation_log, com o brief inteiro gravado
 ```
 
-O passo 4 é o que separa isto de um recomendador comum, e é o §16 do MVP doc:
-**um bom agente sabe quando não recomendar**. Na demo, mostrar o visitante novo
-recebendo vitrine genérica vale tanto quanto mostrar o perfil quente recebendo
-vitrine cirúrgica.
+**O que "protagonista" significa em código.** O passo 3 não tem lista de
+prateleiras possíveis. Não existe, em lugar nenhum, um `SHELVES = [...]` para o
+agente escolher. Ele compõe o recorte do zero a partir do vocabulário — e por
+isso duas pessoas podem receber não só produtos diferentes, mas **um número
+diferente de coleções, com eixos que ninguém programou**. Uma pessoa pode receber
+uma coleção por ocasião de uso; outra, uma por faixa de preço; outra, uma que
+cruza o que ela esperou em estoque com o que ela vinha olhando. Nada disso está
+enumerado no código.
 
-O passo 5 é a única chamada de LLM, ela é cacheada, e se falhar a UI cai nas
-`reasons[]` determinísticas do ranker — a explicação existe sem o modelo.
+**O que ele continua não podendo fazer**: afirmar que um produto existe, que está
+em estoque, ou que tem o tamanho da pessoa. Ele escreve o critério; o banco
+responde quem atende. Essa fronteira não é timidez com o modelo — é o que faz a
+especificidade ser confiável. Quanto mais autoridade ele tem sobre o recorte,
+mais importa que ninguém possa inventar o inventário.
+
+**Zero coleções é uma saída legítima e prevista.** Se o agente lê o contexto e
+conclui que não sabe o suficiente, ele devolve lista vazia e a home mostra a
+vitrine padrão. É o §16 do MVP doc — *um bom agente sabe quando não recomendar* —
+e agora a decisão é dele, não de um limiar de `confidence` no código. Na demo,
+o visitante novo recebendo vitrine padrão prova que o sistema tem critério.
 
 ### 7.4 `merchandising-agent` — admin, fase tardia
 
@@ -476,20 +541,40 @@ superfícies, em ordem de retorno:
 
 | Superfície | O que muda | Custo |
 |---|---|---|
-| **Home — shelf "Para você"** | Section nova, dados buscados client-side via TanStack Query (o cache de HTML da home congelaria a vitrine — armadilha já documentada na skill) | alto retorno, ~3h |
-| **PDP — "no seu tamanho"** | Reordena as alternativas por `size_fit` e intenção, em vez de posição fixa | médio, ~1h |
-| **PLP — re-rank** | Reordena os resultados dentro da página pelo score | baixo na demo (sutil demais para se ver no telão) |
+| **Home — coleções autorais** | Section nova que renderiza **N coleções** vindas do agente, não uma prateleira fixa. Dados buscados client-side via TanStack Query (o cache de HTML da home congelaria a vitrine — armadilha já documentada na skill) | alto retorno, ~4h |
+| **PDP — alternativas** | Reordena as alternativas por afinidade de opção, em vez de posição fixa | médio, ~1h |
+| **PLP — re-rank** | Reordena os resultados dentro da página | baixo na demo (sutil demais para se ver no telão) |
 
-O card da shelf carrega a explicação — e a explicação cita **sinal real**:
+A home é a superfície que carrega a tese, e ela precisa deixar claro que **o
+título e o recorte são do agente** — é isso que separa a demo de um carrossel de
+recomendação comum. O layout tem que aguentar um número variável de coleções,
+porque o agente decide quantas:
 
 ```text
-Para você, Vinicius
-  Porque você esperou o Classic Pullover Hoodie no M
-  e vem olhando peças de inverno em algodão.
+Montei três coleções pra você, Vinicius
 
-  [Oversized Hoodie]  [Bomber Jacket]  [Beanie]  [Long Sleeve Tee]
-     M disponível        M disponível    único      M disponível
+  ┌─ Camadas de inverno em algodão ────────────────────────┐
+  │  Você esperou o Classic Pullover no M e vem olhando    │
+  │  peças de inverno.                                     │
+  │  [Oversized Hoodie]  [Bomber Jacket]  [Long Sleeve]    │
+  │     M disponível        M disponível     M disponível  │
+  └────────────────────────────────────────────────────────┘
+
+  ┌─ Para fechar o look, abaixo de R$ 150 ─────────────────┐
+  │  Todas as peças que você olhou passam de R$ 200 —      │
+  │  estes acessórios combinam e cabem no resto.           │
+  │  [Beanie]  [Tote Bag]  [Meia canelada]                 │
+  └────────────────────────────────────────────────────────┘
+
+  ┌─ Saiu do forno esta semana ────────────────────────────┐
+  │  ...                                                   │
+  └────────────────────────────────────────────────────────┘
 ```
+
+Nenhum desses três títulos existe no código. Numa segunda pessoa, com outro
+histórico, os três eixos são outros — e podem ser dois, ou nenhum. **É esse o
+slide.** Vale mostrar o `recommendation_log` ao lado, com o brief que o agente
+escreveu, para provar que o recorte não estava enumerado em lugar nenhum.
 
 ---
 
@@ -503,8 +588,10 @@ Mensurável com o que esta proposta constrói, sem pipeline de conversão:
 | Add-to-cart por sessão | `COUNT(add_to_cart) / COUNT(DISTINCT session_id)` | bucket 0 |
 | Taxa de busca com zero resultado | `/s` com `total = 0` | antes/depois do search-resolver |
 | Chamadas de LLM por sessão | `recommendation_log.llm_called` | meta: ≤ 2 |
-| Latência p50/p95 da recomendação | `recommendation_log.latency_ms` | meta: p95 < 300 ms |
-| Cache hit rate | `recommendation_log.cache_hit` + `query_cache.hits` | — |
+| Latência p50/p95 da vitrine | `recommendation_log.latency_ms` | cache HIT: p95 < 300 ms · MISS (com LLM): p95 < 2,5 s |
+| Cache hit rate | `recommendation_log.cache_hit` + `query_cache.hits` | meta ≥ 70% — é ele que segura a latência |
+| **Coleções afrouxadas** | `recommendation_log.recommended[].relaxedBy` não vazio | meta < 30%. Acima disso, o agente está pedindo recorte mais fino do que o catálogo aguenta |
+| **Coleções descartadas** | briefs que morreram por falta de resultado | meta < 10%. É o indicador de que a especificidade passou do ponto |
 
 **Não mensurável, e é preciso dizer isso no palco:** conversão e receita por
 sessão. Não há pipeline de compra. Vai como projeção com a fórmula à vista —
@@ -524,9 +611,10 @@ Substituem o "gamer vs. Mac" do MVP doc, que não existe neste catálogo.
 buscas:      "moletom oversized", "jaqueta bomber"
 vistos:      Classic Pullover Hoodie, Oversized Hoodie
 esperou:     Classic Pullover Hoodie tamanho M  (variante esgotada real da 0011)
-intenção:    layering de inverno, algodão, R$ 150–350
-→ shelf:     Oversized Hoodie · Bomber Jacket · Beanie · Long Sleeve Tee
-             todos com M disponível
+→ o agente monta 3 coleções:
+   "Camadas de inverno em algodão"      (Oversized Hoodie · Bomber · Long Sleeve, M disponível)
+   "Para fechar o look, até R$ 150"     (Beanie · Tote · Meia)
+   "Chegou esta semana"
 ```
 
 **Perfil B — verão / minimalista**
@@ -534,13 +622,18 @@ intenção:    layering de inverno, algodão, R$ 150–350
 buscas:      "vestido leve", "algo para o calor"
 vistos:      dresses, Relaxed Crop Tee
 tags:        summer, women, minimalist
-intenção:    vestido de verão, R$ 100–250
-→ shelf:     dresses + Slides + Tote Bag
+→ o agente monta 1 coleção só:
+   "Leve para o calor, abaixo de R$ 250"   (dresses · Slides · Tote Bag)
 ```
 
-**Perfil C — o visitante novo.** Chega sem histórico. A vitrine é a padrão, e o
-agente **diz** que não personalizou. É o slide que prova que o sistema tem
-critério.
+**A diferença entre A e B é o slide.** Não é que os produtos mudaram — é que
+**a estrutura da página mudou**: três coleções contra uma, com eixos distintos
+(ocasião + preço + novidade, contra clima + preço). Nenhum dos quatro títulos
+está escrito no código, e nenhuma regra diz quantas coleções mostrar.
+
+**Perfil C — o visitante novo.** Chega sem histórico, o agente devolve lista
+vazia e a home mostra a vitrine padrão. É o slide que prova que o sistema tem
+critério — e agora a abstenção é decisão do agente, não um `if` de confiança.
 
 Mesma loja. Mesmo catálogo. Mesmo código. O que muda é o contexto — que é
 exatamente a frase da §26 do MVP doc.
@@ -555,23 +648,32 @@ diante é upside.
 | Fase | Entrega | Prova | ~Horas | Depende de |
 |---|---|---|---|---|
 | **0** | cookie `deco_visitor` + tabela `visitors` + banner de consentimento | toda requisição tem identidade | 2h | — |
-| **1** | subscriber de eventos + `user_events` + snapshot por SQL | dois perfis geram snapshots diferentes | 4h | 0 |
-| **2** | `intent-agent` + `user_intent` + TTL/invalidação | busca muda a intenção; product_view não | 3h | 1 |
-| **3** | `rank_products` + shelf "Para você" + explicação | **dois perfis, mesma home, produtos diferentes** | 4h | 1 (2 é opcional aqui) |
-| **4** | `recommendation_log` + dashboard + A/B por bucket | número na tela com fonte clicável | 3h | 3 |
+| **1** | `getCatalogVocabulary()` + subscriber de eventos + `user_events` + snapshot por SQL | dois perfis geram snapshots diferentes; o vocabulário sai do banco, não do código | 5h | 0 |
+| **2** | **`collection-agent` + `resolve_collection` + afrouxamento** | **um contexto entra, coleções com títulos que ninguém escreveu saem — verificável no JSON, antes de qualquer UI** | 6h | 1 |
+| **3** | Section de coleções na home (N variável) + explicação | **dois perfis, mesma home, coleções diferentes em número e em eixo** | 4h | 2 |
+| **4** | `recommendation_log` + dashboard + A/B por bucket | número na tela com fonte clicável, e o brief do agente ao lado do resultado | 3h | 3 |
 | **5** | endpoint `/mcp` (3 toolsets) | agente externo consulta o catálogo | 3h | 5 tools já existem |
 | **6** | `search-resolver` no `/s` (spec aprovada) | busca livre resolve em PLP filtrada | 4h | independente |
 
 Fora do plano por decisão (§14): browser context/extensão (D2) e embeddings
 (D4). A correção do dicionário FTS (D4) é uma migration avulsa, ~20 min, sem
-dependência — encaixa em qualquer fase.
+dependência — encaixa em qualquer fase. O `intent-agent` saiu do plano em
+2026-08-07 (§7.1).
 
-**Ordem de corte, se o tempo apertar:** 5 → 4 → 2. A fase 3 sem a 2 ainda
-demonstra personalização (usando intenção heurística) — é o menor sistema que
-ainda prova a tese.
+**A fase 2 é a tese.** Ela vem antes da UI de propósito: o agente montando
+coleções é verificável em JSON puro, e se ele não impressiona ali, nenhuma
+section vai salvar. Inversamente, se impressiona no JSON, a fase 3 é só
+renderização.
 
-**Caminho crítico real:** fase 0. Nada funciona sem identidade, e é a tarefa que
-parece menor e não é.
+**Ordem de corte, se o tempo apertar:** 6 → 5 → 4. As fases 0–3 não são
+cortáveis — juntas, são o produto. Se o tempo apertar dentro da fase 2, o corte
+é o número de coleções (uma só, em vez de até quatro), nunca a autoria do
+recorte.
+
+**Caminho crítico real:** continua sendo a fase 0. Nada funciona sem identidade,
+e é a tarefa que parece menor e não é. O que mudou é que a fase 2 passou a
+carregar o risco de produto: é a primeira vez que se vê se o agente tem, de
+fato, algo interessante a dizer sobre uma pessoa.
 
 ---
 
@@ -589,9 +691,11 @@ Não é seção de conformidade — são quatro decisões de implementação:
    Se um dia entrar: coluna própria, nunca misturada aos eventos de loja, para
    que revogar seja um `DELETE` e não uma arqueologia.
 3. **Texto de usuário nunca vira instrução.** `rawUserText` entra no prompt do
-   `intent-agent` como *dado delimitado*; a saída é validada contra o
+   `collection-agent` como *dado delimitado*; a saída é validada contra o
    vocabulário real do catálogo antes de virar filtro. Filtro inventado é
-   estruturalmente impossível, como já é no search-resolver.
+   estruturalmente impossível, como já é no search-resolver — e essa validação
+   ficou mais crítica desde que o agente passou a **compor** o critério em vez de
+   escolher um pronto (§15).
 4. **Customer MCP jamais aceita `visitorId` por parâmetro.** Identidade vem do
    cookie. Sem isso, o MCP é um vazamento de perfil com cara de feature.
 
@@ -606,8 +710,11 @@ Não é seção de conformidade — são quatro decisões de implementação:
 | **Escrita de evento atrasando o request** | `waitUntil` de `@vercel/functions`, ou insert inline (é uma linha, ~10 ms pelo pooler). O que **não** funciona é promise solta: a função serverless congela |
 | **Cache da home congelando a shelf** | Section busca dados client-side. Armadilha já documentada na skill do time |
 | **FTS em dicionário errado (§2.3)** | Migration decidida em §14 (D4). Sem ela, a fase 6 fica com base pior do que poderia |
-| **Emenda à spec sobre popularidade (§2.5)** | Aprovar explicitamente com o time antes de implementar |
-| **Escopo** | Fases 5–7 são cortáveis por construção. Nenhuma fase anterior depende delas |
+| **Escopo** | Fases 5–6 são cortáveis por construção. Nenhuma fase anterior depende delas |
+| **Especificidade acima do que o catálogo aguenta** — o agente pede um recorte fino e volta 1 produto ou nenhum | Afrouxamento em cascata na ordem que o agente definiu (§5, tool 10), `minResults` por coleção, e descarte silencioso do brief que não se sustenta. Métricas de afrouxamento e descarte na §9 |
+| **LLM no caminho da home** — a vitrine passou a depender de uma chamada de modelo | Cache por (`visitorId`, `contextVersion`); a section busca client-side, então a página nunca espera pelo agente; e a vitrine padrão é o fallback de qualquer falha ou timeout. Nenhum render de HTML bloqueia no modelo |
+| **Não-determinismo na demo** — a mesma pessoa recarrega e vê outra vitrine | O cache por `contextVersion` já fixa a saída enquanto o contexto não muda. Para a apresentação, `temperature` baixa e a possibilidade de fixar o brief a partir do `recommendation_log` |
+| **Título bonito com produto errado** — o agente escreve "no seu M" e entra peça sem M | Estruturalmente impossível: quem resolve a coleção é SQL sobre `variants.available`. Mas a UI **precisa** ler `relaxedBy[]` e suavizar o título quando o critério afrouxou, senão a promessa do título mente |
 
 ---
 
@@ -637,9 +744,77 @@ como descoberto. Cinco das tools já existem; o Catalog MCP é casca. `llms.txt`
 completar o JSON-LD **não** foram aprovados junto — ficam como complemento
 opcional, se a fase 5 terminar cedo.
 
+**D5 — O agente é o protagonista, e fica no caminho da vitrine.**
+Ver §15, que é a decisão inteira. Descartado: manter o agente como classificador
+de intenção fora do caminho crítico, com um ranker fixo montando a vitrine.
+
 **D4 — Só corrigir o FTS; embeddings ficam de fora.**
 Uma migration trocando o dicionário (§2.3). `products.embedding` continua vazia
 e nenhum provedor externo entra no projeto. Com `product_type` e tags em 100% do
 catálogo, a similaridade estrutural ordena bem e é explicável — que é
 exatamente o argumento já escrito em `db/migrations/0009:14-18`. Reavaliar
 depois de medir a vitrine, não antes.
+
+---
+
+## 15. Decisão: o agente no topo (2026-08-07)
+
+Esta seção registra a mudança de direção que reescreveu as §3, §5, §7, §8, §9,
+§11 e §13. Fica com o descartado à vista, pela mesma razão das outras decisões.
+
+### O que mudou
+
+| | Antes | Agora |
+|---|---|---|
+| Princípio | LLM entende, SQL ordena | **O agente decide, o banco garante** |
+| Papel do modelo | classificar intenção num rótulo | **montar as coleções**: quantas, quais eixos, títulos, ordem |
+| Quem monta a vitrine | ranker com pesos fixos | o agente, via critério estruturado |
+| Posição no fluxo | fora do caminho crítico | **no caminho da vitrine, por escolha** |
+| Saída | 4 produtos, sempre | 0 a 4 coleções, com número e eixos variáveis |
+| O ranking | decide o que aparece | desempata o que já foi escolhido |
+
+### Por que
+
+O desenho anterior tinha um teto baixo de especificidade que nenhuma quantidade
+de contexto resolveria: por melhor que fosse a inferência de intenção, a saída
+era sempre a mesma prateleira de quatro produtos, com o mesmo título, mudando só
+o conteúdo. O agente podia entender muito e dizer pouco.
+
+O argumento que sustentava manter o LLM fora do caminho — "não ranqueie o
+catálogo inteiro" — vem do doc de otimização, que raciocina sobre 100.000
+produtos. **Nós temos ~136.** O catálogo inteiro cabe num prompt, e a regra foi
+escrita para um problema que não é o nosso. Vale registrar isso explicitamente
+para que a regra não seja reaplicada por hábito.
+
+### A fronteira que continua valendo
+
+Autoridade sobre o **recorte** é do agente. Autoridade sobre o **inventário** é
+do banco. O agente escreve o que quer; o SQL responde quem atende, com estoque e
+opção reais.
+
+Isso não é cautela com o modelo — é o que faz a especificidade ser confiável.
+Quanto mais fino o recorte que ele propõe, mais caro fica o erro de afirmar que
+um produto existe no tamanho que a pessoa usa. Um agente que erra estoque não é
+um agente mais ousado; é um agente em que ninguém confia depois da segunda
+recomendação.
+
+### O que isso custa, e é honesto dizer
+
+1. **A vitrine passou a depender de uma chamada de LLM.** Mitigado por cache e
+   por busca client-side (§13), mas o custo por sessão sobe e a latência de
+   cache MISS entra na casa dos segundos, não das centenas de milissegundos.
+2. **A saída ficou não-determinística.** Duas execuções com o mesmo contexto
+   podem produzir recortes diferentes. Aceitável — e até desejável no produto —
+   mas exige cuidado na demo (§13).
+3. **Cruza uma exclusão da spec aprovada.** `explicit_exclusions` da
+   `tese-agente-vendas-ia.md` dizia *"No LLM-authored filter query params —
+   selection only, from loader-returned values"*. O `CollectionBrief` é, por
+   definição, filtro autorado pelo modelo. A spec foi emendada em **r7** com a
+   justificativa completa; o espírito da regra — impossibilidade **estrutural**
+   de alucinar filtro — continua honrado, porque todo valor dentro do brief é
+   validado contra `getCatalogVocabulary()` antes de virar SQL. O que mudou é a
+   forma: o agente **compõe** um critério em vez de **escolher** um filtro
+   pronto de uma lista.
+
+O item 3 seguiu a mesma disciplina do §0 do doc de mudanças: emendar só este
+documento teria criado um plano que perde para a spec antiga.
