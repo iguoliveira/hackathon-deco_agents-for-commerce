@@ -19,7 +19,7 @@ import {
 // stub em vite.config.ts que mascara isso, mas contar com ele é o caminho para
 // o mesmo build quebrado que `node:crypto` já causou uma vez.
 import { checkoutServerFn } from "../../platform/orders/orders.actions";
-import { useUser } from "../../platform/user";
+import { useAuthAfterHydration } from "../../platform/user";
 
 function QuantityStepper({ item }: { item: CartItem }) {
   const update = useUpdateCartItem();
@@ -134,11 +134,13 @@ function EmptyState() {
  */
 function Footer({ cart }: { cart: CartState }) {
   const navigate = useNavigate();
-  // `useUser` e não uma checagem própria: a sessão já é resolvida e cacheada
-  // por ele em toda página. Uma segunda consulta traria o mesmo dado e poderia
-  // divergir dele por um instante — o suficiente para o botão piscar o rótulo
-  // errado. O servidor reconfere de qualquer forma; isto aqui é só o rótulo.
-  const { isAuthenticated, isLoading } = useUser();
+  // `useAuthAfterHydration` e não `useUser`: este bloco escolhe ENTRE DOIS
+  // elementos diferentes (um link e um botão), e `useUser` responde logado no
+  // servidor e deslogado na primeira renderização do cliente. Isso é markup
+  // divergente, e derruba a árvore inteira na hidratação — o mesmo defeito que
+  // o `SignIn` do header tinha. O servidor reconfere a sessão de qualquer
+  // forma; isto aqui decide só o rótulo.
+  const isAuthenticated = useAuthAfterHydration();
 
   const qc = useQueryClient();
   const finalizar = useMutation({
@@ -165,7 +167,7 @@ function Footer({ cart }: { cart: CartState }) {
         Compra simulada — nenhum pagamento é processado
       </div>
       <div className="p-4 flex flex-col gap-2">
-        {!isAuthenticated && !isLoading ? (
+        {!isAuthenticated ? (
           <Link to="/login" preload="intent" className="btn btn-primary w-full no-animation">
             Entrar para finalizar
           </Link>
@@ -173,9 +175,7 @@ function Footer({ cart }: { cart: CartState }) {
           <button
             type="button"
             className="btn btn-primary w-full no-animation"
-            disabled={
-              finalizar.isPending || isLoading || temEsgotado || cart.items.length === 0
-            }
+            disabled={finalizar.isPending || temEsgotado || cart.items.length === 0}
             onClick={() => finalizar.mutate()}
           >
             {finalizar.isPending ? "Finalizando…" : "Finalizar compra"}

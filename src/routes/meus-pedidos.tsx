@@ -5,7 +5,7 @@ import Image from "~/components/ui/Image";
 // Do módulo, não do barrel — ver a nota em Minicart.tsx.
 import { listarPedidosServerFn } from "../platform/orders/orders.actions";
 import type { Pedido } from "../platform/orders/orders.types";
-import { useUser } from "../platform/user";
+import { useAuthAfterHydration, useUser } from "../platform/user";
 
 export const Route = createFileRoute("/meus-pedidos")({
   component: MeusPedidos,
@@ -22,7 +22,11 @@ export const Route = createFileRoute("/meus-pedidos")({
  * com status 200).
  */
 function MeusPedidos() {
-  const { isAuthenticated, isLoading: carregandoUsuario } = useUser();
+  // `useAuthAfterHydration` pelo mesmo motivo de `SignIn` e do minicart: esta
+  // página escolhe entre duas telas inteiras a partir da sessão, e `useUser`
+  // responde diferente no servidor e na primeira renderização do cliente.
+  const isAuthenticated = useAuthAfterHydration();
+  const { isLoading: carregandoUsuario } = useUser();
 
   const { data: pedidos, isLoading } = useQuery({
     queryKey: ["pedidos"],

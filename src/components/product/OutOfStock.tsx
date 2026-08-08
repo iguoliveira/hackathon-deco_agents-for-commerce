@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Product } from "@decocms/apps-commerce/types";
 import { invoke } from "../../runtime";
-import { useUser } from "../../platform/user";
+import { useUserAfterHydration } from "../../platform/user";
 import { STOCK_ALERT_QUERY_KEY, useHasStockAlert } from "../../platform/alerts";
 import type { NotifyMeResult } from "../../actions/notifyMe/subscribe";
 import Button from "../ui/Button";
@@ -14,7 +14,10 @@ const INPUT_CLASS =
   "frost h-10 rounded-sm px-3 text-sm text-ink placeholder:text-muted-soft focus:outline-none";
 
 export default function OutOfStock({ productID }: Props) {
-  const { user } = useUser();
+  // `useUserAfterHydration` e nao `useUser`: a linha 60 ramifica markup no
+  // e-mail da sessao, e `useUser` responde logado no servidor e deslogado na
+  // primeira renderizacao do cliente — divergencia que derruba a arvore.
+  const user = useUserAfterHydration();
   const queryClient = useQueryClient();
   // Signed-out shoppers always read `false` here: their identity is the email
   // they are about to type, which does not exist yet at render time.

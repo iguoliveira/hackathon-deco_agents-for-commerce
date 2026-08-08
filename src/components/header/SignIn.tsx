@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useUser } from "../../platform/user";
+import { useAuthAfterHydration } from "../../platform/user";
 import Button from "../ui/Button";
 import Icon from "../ui/Icon";
 
@@ -16,7 +16,11 @@ const MOBILE_ICON_CLASS =
  * it renders an icon-only button matching the menu/search icons instead.
  */
 function SignIn({ variant }: Props) {
-  const { isAuthenticated } = useUser();
+  // `useAuthAfterHydration` e não `useUser`: este componente escolhe o href e o
+  // texto do link, e `useUser` responde diferente no servidor e na primeira
+  // renderização do cliente. Como o SignIn vive no header, a divergência
+  // derrubava TODA página do site para quem estivesse logado. Ver o hook.
+  const isAuthenticated = useAuthAfterHydration();
   const href = isAuthenticated ? "/account" : "/login";
   const label = isAuthenticated ? "Account" : "Login";
 
