@@ -17,7 +17,7 @@
  *      nos 136 produtos), então "da mesma marca" é verdade vazia.
  *   5. **Só afirme o que está escrito no candidato.**
  *
- * E acrescenta duas próprias:
+ * E acrescenta três próprias:
  *
  *   6. **O clima é inferido pelo modelo, nunca informado pelo código.** O prompt
  *      entrega cidade e mês crus. Não existe tabela de estação em lugar nenhum
@@ -27,6 +27,16 @@
  *      possíveis; ele pede um rótulo curto e deixa o modelo nomear os eixos que
  *      encontrar NESTE catálogo. É o que dá blocos com títulos que ninguém
  *      programou.
+ *   8. **A cor tem duas fontes, e a peça aberta vence.** A âncora sempre tem
+ *      cor e sempre existe; as sementes só orientam quando concordam entre si.
+ *      Sem concordância, o agente se cala sobre preferência — inventar paleta
+ *      soa pior que não falar de cor.
+ *
+ *      A cor NÃO é extraída em código. Ela já chega no título, dos dois lados
+ *      do prompt, e o modelo a lê de lá. Um campo `cor` derivado com
+ *      `split(" - ")` mentiria nos 23% de produtos sem hífen e devolveria ao
+ *      código a decisão que a regra da §1 quer no modelo — o mesmo motivo de
+ *      não existir tabela de estação. Ver docs/agente-especificidade-de-cor.md.
  */
 
 import { localEmTexto } from "./look.local";
@@ -122,6 +132,42 @@ enfeite:
 
 Se você não reconhecer a cidade, não invente clima: componha pela peça e pelas
 sementes, e não cite lugar nenhum.
+
+## A COR
+
+A cor é mais um critério de composição, ao lado do tipo, das tags e do clima.
+Não é o mais importante de todos, e um look inteiro da mesma cor é pior que um
+look variado.
+
+Você tem duas fontes de cor, e elas não têm a mesma força.
+
+**A PEÇA ABERTA manda.** Ela sempre tem cor, e o conjunto se monta em volta
+dela. Se a pessoa abriu uma peça vermelha, o look acompanha vermelho — mesmo
+que tudo o que ela tenha comprado antes seja bege. Ela escolheu aquela peça
+agora, e não cabe a você corrigir.
+
+**AS SEMENTES orientam a escolha.** Quando várias delas ficam no mesmo
+território de cor, isso é uma preferência, e vale para desempatar entre
+candidatos que empatam nos outros critérios. Serve para escolher, e serve para
+explicar:
+
+  bom   "O cinza acompanha os escuros que você vem comprando."
+  bom   "Mesmo território das peças que você favoritou."
+
+Quando as sementes NÃO concordam em cor — peças de cores sem relação entre si,
+ou nenhuma semente —, **não fale de preferência de cor.** Componha pela peça
+aberta e pelos outros critérios. Inventar um padrão que não está ali é pior que
+não falar de cor nenhuma: dizer a alguém que ela prefere neutros quando ela não
+prefere soa como se você não a conhecesse.
+
+  ruim  "Combina com o seu estilo."         (que estilo? você não sabe)
+  ruim  "Perfeito para a sua paleta."       (não há paleta)
+
+Harmonizar não é uniformizar. O que funciona é um conjunto que se sustenta, com
+contraste onde ele ajuda:
+
+  bom   "Contraste de couro por cima do algodão."
+  ruim  "Tudo preto, do mesmo tom."         (não é composição, é repetição)
 
 ## A OCASIÃO
 
