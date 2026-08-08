@@ -1,14 +1,22 @@
 # Personal Shopping Agent — proposta de MVP (tools, MCPs e agentes)
 
-> Terceiro documento da série. Os outros dois são conceituais:
+> **Este é o documento em vigor** — o **onde**: o desenho aterrado neste
+> repositório, com os nomes de arquivo, tabelas e funções que já existem, e o que
+> falta criar. Onde ele discordar de qualquer outro arquivo de `docs/`, ele ganha.
 >
-> - `personal-shopping-agent-mvp.md` — o **quê** (arquitetura conceitual)
-> - `personal-shopping-agent-optimization.md` — o **como não ficar lento**
-> - **este** — o **onde**: o mesmo desenho aterrado neste repositório, com os
->   nomes de arquivo, tabelas e funções que já existem, e o que falta criar.
+> Os outros da série, com o estado de cada um:
 >
-> Onde este documento discorda dos outros dois, é porque a premissa deles não
-> vale aqui. Cada divergência está justificada na §2.
+> - `personal-shopping-agent-mudancas.md` — **em vigor**: a lista de mudanças,
+>   arquivo por arquivo
+> - `tese-agente-vendas-ia.md` r6 — **em vigor**: a spec normativa
+> - `personal-shopping-agent-mvp.md` — **revogado**: arquitetura conceitual da v1
+> - `personal-shopping-agent-optimization.md` — **revogado**: latência e custo da
+>   v1, escritos para um catálogo de 100 mil produtos
+> - `personal-shopping-agent-pre-changes.md` — **histórico, revogado**: os desenhos
+>   substituídos, guardados na íntegra
+>
+> A §2 registra as premissas dos dois revogados que não valem aqui. É histórico do
+> raciocínio, não uma lista de exceções que os mantenha parcialmente vivos.
 
 ---
 
@@ -67,8 +75,8 @@ aprovada e **não** foram criadas).
 
 ## 2. Correções de premissa
 
-Cinco coisas que os dois documentos assumem e que não valem neste repositório.
-Ignorar qualquer uma custa tempo de implementação.
+Cinco coisas que os dois documentos revogados assumem e que não valem neste
+repositório. Ignorar qualquer uma custa tempo de implementação.
 
 **2.1 O catálogo é moda, e o código não pode saber disso.** Todo exemplo dos dois
 docs é `monitor 4K USB-C para MacBook`; aqui não existe monitor, e "specs" são

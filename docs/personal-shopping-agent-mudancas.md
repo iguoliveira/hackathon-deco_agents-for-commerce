@@ -1,8 +1,7 @@
 # Personal Shopping Agent — o que precisa mudar no repositório
 
-> Quarto e último documento da série. **Só dois dos outros quatro estão em
-> vigor** — os revogados ficam listados porque continuam no repositório, não
-> porque valem:
+> **Este arquivo está em vigor.** Os outros da série, com o estado de cada um —
+> os revogados ficam listados porque continuam no repositório, não porque valem:
 >
 > - `personal-shopping-agent-proposta.md` — **em vigor**: o desenho aterrado neste
 >   repo, com o DDL completo, as tools, os MCPs e os agentes
@@ -13,9 +12,9 @@
 > - `personal-shopping-agent-pre-changes.md` — **histórico, revogado**: os desenhos
 >   anteriores à decisão de 08/08, guardados para o caso de precisarmos voltar
 >
-> **Este arquivo é a lista de mudanças.** Arquivo por arquivo, o que muda e como
-> se prova que funcionou. Não repete o DDL nem o raciocínio dos outros três —
-> quando precisar do porquê, o link está no item.
+> **É a lista de mudanças.** Arquivo por arquivo, o que muda e como se prova que
+> funcionou. Não repete o DDL nem o raciocínio dos outros — quando precisar do
+> porquê, o link está no item.
 
 ---
 
