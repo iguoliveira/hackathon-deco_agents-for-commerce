@@ -14,7 +14,11 @@ import {
   type CartItem,
   type CartState,
 } from "../../platform/cart";
-import { checkoutServerFn } from "../../platform/orders";
+// Do módulo, não do barrel: `platform/orders/index.ts` reexporta `orders.d1`,
+// que puxa `getDb` e o driver `postgres` para o grafo do cliente. Existe um
+// stub em vite.config.ts que mascara isso, mas contar com ele é o caminho para
+// o mesmo build quebrado que `node:crypto` já causou uma vez.
+import { checkoutServerFn } from "../../platform/orders/orders.actions";
 import { useUser } from "../../platform/user";
 
 function QuantityStepper({ item }: { item: CartItem }) {

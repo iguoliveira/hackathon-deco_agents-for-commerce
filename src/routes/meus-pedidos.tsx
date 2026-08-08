@@ -2,7 +2,9 @@ import { formatPrice } from "@decocms/apps-commerce/sdk/formatPrice";
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import Image from "~/components/ui/Image";
-import { listarPedidosServerFn, type Pedido } from "../platform/orders";
+// Do módulo, não do barrel — ver a nota em Minicart.tsx.
+import { listarPedidosServerFn } from "../platform/orders/orders.actions";
+import type { Pedido } from "../platform/orders/orders.types";
 import { useUser } from "../platform/user";
 
 export const Route = createFileRoute("/meus-pedidos")({
