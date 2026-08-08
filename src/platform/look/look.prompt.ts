@@ -13,11 +13,13 @@
  *   2. **`confianca` existe para o agente poder se recusar.** Sem saída honesta
  *      para "os candidatos não servem", ele inventa relação.
  *   3. **O motivo pede RELAÇÃO, não elogio.**
+ *      (A regra 3 do texto foi reescrita — ver a decisão 9 abaixo. O que ela
+ *      protegia continua protegido: cor afirmada errada foi um erro real.)
  *   4. **A marca é proibida.** A loja é de marca única (`vendor = 'Deco Store'`
  *      nos 136 produtos), então "da mesma marca" é verdade vazia.
  *   5. **Só afirme o que está escrito no candidato.**
  *
- * E acrescenta três próprias:
+ * E acrescenta quatro próprias:
  *
  *   6. **O clima é inferido pelo modelo, nunca informado pelo código.** O prompt
  *      entrega cidade e mês crus. Não existe tabela de estação em lugar nenhum
@@ -37,6 +39,19 @@
  *      `split(" - ")` mentiria nos 23% de produtos sem hífen e devolveria ao
  *      código a decisão que a regra da §1 quer no modelo — o mesmo motivo de
  *      não existir tabela de estação. Ver docs/agente-especificidade-de-cor.md.
+ *   9. **Identidade de cor é estrita; parentesco de cor é livre.** A regra 3
+ *      original tratava os dois atos como um só, e o custo disso foi medido:
+ *      com sementes `Grey` + `Charcoal` + `Navy` o agente não dizia nada sobre
+ *      a preferência da pessoa, enquanto com três sementes `Black` ele dizia
+ *      ("o blazer que você comprou"). Ele lia a proibição de afirmar MESMA COR
+ *      como proibição de falar de cor entre palavras diferentes — e com isso
+ *      perdia justamente o caso que vale a pena, porque ninguém se impressiona
+ *      ao ver que preto combina com preto.
+ *
+ *      Por isso o texto agora diz, com todas as letras, que três cores
+ *      diferentes formam uma paleta. O que continua proibido é chamar de
+ *      igualdade o que é parentesco: "Charcoal" não é "Black", e afirmar que é
+ *      seria o erro que a regra original nasceu para impedir.
  */
 
 import { localEmTexto } from "./look.local";
@@ -77,8 +92,17 @@ Entre 5 e 10 peças, na ordem em que você acredita nelas.
    não esteja escrito no candidato. Você não tem essa informação. Omitir é
    sempre melhor que inventar.
 3. A cor de cada peça está no fim do título, depois do hífen
-   ("Vintage Wash Tee - Black"). Só afirme que duas peças têm a mesma cor se as
-   duas trouxerem a MESMA palavra ali. Não deduza cor da descrição.
+   ("Vintage Wash Tee - Black"). Nunca deduza cor de descrição, de imagem ou de
+   nome de modelo. Se o título não tem hífen, você não sabe a cor daquela peça
+   — então não fale da cor dela.
+
+   Dizer que duas peças SÃO da mesma cor é estrito: só afirme isso quando as
+   duas trouxerem a MESMA palavra depois do hífen. "Charcoal" não é "Black".
+
+   Dizer que peças CONVERSAM entre si é outra coisa, e é permitido — inclusive
+   com palavras diferentes. "Charcoal", "Grey" e "Navy" são TRÊS CORES
+   DIFERENTES e formam uma paleta só; enxergar isso é parte do seu trabalho.
+   O que você não pode é chamar de igualdade aquilo que é parentesco.
 4. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
    controla nada disso.
 5. Todos os candidatos já estão disponíveis. Nunca escreva que algo "ainda está
@@ -149,10 +173,16 @@ agora, e não cabe a você corrigir.
 **AS SEMENTES orientam a escolha.** Quando várias delas ficam no mesmo
 território de cor, isso é uma preferência, e vale para desempatar entre
 candidatos que empatam nos outros critérios. Serve para escolher, e serve para
-explicar:
+explicar.
+
+Elas NÃO precisam ser da mesma cor para formar uma preferência. Peças em
+"Charcoal", "Grey" e "Navy" são três cores diferentes e um território só —
+alguém que comprou as três está dizendo algo sobre o que gosta, e você deve
+usar isso. Esperar pela mesma palavra é perder o padrão.
 
   bom   "O cinza acompanha os escuros que você vem comprando."
   bom   "Mesmo território das peças que você favoritou."
+  bom   "Fecha com a linha sóbria do que você já tem."
 
 Quando as sementes NÃO concordam em cor — peças de cores sem relação entre si,
 ou nenhuma semente —, **não fale de preferência de cor.** Componha pela peça
