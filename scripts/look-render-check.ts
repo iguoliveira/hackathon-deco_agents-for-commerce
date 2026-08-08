@@ -14,6 +14,11 @@
  *
  * Sai 0 se tudo passar, 1 no primeiro erro real. Precisa de `DATABASE_URL`;
  * **não** precisa das `STUDIO_*`, porque não fala com o Decopilot.
+ *
+ * **Precisa do cache quente.** Desde que o fallback por SQL caiu, um par
+ * (peça, contexto) sem look gravado não renderiza — então rode
+ * `npm run look:warm -- <handle>` antes da primeira vez. O script detecta o caso
+ * e diz isso, em vez de acusar o slug de um erro que não cometeu.
  */
 
 try {
@@ -114,6 +119,22 @@ const main = async (): Promise<void> => {
   const pelaPagina = await completeTheLookLoader({
     __pageUrl: `https://loja.exemplo.com/products/${slugDaPdp}`,
   });
+
+  // Sem o fallback por SQL, `null` aqui tem DUAS causas possíveis, e confundi-las
+  // manda consertar o arquivo errado: ou o slug não resolveu (o bug que este
+  // script existe para pegar), ou o par (peça, contexto) simplesmente não está
+  // no cache. Este script roda do terminal, então o contexto é sempre
+  // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
+  if (pelaPagina === null) {
+    console.error(
+      `\n  Não há look gravado para \`${handle}\` no contexto deste terminal.\n` +
+        "  Isso NÃO é falha de renderização — desde que o fallback por SQL caiu, a\n" +
+        "  section só aparece com o cache quente. Aqueça e rode de novo:\n\n" +
+        `      npm run look:warm -- ${handle}\n`,
+    );
+    process.exit(1);
+  }
+
   ok(
     "PDP via __pageUrl devolve look",
     pelaPagina !== null,
@@ -153,7 +174,7 @@ const main = async (): Promise<void> => {
   titulo("4. O que a section vai desenhar");
   // ------------------------------------------------------------------
   const look = pelaPagina!;
-  console.log(`  "${look.titulo}"   origem: ${look.origem}   sementes: ${look.sementes}`);
+  console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
   console.log(`  procedência: ${look.lugar} em ${look.mes}`);
   for (const bloco of look.blocos) {
     console.log(`  ┌─ ${bloco.ocasiao}`);
@@ -183,10 +204,12 @@ const main = async (): Promise<void> => {
       return new Set(ids).size === ids.length;
     })(),
   );
+  // A invariante que substituiu o fallback: se chegou look, TODA peça tem
+  // motivo. Não há mais o estado "look sem texto" — ver look.types.ts → `Look`.
   ok(
-    "no fallback por SQL nenhuma peça tem motivo",
-    look.origem !== "sql" || look.blocos.every((b) => b.pecas.every((p) => !p.motivo)),
-    "motivo inventado em código mentiria sobre a procedência",
+    "toda peça na tela carrega um motivo",
+    look.blocos.every((bloco) => bloco.pecas.every((peca) => peca.motivo.trim().length > 0)),
+    "peça sem motivo é o carrossel genérico que esta feature existe para não ser",
   );
 
   // ------------------------------------------------------------------

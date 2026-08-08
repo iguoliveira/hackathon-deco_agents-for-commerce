@@ -3,10 +3,10 @@
  *
  *   npm run look:warm -- vintage-wash-tee heavyweight-boxy-tee
  *
- * O passo 7 do plano (docs/agente-de-combinacoes.md §8). Sem isto, a primeira
- * pessoa a abrir uma PDP na demo vê a ordenação do SQL sem motivos — que é a
- * degradação correta do produto e a pior imagem possível no palco, porque é
- * exatamente onde os motivos deveriam estar.
+ * O passo 7 do plano (docs/agente-de-combinacoes.md §8) — e, desde que o
+ * fallback por SQL caiu, **não é mais otimização**. A primeira pessoa a abrir
+ * uma PDP num contexto frio não vê a section: ela some e o agente compõe atrás,
+ * para a visita seguinte. Sem pré-aquecer, a demo não tem feature.
  *
  * Grava sob o hash real de `lookDaPeca` (é o que `aquecerLook` garante), então
  * o que fica no cache é lido pela PDP de verdade. O `--gravar` do dry run não
@@ -28,8 +28,8 @@ import { aquecerLook } from "../src/platform/look/look.actions";
 
 /**
  * `.dev.vars` guarda as credenciais do Decopilot em desenvolvimento. Ausência
- * não é erro — sem credencial o agente cai no fallback por SQL, e aí o
- * pré-aquecimento grava um look sem motivos, que este script avisa.
+ * não é erro aqui, mas é fatal para o resultado: sem credencial não há
+ * composição, nada é gravado, e o script reporta todas as peças como sem look.
  */
 const carregarDevVars = (): void => {
   let conteudo: string;
@@ -69,29 +69,25 @@ const main = async (): Promise<void> => {
     const look = await aquecerLook(handle);
     const decorrido = ((Date.now() - inicio) / 1000).toFixed(1);
 
+    // `null` cobre os três casos, e o log de `comporLook` já disse qual foi:
+    // peça inexistente, pool pequeno demais, ou o agente não compôs.
     if (!look) {
-      console.log(`  \x1b[31m✗\x1b[0m ${handle} — peça inexistente ou sem candidatos suficientes`);
+      console.log(`  \x1b[31m✗\x1b[0m ${handle} — sem look (motivo acima) · ${decorrido}s`);
       continue;
     }
 
-    if (look.origem === "agente") {
-      comAgente++;
-      const blocos = new Set(look.pecas.map((peca) => peca.ocasiao)).size;
-      console.log(
-        `  \x1b[32m✓\x1b[0m ${handle} — "${look.titulo}" · ${look.pecas.length} peças em ${blocos} bloco(s) · confiança ${look.confianca} · ${decorrido}s`,
-      );
-    } else {
-      console.log(
-        `  \x1b[33m!\x1b[0m ${handle} — gravado SEM motivos (${look.motivoDoFallback}) · ${decorrido}s`,
-      );
-    }
+    comAgente++;
+    const blocos = new Set(look.pecas.map((peca) => peca.ocasiao)).size;
+    console.log(
+      `  \x1b[32m✓\x1b[0m ${handle} — "${look.titulo}" · ${look.pecas.length} peças em ${blocos} bloco(s) · confiança ${look.confianca} · ${decorrido}s`,
+    );
   }
 
-  console.log(`\n${comAgente}/${pecas.length} com o texto do agente.`);
+  console.log(`\n${comAgente}/${pecas.length} aquecida(s).`);
   if (comAgente < pecas.length) {
-    console.log(
-      "As demais vão aparecer na PDP como lista ordenada, sem os motivos — rode de novo.",
-    );
+    // Não há mais meio-termo: sem look gravado a section não renderiza, então
+    // uma peça que ficou de fora simplesmente não tem a feature na demo.
+    console.log("As demais NÃO vão mostrar a section na PDP — rode de novo antes do pitch.");
   }
   process.exit(0);
 };

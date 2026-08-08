@@ -6,9 +6,14 @@
  * de produto **impossível por construção** em vez de mitigada: um handle que
  * não veio dos candidatos é descartado, nunca corrigido.
  *
- * Nada aqui lança. Todo caminho de falha termina num look — o do modelo ou o do
- * SQL. Uma section vazia por erro de agente é o pior resultado possível desta
- * feature, e passaria despercebido porque a página continua respondendo 200.
+ * Nada aqui lança. Todo caminho de falha termina em `null`, e `null` significa
+ * uma coisa só: **a section não aparece**. Não existe look de consolação — ver
+ * `look.types.ts` → `Look`.
+ *
+ * Isso torna o log a única testemunha de uma falha, porque a página continua
+ * respondendo 200 e a section ausente é indistinguível de "esta peça não tem
+ * complemento". Por isso todo caminho de desistência escreve uma linha em
+ * `console.warn` dizendo qual foi.
  */
 
 import { extrairJson } from "../shelf/shelf.agent";
@@ -18,23 +23,23 @@ import { acharAncora, gravarLook, lerLook } from "./look.d1";
 import { montarMensagem, PISO_DE_CONFIANCA } from "./look.prompt";
 import type { Ancora, Candidato, Contexto, Look, PecaDoLook, RespostaCrua } from "./look.types";
 
-/** Título usado quando o texto do modelo é descartado. */
+/** Título usado quando o modelo compôs bem mas não soube nomear o conjunto. */
 const TITULO_PADRAO = "Complete o look";
-/** Rótulo de bloco no fallback: neutro, porque não houve julgamento nenhum. */
+/** Rótulo de bloco para a peça que o modelo escolheu sem rotular. Ver `validar`. */
 const OCASIAO_PADRAO = "Combina com esta peça";
 
-/** Abaixo disto não é look, é sobra. Melhor a ordenação completa do SQL. */
+/** Abaixo disto não é look, é sobra — e sobra não vai para a tela. */
 const MIN_PECAS = 4;
 const MAX_PECAS = 10;
 
 /**
  * Os produtos que a pessoa já comprou — o que sai do pool de candidatos.
  *
- * Exportado porque `look.actions.ts` monta os candidatos por conta própria no
- * cache miss (para responder na hora com a ordenação do SQL), e os dois
- * caminhos precisam excluir exatamente o mesmo conjunto. Se divergirem, o look
- * do fallback mostra uma peça que o do agente nunca mostraria — e ninguém
- * entenderia por que ela some no reload seguinte.
+ * Exportado porque `look.actions.ts` também precisa do conjunto para decidir,
+ * no cache miss, se vale a pena disparar a geração — e as duas contagens de
+ * candidatos têm de bater. Se divergirem, a PDP dispara o agente para uma peça
+ * cujo pool ele vai recusar por ser pequeno demais, e gasta um minuto de modelo
+ * a cada visita para não produzir nada.
  */
 export const jaComprados = (contexto: Contexto): Set<string> =>
   new Set(contexto.sementes.filter((s) => s.kind === "purchased").map((s) => s.productGroupId));
@@ -90,29 +95,16 @@ export const validar = (lista: unknown, candidatos: Candidato[]): PecaDoLook[] =
 };
 
 /**
- * O look determinístico: os candidatos na ordem que o SQL já deu.
- *
- * `findComplementsAvailable` ordena por tags em comum e coleção, então o topo
- * já é defensável sem nenhum modelo. Sem motivos, porque inventar texto aqui
- * seria exatamente o que o agente existe para fazer com julgamento — e um
- * motivo genérico gerado em código seria pior que nenhum, porque mentiria sobre
- * a procedência.
- */
-const lookDoSql = (candidatos: Candidato[], porque: string): Look => ({
-  titulo: TITULO_PADRAO,
-  confianca: 0,
-  pecas: candidatos.slice(0, MAX_PECAS).map((candidato, i) => ({
-    handle: candidato.handle,
-    motivo: "",
-    ocasiao: OCASIAO_PADRAO,
-    position: i,
-  })),
-  origem: "sql",
-  motivoDoFallback: porque,
-});
-
-/**
  * A composição, a partir de um espaço de escolha já montado.
+ *
+ * Devolve `null` — e não um look de consolação — em todo caminho de falha. Ver
+ * a decisão inteira em `look.types.ts` → `Look`: uma lista sem motivos, servida
+ * justamente quando o agente falhou, ocupa na tela o lugar da única coisa que
+ * esta feature tem a provar.
+ *
+ * O `porque` vai para o log e não para a tela. Ele continua existindo porque
+ * "por que não apareceu look?" precisa de resposta sem anexar um depurador —
+ * mas quem responde é o terminal, não a pessoa que veio comprar.
  *
  * Separada de `gerarLook` para o dry run poder reaproveitá-la sem repetir a
  * consulta — e para que o caminho que o script exercita seja literalmente o
@@ -122,31 +114,35 @@ export const comporLook = async (
   ancora: Ancora,
   contexto: Contexto,
   candidatos: Candidato[],
-): Promise<Look> => {
+): Promise<Look | null> => {
+  const desistir = (porque: string): null => {
+    console.warn(`[look] ${ancora.handle}: sem look — ${porque}`);
+    return null;
+  };
+
   const resposta = await perguntar(
     montarMensagem(ancora, contexto, candidatos),
     `look ${ancora.handle}`,
   );
-  if (!resposta) return lookDoSql(candidatos, "modelo indisponível ou com erro");
+  if (!resposta) return desistir("modelo indisponível ou com erro");
 
   const crua = extrairJson(resposta.texto) as RespostaCrua | null;
-  if (!crua) return lookDoSql(candidatos, "resposta sem JSON parseável");
+  if (!crua) return desistir("resposta sem JSON parseável");
 
   const confianca = typeof crua.confianca === "number" ? crua.confianca : 0;
   if (confianca < PISO_DE_CONFIANCA) {
-    return lookDoSql(candidatos, `confiança ${confianca} abaixo do piso`);
+    return desistir(`confiança ${confianca} abaixo do piso`);
   }
 
   const pecas = validar(crua.pecas, candidatos);
   if (pecas.length < MIN_PECAS) {
-    return lookDoSql(candidatos, `só ${pecas.length} peça(s) sobreviveram à validação`);
+    return desistir(`só ${pecas.length} peça(s) sobreviveram à validação`);
   }
 
   return {
     titulo: texto(crua.titulo, TITULO_PADRAO, 45),
     confianca,
     pecas,
-    origem: "agente",
   };
 };
 
@@ -156,10 +152,13 @@ export const comporLook = async (
  * Leva ~35-60s por causa do modelo, e às vezes muito mais (o Decopilot entra em
  * `waiting-capacity` e trava até o timeout) — **nunca chame isto de dentro de
  * uma request que alguém esteja esperando.** Quem consome é `look.actions.ts`,
- * que dispara sem `await` e responde na hora com a ordenação do SQL.
+ * que dispara sem `await` e responde na hora.
  *
- * Grava inclusive o look do SQL. Ele não é só modo de falha: é estado
- * intermediário válido, que a próxima passada substitui por um do agente.
+ * **Falha não grava nada.** Antes, o look do SQL era persistido como estado
+ * intermediário válido; sem ele, escrever qualquer coisa aqui só ensinaria o
+ * cache a servir a falha. Deixar o par (peça, contexto) sem linha é o que faz o
+ * próximo carregamento tentar de novo — que é o comportamento certo quando a
+ * causa provável é saturação do provedor.
  */
 export const gerarLook = async (
   handle: string,
@@ -173,6 +172,8 @@ export const gerarLook = async (
   if (candidatos.length < MIN_PECAS) return null;
 
   const look = await comporLook(alvo.ancora, contexto, candidatos);
+  if (!look) return null;
+
   await gravarLook(alvo.ancora.productGroupId, contextoHash, look);
 
   return look;
@@ -185,4 +186,4 @@ export const gerarLook = async (
 export const lookEmCache = (anchorId: string, contextoHash: string): Promise<Look | null> =>
   lerLook(anchorId, contextoHash);
 
-export { lookDoSql, MIN_PECAS, MAX_PECAS };
+export { MIN_PECAS, MAX_PECAS };

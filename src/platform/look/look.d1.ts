@@ -239,9 +239,19 @@ interface LookRow {
   confianca: number;
   pecas: string;
   origem: string;
-  motivo_do_fallback: string | null;
 }
 
+/**
+ * O look gravado daquele par, ou `null`.
+ *
+ * **Linha com `origem <> 'agente'` é tratada como inexistente.** As colunas
+ * `origem` e `motivo_do_fallback` continuam na tabela porque a `0014` já foi
+ * aplicada e apagá-las custaria uma migration para não comprar nada — mas nada
+ * escreve `'sql'` desde que o fallback caiu. O filtro existe para as linhas
+ * antigas: servir uma delas hoje poria na tela um look sem motivo nenhum, que é
+ * exatamente o que se decidiu não mostrar. Sendo ignoradas, elas são
+ * regeneradas na primeira visita e somem sozinhas.
+ */
 export const lerLook = async (anchorId: string, contextoHash: string): Promise<Look | null> => {
   const db = getDb();
   if (!db) return null;
@@ -249,13 +259,13 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
   try {
     const linha = await db
       .prepare(
-        `SELECT titulo, confianca, pecas, origem, motivo_do_fallback
+        `SELECT titulo, confianca, pecas, origem
            FROM looks WHERE anchor_id = ? AND contexto_hash = ?`,
       )
       .bind(anchorId, contextoHash)
       .first<LookRow>();
 
-    if (!linha) return null;
+    if (!linha || linha.origem !== "agente") return null;
 
     const pecas = JSON.parse(linha.pecas) as PecaDoLook[];
     if (!Array.isArray(pecas)) return null;
@@ -264,8 +274,6 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
       titulo: linha.titulo,
       confianca: linha.confianca,
       pecas,
-      origem: linha.origem === "agente" ? "agente" : "sql",
-      motivoDoFallback: linha.motivo_do_fallback ?? undefined,
     };
   } catch (erro) {
     console.error("[look] lerLook falhou", erro);
@@ -279,10 +287,9 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
  * O `UPSERT` é o que torna o pré-aquecimento e um refresh futuro idempotentes:
  * rodar duas vezes reescreve, nunca duplica nem falha por chave.
  *
- * Grava inclusive o look do SQL. Ele não é só modo de falha — é estado
- * intermediário válido, que a próxima passada substitui por um do agente. Não
- * gravar deixaria a PDP recalculando os pools a cada render sempre que o
- * provedor estivesse saturado. Mesma decisão de `gravarVitrine`.
+ * **Só chega aqui look do agente** — `gerarLook` retorna antes quando a
+ * composição falha. Daí `origem` ser literal: a coluna sobrevive para as linhas
+ * antigas e para o `lerLook` poder ignorá-las, não porque haja o que decidir.
  */
 export const gravarLook = async (
   anchorId: string,
@@ -297,7 +304,7 @@ export const gravarLook = async (
       .prepare(
         `INSERT INTO looks (anchor_id, contexto_hash, titulo, confianca, pecas, origem,
                             motivo_do_fallback, generated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?,
+              VALUES (?, ?, ?, ?, ?, 'agente', NULL,
                       to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
          ON CONFLICT (anchor_id, contexto_hash) DO UPDATE
                  SET titulo = EXCLUDED.titulo,
@@ -307,15 +314,7 @@ export const gravarLook = async (
                      motivo_do_fallback = EXCLUDED.motivo_do_fallback,
                      generated_at = EXCLUDED.generated_at`,
       )
-      .bind(
-        anchorId,
-        contextoHash,
-        look.titulo,
-        look.confianca,
-        JSON.stringify(look.pecas),
-        look.origem,
-        look.motivoDoFallback ?? null,
-      )
+      .bind(anchorId, contextoHash, look.titulo, look.confianca, JSON.stringify(look.pecas))
       .run();
 
     return true;
