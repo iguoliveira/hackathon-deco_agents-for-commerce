@@ -39,3 +39,4 @@ vite.config.timestamp_*
 # IDE
 .vscode/
 .idea/
+.env*
