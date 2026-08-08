@@ -12,7 +12,7 @@
 >
 > - `personal-shopping-agent-proposta.md` — arquitetura atual (a decisão está na §15)
 > - `personal-shopping-agent-mudancas.md` — lista de mudanças atual
-> - `tese-agente-vendas-ia.md` r7 — spec normativa
+> - `tese-agente-vendas-ia.md` r6 — spec normativa
 >
 > Se um agente ou pessoa ler este arquivo junto com os de cima e encontrar
 > contradição, **os de cima ganham, sempre**. Este aqui é histórico.

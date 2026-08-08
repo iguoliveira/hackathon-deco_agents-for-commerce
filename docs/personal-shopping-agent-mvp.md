@@ -1,5 +1,19 @@
 # Personal Shopping Agent — Plano de Desenvolvimento do MVP
 
+> ## ⚠️ ESTE DOCUMENTO DESCREVE A **v1**, QUE FOI REVOGADA
+>
+> O desenho aqui — identidade anônima, pipeline de eventos, perfil inferido,
+> agente no caminho crítico — **não é o plano em vigor**. Ele foi substituído em
+> 07/08 e de novo em 08/08. O plano atual está em
+> `personal-shopping-agent-proposta.md` (a decisão está na §15) e
+> `personal-shopping-agent-mudancas.md`; a spec normativa é
+> `tese-agente-vendas-ia.md` r6.
+>
+> **Não implemente nada daqui.** Em qualquer contradição com os arquivos acima,
+> eles ganham. Este vale como registro do raciocínio conceitual — o que se buscava
+> e por quê — não como cronograma nem como arquitetura. Os dois desenhos
+> substituídos estão consolidados em `personal-shopping-agent-pre-changes.md`.
+
 ## 0. Visão do projeto
 
 ### Objetivo
@@ -1430,7 +1444,8 @@ O sistema aprende continuamente com o comportamento do usuário.
 
 - [ ] Definir problema de negócio
 - [ ] Definir usuário/personas
-- [ ] Criar catálogo fake ou real
+- [x] ~~Criar catálogo fake ou real~~ — feito: catálogo de moda no banco, de
+      `db/migrations/0001_create_catalog.sql` a `0011_expand_apparel_catalog.sql`
 - [ ] Criar eventos
 - [ ] Criar banco
 - [ ] Criar User Context
@@ -1443,8 +1458,8 @@ O sistema aprende continuamente com o comportamento do usuário.
 
 ## Antes da apresentação
 
-- [ ] Demo com usuário gamer
-- [ ] Demo com usuário produtividade
+- [ ] Demo com persona de moda A (quem pediu avise-me e favoritou peças de inverno)
+- [ ] Demo com persona de moda B (quem comprou uma peça de baixo e não tem as de cima)
 - [ ] Mostrar mudança de recomendação
 - [ ] Mostrar contexto usado
 - [ ] Mostrar arquitetura

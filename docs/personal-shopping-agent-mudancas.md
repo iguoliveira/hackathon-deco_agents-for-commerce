@@ -1,13 +1,17 @@
 # Personal Shopping Agent — o que precisa mudar no repositório
 
-> Quarto e último documento da série. Os outros três dizem **o quê** e **por quê**:
+> Quarto e último documento da série. **Só dois dos outros quatro estão em
+> vigor** — os revogados ficam listados porque continuam no repositório, não
+> porque valem:
 >
-> - `personal-shopping-agent-mvp.md` — arquitetura conceitual
-> - `personal-shopping-agent-optimization.md` — latência e custo
-> - `personal-shopping-agent-proposta.md` — o desenho aterrado neste repo, com o
->   DDL completo, as tools, os MCPs e os agentes
-> - `personal-shopping-agent-pre-changes.md` — **histórico, revogado**: o desenho
->   anterior à decisão de 07/08, guardado para o caso de precisarmos voltar
+> - `personal-shopping-agent-proposta.md` — **em vigor**: o desenho aterrado neste
+>   repo, com o DDL completo, as tools, os MCPs e os agentes
+> - `tese-agente-vendas-ia.md` r6 — **em vigor**: a spec normativa
+> - `personal-shopping-agent-mvp.md` — **revogado**: arquitetura conceitual da v1
+> - `personal-shopping-agent-optimization.md` — **revogado**: latência e custo da
+>   v1, escritos para um catálogo de 100 mil produtos
+> - `personal-shopping-agent-pre-changes.md` — **histórico, revogado**: os desenhos
+>   anteriores à decisão de 08/08, guardados para o caso de precisarmos voltar
 >
 > **Este arquivo é a lista de mudanças.** Arquivo por arquivo, o que muda e como
 > se prova que funcionou. Não repete o DDL nem o raciocínio dos outros três —

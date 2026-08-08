@@ -1,5 +1,20 @@
 # Otimização do Personal Shopping Agent — Cache, Context e Performance
 
+> ## ⚠️ ESTE DOCUMENTO DESCREVE A **v1**, QUE FOI REVOGADA
+>
+> Ele otimiza uma arquitetura que **não é mais a que vamos construir**: a v1, com
+> o agente respondendo em runtime. O plano em vigor está em
+> `personal-shopping-agent-proposta.md` (a decisão está na §15) e
+> `personal-shopping-agent-mudancas.md`; a spec normativa é
+> `tese-agente-vendas-ia.md` r6.
+>
+> **Não implemente nada daqui**, e leia o resto com uma ressalva específica: a
+> orientação de "manter o agente fora do caminho crítico" foi escrita para um
+> catálogo de 100 mil produtos. O nosso tem 136, e na v3 o agente raciocina
+> **offline** sobre ele — o custo que este documento tenta evitar não existe mais
+> na forma descrita aqui. Os dois desenhos substituídos estão consolidados em
+> `personal-shopping-agent-pre-changes.md`.
+
 > Este documento é um complemento ao `personal-shopping-agent-mvp.md`.
 >
 > Objetivo: definir como otimizar a arquitetura do MVP antes da implementação no repositório, reduzindo latência, custo de LLM, chamadas a banco/tools e complexidade desnecessária no caminho crítico.
