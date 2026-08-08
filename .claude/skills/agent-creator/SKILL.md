@@ -33,9 +33,18 @@ Antes de criar qualquer arquivo, confronte o escopo com as exclusões da spec. N
 | Alterar fluxo de checkout | **Pare.** Fora do escopo v1 |
 | Escrever bloco CMS (`.deco/blocks/*.json`) | **Pare.** `option_b_cms_block_write` foi rejeitada por risco de cronograma |
 | Serviço fora do Worker / server functions | **Pare.** Sem backend novo |
-| Índice de popularidade próprio | Redirecione pro `BEST_SELLING` da Shopify (v1) |
+| Índice de popularidade próprio | **Permitido** desde 2026-08-07, se calculado de `user_events` em SQL. Ver nota abaixo |
 
 Parar significa: diga qual exclusão o escopo cruza, explique que foi decisão de cronograma e não impossibilidade, e ofereça a alternativa dentro do escopo. Não gere "só o esqueleto" — esqueleto vira implementação.
+
+> **Nota sobre popularidade (emenda de 2026-08-07).** A regra antiga mandava
+> redirecionar para o `BEST_SELLING` da Shopify. Ela caducou: o storefront não lê
+> mais o catálogo da Shopify — home, PLP, busca e PDP apontam todos para os
+> loaders locais, e `BEST_SELLING` não existe para a tabela `products`. Com
+> `user_events` no servidor, popularidade é um `COUNT(*) ... GROUP BY` de janela,
+> mais barato que a alternativa que a regra mandava usar. Continua **proibido**
+> um índice de popularidade que exija job, tabela materializada ou serviço
+> próprio: é agregação em SQL na leitura, ou não é.
 
 ## Passo 2 — Decida onde o código mora
 
@@ -115,11 +124,19 @@ Importe destes arquivos. Nunca redeclare — duas definições do mesmo tipo é 
 ```ts
 // src/platform/agent/agent.types.ts
 export interface StructuredFilters {
+  /** Handle de coleção, validado contra findCollectionHandles(). Não é texto livre. */
   category?: string;
   priceMin?: number;
   priceMax?: number;
   attributes?: Record<string, string>;  // { material: "thermal", use_case: "running" }
-  sort: "BEST_SELLING";                 // literal, não string — v1 fixa o sort
+  /**
+   * Emenda de 2026-08-07: era `sort: "BEST_SELLING"`, valor da Storefront API
+   * que a PLP local não sabe honrar. Estes são os valores que
+   * src/platform/catalog/catalog.plp.ts:23-33 de fato aceita. Ausente = relevance.
+   * `popularity` entra aqui QUANDO a ordenação por user_events existir — não
+   * emita antes, ou a PLP ignora em silêncio.
+   */
+  sort?: "relevance" | "price:asc" | "price:desc";
 }
 
 // src/platform/analytics/analytics.types.ts
