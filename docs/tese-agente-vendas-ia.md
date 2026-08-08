@@ -6,8 +6,8 @@ project: demo-storefront
 hackathon_front: search_discovery + seo_geo_agentic_commerce
 repo_stack: tanstack-start, react19, cloudflare-workers, deco-cms
 status: catalog_implemented_agents_pending
-revision: 5
-revision_notes: "r2: agent runs as a single structured-output call (not a tool_use loop), filters are discovered at runtime from the commerce protocol, resolution happens in the /s loader, added phase_0 blockers, reframed the admin surface as a proposal-generating agent. r3: reconciled with docs/tese-admin-agentes.md — adopted its Proposal artifact (before/evidence), split storage by access pattern (KV for proposals, D1 for aggregation), and made the autonomy level an explicit store-owner setting instead of a hardcoded v1 exclusion. r4: dropped the Shopify Storefront API, D1, and KV bindings — the goal for this build is to demonstrate agent behavior, not stand up real commerce/persistence infra. Catalog, query log, and proposals moved to static/generated JSON files. r5: replaced those JSON files with SQLite (D1 binding CATALOG_DB). The r4 reasoning still holds — no Shopify, no external service — but flat JSON was the wrong shape for the aggregation the analytics domain needs, and whole-file rewrites are not a safe concurrent write path. D1 is SQLite: local-only, no cloud resource provisioned. The catalog half is BUILT (see implementation_status); the agent tables are not."
+revision: 6
+revision_notes: "r2: agent runs as a single structured-output call (not a tool_use loop), filters are discovered at runtime from the commerce protocol, resolution happens in the /s loader, added phase_0 blockers, reframed the admin surface as a proposal-generating agent. r3: reconciled with docs/tese-admin-agentes.md — adopted its Proposal artifact (before/evidence), split storage by access pattern (KV for proposals, D1 for aggregation), and made the autonomy level an explicit store-owner setting instead of a hardcoded v1 exclusion. r4: dropped the Shopify Storefront API, D1, and KV bindings — the goal for this build is to demonstrate agent behavior, not stand up real commerce/persistence infra. Catalog, query log, and proposals moved to static/generated JSON files. r5: replaced those JSON files with SQLite (D1 binding CATALOG_DB). The r4 reasoning still holds — no Shopify, no external service — but flat JSON was the wrong shape for the aggregation the analytics domain needs, and whole-file rewrites are not a safe concurrent write path. D1 is SQLite: local-only, no cloud resource provisioned. The catalog half is BUILT (see implementation_status); the agent tables are not. r6 (2026-08-07): three amendments approved by the team, all consequences of the storefront no longer reading the catalog from Shopify — (a) a custom popularity index is now ALLOWED when computed from user_events in SQL, because BEST_SELLING does not exist for the local `products` table; (b) sortHint values corrected to the ones the local PLP actually accepts (src/platform/catalog/catalog.plp.ts:23-33) — the previous list would have been silently ignored; (c) .claude/skills/agent-creator/SKILL.md updated at both points. Runtime is Vercel Node + Supabase Postgres, not Workers + D1 — see docs/deploy-vercel-supabase.md; the persistence section below is stale on the binding and correct on the reasoning."
 scope: |
   NORMATIVE. This file is the single source of truth for what gets built: verified facts
   about this repo, binding technical decisions, schemas, and the build sequence. If a
@@ -135,8 +135,15 @@ interface AgentSelection {
   selected: Array<{ filterKey: string; label: string }>;
   /** 0-1. Below AGENT_CONFIDENCE_FLOOR we fall back to literal search. */
   confidence: number;
-  /** Optional: maps to an existing PLP sort querystring value, never a raw catalog enum. */
-  sortHint?: "relevance" | "best_selling" | "price_asc" | "price_desc";
+  /**
+   * Maps to an existing PLP sort querystring value, never a raw catalog enum.
+   * r6: corrected to the values src/platform/catalog/catalog.plp.ts:23-33 parses.
+   * The previous list ("best_selling", "price_asc", "price_desc") matched nothing
+   * — parseSort would have fallen through to relevance without any error.
+   * "popularity" is reserved for when the user_events ordering exists (see r6
+   * amendment a); do not emit it before the loader accepts it.
+   */
+  sortHint?: "relevance" | "price:asc" | "price:desc";
 }
 ```
 
@@ -633,7 +640,11 @@ not_measurable_in_v1:
 - "No tool_use loop in the hot path — a single structured-output call."
 - "No LLM-authored filter query params — selection only, from loader-returned values."
 - "No client-side interception of the search submit — resolution happens in the /s loader."
-- "No custom popularity index in v1."
+- "SUPERSEDED in r6 — was: 'No custom popularity index in v1.' A popularity signal
+   computed from user_events with a SQL GROUP BY over a time window is now allowed,
+   and is the only option left: the storefront reads the catalog from Postgres, so
+   Shopify's BEST_SELLING is not reachable. Still excluded: any popularity index
+   requiring a job, a materialized table, or a service of its own."
 - "No proposal apply is hardcoded off — it is an autonomy SETTING (see admin_surface).
    v1 ships defaulting to `sugerir` (human approves). `autonomo` exists on the same code
    path and is opt-in by the store owner."
