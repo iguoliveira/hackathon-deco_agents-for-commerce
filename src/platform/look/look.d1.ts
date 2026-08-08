@@ -107,6 +107,14 @@ interface CompraRow extends SementeRow {
  * `INNER JOIN` com o catálogo, não `LEFT`: uma compra cuja variante saiu do
  * catálogo não tem o que informar ao agente — não há tipo, não há tag, não há
  * do que compor em volta. Mesma escolha que `findWaitedItems` já faz.
+ *
+ * Parte de `order_items` e não de `orders` desde a 0017: o pedido passou a ter
+ * vários itens, e a variante desceu para a linha do item. O JOIN com o catálogo
+ * **vivo** é de propósito — o agente precisa do tipo e das tags de agora, não
+ * dos de quando a compra aconteceu. O que ficou congelado no pedido é só o que
+ * foi transacionado (preço e título), e nada disso entra aqui.
+ *
+ * Pedido cancelado não conta: o sinal é POSSE, e quem cancelou não tem a peça.
  */
 export const comprasDe = async (email: string): Promise<Semente[]> => {
   const db = getDb();
@@ -118,9 +126,10 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
         `SELECT DISTINCT ON (p.product_group_id)
                 p.product_group_id, p.title, p.product_type, o.created_at
            FROM orders o
-           JOIN variants v ON v.variant_id = o.variant_id
+           JOIN order_items oi ON oi.order_id = o.id
+           JOIN variants v ON v.variant_id = oi.variant_id
            JOIN products p ON p.product_group_id = v.product_group_id
-          WHERE o.email = ?
+          WHERE o.email = ? AND o.status <> 'cancelled'
           ORDER BY p.product_group_id, o.created_at DESC`,
       )
       .bind(email)
