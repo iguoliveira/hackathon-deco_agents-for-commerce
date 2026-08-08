@@ -32,7 +32,7 @@
 process.loadEnvFile(".env");
 
 import { readFileSync } from "node:fs";
-import { comporLook } from "../src/platform/look/look.agent";
+import { comporLook, jaComprados } from "../src/platform/look/look.agent";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
 import { acharAncora, gravarLook } from "../src/platform/look/look.d1";
 import { mesAtual } from "../src/platform/look/look.local";
@@ -161,7 +161,7 @@ const main = async (): Promise<void> => {
     }
   }
 
-  const candidatos = await montarCandidatos(alvo.variantId);
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
   console.log(`\n=== ${candidatos.length} CANDIDATOS ===`);
   if (args.includes("--candidatos")) {
     // O tipo de cada candidato é o que se olha aqui: se a lista tiver seis
@@ -191,18 +191,31 @@ const main = async (): Promise<void> => {
   if (look.motivoDoFallback) console.log(`fallback: ${look.motivoDoFallback}`);
   console.log(`\n"${look.titulo}"   confiança ${look.confianca}\n`);
 
-  // Agrupado por ocasião, que é como a section renderiza — ver o agrupamento
-  // aqui é o que revela um modelo emitindo oito rótulos distintos (ruído) ou um
-  // só (não separou nada).
-  let ocasiaoAtual = "";
+  // Agrupa por ocasião do MESMO jeito que `montarBlocos` faz — com um Map, que
+  // funde rótulos repetidos venham eles em que ordem vierem.
+  //
+  // A primeira versão imprimia um cabeçalho toda vez que o rótulo mudava em
+  // relação à peça anterior, e isso MENTE: o modelo intercala ("frio", "dia a
+  // dia", "frio"), então a mesma ocasião aparecia três vezes e o agrupamento
+  // parecia quebrado quando não estava. Num script cujo propósito é ser a única
+  // janela para a saída do agente, um print que não bate com a tela é pior que
+  // print nenhum — manda ajustar um prompt que está certo.
+  const porOcasiao = new Map<string, typeof look.pecas>();
   for (const peca of look.pecas) {
-    if (peca.ocasiao !== ocasiaoAtual) {
-      ocasiaoAtual = peca.ocasiao;
-      console.log(`  ┌─ ${ocasiaoAtual}`);
-    }
-    console.log(`  │  ${rotulo.get(peca.handle)}`);
-    console.log(`  │    ${peca.motivo || "(sem motivo — look do SQL)"}`);
+    porOcasiao.set(peca.ocasiao, [...(porOcasiao.get(peca.ocasiao) ?? []), peca]);
   }
+
+  for (const [ocasiao, pecas] of porOcasiao) {
+    console.log(`  ┌─ ${ocasiao}`);
+    for (const peca of pecas) {
+      console.log(`  │  ${rotulo.get(peca.handle)}`);
+      console.log(`  │    ${peca.motivo || "(sem motivo — look do SQL)"}`);
+    }
+  }
+
+  // O número de blocos é o sinal que se olha: um só significa que o modelo não
+  // separou nada; seis ou mais viram ruído na tela.
+  console.log(`\n  ${porOcasiao.size} bloco(s) · ${look.pecas.length} peça(s)`);
 
   if (args.includes("--gravar")) {
     // O hash aqui é fixo e explícito: gravar do dry run serve para pré-aquecer

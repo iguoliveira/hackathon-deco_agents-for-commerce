@@ -16,7 +16,7 @@ import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { findAvailableCatalogRecordsByHandles } from "../catalog/catalog.d1";
 import { recordToProduct } from "../catalog/catalog.mapper";
 import { donoDaVitrine } from "../shelf/shelf.identity";
-import { gerarLook, lookDoSql, MIN_PECAS } from "./look.agent";
+import { gerarLook, jaComprados, lookDoSql, MIN_PECAS } from "./look.agent";
 import { montarCandidatos } from "./look.candidates";
 import { acharAncora, lerLook } from "./look.d1";
 import { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
@@ -169,7 +169,10 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
     return montar(cacheado, contexto);
   }
 
-  const candidatos = await montarCandidatos(alvo.variantId);
+  // O MESMO conjunto de exclusão que `gerarLook` usa. Divergir aqui faria o
+  // look do fallback mostrar uma peça que o do agente nunca mostraria — e ela
+  // sumiria sozinha no reload seguinte, sem explicação.
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
   if (candidatos.length < MIN_PECAS) return null;
 
   // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem

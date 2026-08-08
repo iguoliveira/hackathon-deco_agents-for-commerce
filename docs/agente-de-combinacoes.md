@@ -259,6 +259,54 @@ vez.
 
 ---
 
+## 7b. O que foi verificado (2026-08-08)
+
+Contra o Supabase e o Decopilot reais, não em teste sintético. Âncora:
+`vintage-wash-tee` (*Vintage Wash Tee - Black*), 18 candidatos, 15 tipos.
+
+**O clima é inferido, e isso muda a escolha — não só o texto.** Mesma peça,
+mesmo pool, mesmo código, só a string da cidade mudando:
+
+| | Porto Alegre, agosto | Recife, agosto |
+|---|---|---|
+| Jaqueta jeans | ✅ *"noites frias de agosto"* | ❌ |
+| Jaqueta de couro | ✅ *"camada preta extra para o frio"* | ❌ |
+| Moletom | ✅ *"por cima em dia mais frio"* | ❌ |
+| Gorro | ✅ *"fecha a camada de frio"* | ❌ |
+| Chambray | *"sobrecamisa nas horas amenas"* | *"leve para o **calor de Recife**"* |
+| Boné | *"fecha o visual sem pesar"* | *"leve, sem pesar **no calor**"* |
+| Bloco dominante | *para o frio* | *para o calor* |
+
+As quatro peças de agasalho estavam disponíveis nos **dois** pools. O modelo as
+descartou em Recife. Nenhuma linha de código sabe que agosto é inverno no sul.
+
+**As sementes mudam a composição.** Com `tailored-blazer` e `wide-leg-trousers`
+como compras, o agente puxou a paleta inteira para preto e escreveu *"o tênis
+vintage que acompanha a calça que você já comprou"*.
+
+**Zero handles inventados** em quatro execuções. Confiança 0.75 nas quatro,
+origem `agente`, 22–41s.
+
+### Dois defeitos achados e corrigidos na verificação
+
+1. **O agente recomendava uma peça já comprada.** Com o blazer como semente
+   `purchased`, ele voltava dentro do look — com o motivo *"você já tem este
+   blazer preto"*, que é texto bom e resultado errado: o card tem preço e botão
+   de comprar. Correção: sementes `purchased` saem do pool.
+   **Só `purchased`** — favoritar e ver não tiram a peça de circulação, porque a
+   fronteira é *ter ou não ter*. A exclusão vive em `jaComprados()`, exportada,
+   porque o caminho do agente e o do fallback precisam excluir exatamente o
+   mesmo conjunto; divergirem faria uma peça sumir no reload sem explicação.
+
+2. **O dry run mentia sobre o agrupamento.** Ele imprimia um cabeçalho toda vez
+   que o rótulo mudava em relação à peça anterior, e o modelo intercala
+   ocasiões — então *"para o frio"* aparecia três vezes e o agrupamento parecia
+   quebrado quando não estava (a section usa um `Map` e funde). Num script que é
+   a única janela para a saída do agente, um print que não bate com a tela manda
+   ajustar um prompt que está certo.
+
+---
+
 ## 8. Plano de execução
 
 | # | Passo | Prova de que funcionou | ~h |

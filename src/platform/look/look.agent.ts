@@ -27,6 +27,18 @@ const OCASIAO_PADRAO = "Combina com esta peça";
 const MIN_PECAS = 4;
 const MAX_PECAS = 10;
 
+/**
+ * Os produtos que a pessoa já comprou — o que sai do pool de candidatos.
+ *
+ * Exportado porque `look.actions.ts` monta os candidatos por conta própria no
+ * cache miss (para responder na hora com a ordenação do SQL), e os dois
+ * caminhos precisam excluir exatamente o mesmo conjunto. Se divergirem, o look
+ * do fallback mostra uma peça que o do agente nunca mostraria — e ninguém
+ * entenderia por que ela some no reload seguinte.
+ */
+export const jaComprados = (contexto: Contexto): Set<string> =>
+  new Set(contexto.sementes.filter((s) => s.kind === "purchased").map((s) => s.productGroupId));
+
 /** Corta com reticência em vez de truncar seco — motivo cortado no meio soa quebrado. */
 const limitar = (texto: string, max: number): string =>
   texto.length <= max ? texto : `${texto.slice(0, max - 1).trimEnd()}…`;
@@ -157,7 +169,7 @@ export const gerarLook = async (
   const alvo = await acharAncora(handle);
   if (!alvo) return null;
 
-  const candidatos = await montarCandidatos(alvo.variantId);
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
   if (candidatos.length < MIN_PECAS) return null;
 
   const look = await comporLook(alvo.ancora, contexto, candidatos);

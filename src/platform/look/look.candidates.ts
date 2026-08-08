@@ -128,9 +128,30 @@ const equilibrarPorTipo = (candidatos: Candidato[], teto: number): Candidato[] =
 /**
  * O espaço de escolha de uma peça.
  *
+ * `jaComprados` sai do pool, e essa é a única coisa que as sementes decidem
+ * aqui. Não é ranqueamento disfarçado: é que uma peça já comprada não é uma
+ * recomendação, é um erro de loja. O card viria com preço e botão de comprar.
+ *
+ * **Só `purchased` é excluído.** Favoritar e ver não tiram a peça do pool —
+ * quem favoritou e não comprou continua sendo alguém a quem faz sentido
+ * oferecer aquilo, e o agente sabe usar isso ("fecha com a peça que você vem
+ * namorando"). A fronteira é ter ou não ter.
+ *
+ * Medido: com o Tailored Blazer como semente comprada, o agente o devolvia
+ * dentro do look com o motivo "Você já tem este blazer preto" — texto bom,
+ * resultado errado.
+ *
  * Não lança: quem consome é um look, e look vazio é resultado aceitável.
  */
-export const montarCandidatos = async (variantId: string): Promise<Candidato[]> => {
+export const montarCandidatos = async (
+  variantId: string,
+  jaComprados: ReadonlySet<string> = new Set(),
+): Promise<Candidato[]> => {
   const complementos = await findComplementsAvailable(variantId, DO_BANCO);
-  return equilibrarPorTipo(complementos.map(paraCandidato), TETO);
+
+  const disponiveis = complementos.filter(
+    (candidato) => !jaComprados.has(candidato.record.product.product_group_id),
+  );
+
+  return equilibrarPorTipo(disponiveis.map(paraCandidato), TETO);
 };
