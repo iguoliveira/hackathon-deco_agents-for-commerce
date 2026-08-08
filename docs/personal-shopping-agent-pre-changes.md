@@ -1,9 +1,12 @@
-# PRÉ CHANGES — o desenho anterior do Personal Shopping Agent
+# PRÉ CHANGES — os desenhos anteriores do Personal Shopping Agent
 
 > ## ⚠️ LEIA ISTO ANTES DE USAR ESTE ARQUIVO COMO CONTEXTO
 >
-> **Tudo neste documento está REVOGADO.** É o desenho que o time descartou em
-> **2026-08-07**, guardado na íntegra para o caso de precisarmos voltar atrás.
+> **Tudo neste documento está REVOGADO.** São **dois** desenhos descartados em
+> dois dias — v1 (até 07/08) e v2 (07/08, viveu um dia) — guardados na íntegra
+> para o caso de precisarmos voltar atrás.
+>
+> Os blocos 1–9 são da **v1**. O bloco 10 é da **v2** inteira.
 >
 > **Não implemente nada daqui.** O plano em vigor é:
 >
@@ -23,29 +26,33 @@ seções deixaram de existir no texto e só sobreviviam no histórico do git
 (commit `f7f606c`). Recuperar de lá exige arqueologia e ninguém faz isso sob
 pressão.
 
-Duas situações em que voltar aqui é a coisa certa:
+Três situações em que voltar aqui é a coisa certa:
 
-1. **O `collection-agent` sai caro ou lento demais** para rodar a cada vitrine, e
-   o ranker determinístico volta a ser a opção viável dentro do prazo.
-2. **A demo precisa mostrar a evolução** — "começamos assim, medimos, mudamos
-   por esta razão" é um slide melhor do que "sempre foi assim".
+1. **O prazo abre.** Boa parte do que foi cortado (identidade, eventos, perfil,
+   MCP, A/B) caiu por caber num fim de semana, não por estar errado.
+2. **A pré-computação se mostra insuficiente** — por exemplo, se o catálogo
+   crescer a ponto de não caber numa passada offline, ou se combinação por pessoa
+   passar a importar mais que combinação por produto. Aí a v2 é o ponto de
+   partida, não uma folha em branco.
+3. **A demo precisa mostrar a evolução** — "tentamos assim, descobrimos isto,
+   mudamos por esta razão" é um slide melhor do que "sempre foi assim". E aqui há
+   duas mudanças de direção em dois dias, cada uma com um motivo concreto.
 
 ---
 
-## A mudança, em uma tabela
+## As três posições, em uma tabela
 
-| | PRÉ CHANGES (até 07/08) | Em vigor (desde 07/08) |
-|---|---|---|
-| Princípio | LLM entende, SQL ordena | O agente decide, o banco garante |
-| Papel do modelo | classificar intenção num rótulo | montar as coleções: quantas, quais eixos, títulos, ordem |
-| Quem monta a vitrine | ranker de pesos fixos | o agente, via `CollectionBrief` |
-| Posição no fluxo | fora do caminho crítico | no caminho da vitrine, por escolha |
-| Saída | 4 produtos, sempre | 0 a 4 coleções, número e eixos variáveis |
-| Quando não personalizar | `confidence < 0.4` no código | decisão do agente |
-| Primeira chamada de LLM | passo 8, depois da UI pronta | passo 7, antes da UI |
+| | **v1** — até 07/08 | **v2** — 07/08 | Em vigor (v3, desde 08/08) |
+|---|---|---|---|
+| Princípio | LLM entende, SQL ordena | O agente decide, o banco garante | O agente raciocina antes, o domingo é uma query |
+| Papel do modelo | classificar intenção | montar coleções em runtime | enriquecer catálogo + escrever combinações, offline |
+| Quando o modelo roda | por sessão | por vitrine | uma vez, sábado, sobre 136 produtos |
+| Quem monta a vitrine | ranker de pesos fixos | o agente, via `CollectionBrief` | `product_affinity` + uma query |
+| Relação que expressa | semelhança | semelhança | **complementaridade** |
+| Quando não personalizar | `confidence < 0.4` | decisão do agente | não há sementes |
 
-O raciocínio completo da troca, com os custos assumidos, está na §15 da proposta.
-Aqui embaixo está só o **conteúdo original**, bloco por bloco.
+O raciocínio completo das duas trocas está na §15 da proposta. Aqui embaixo está
+só o **conteúdo original**, bloco por bloco.
 
 ---
 
@@ -360,13 +367,103 @@ agente de busca do `/s`, não vale para o `CollectionBrief`
 - "No LLM-authored filter query params — selection only, from loader-returned values."
 ```
 
-**Esta é a regra mais importante deste arquivo**, porque é a única que era
-normativa. Ela dizia: o modelo **nunca** escreve um filtro, só escolhe um de uma
-lista que o loader já produziu. Era o que tornava alucinação de filtro
-estruturalmente impossível.
+**Esta era a regra mais importante deste arquivo**, porque era a única normativa.
+Ela diz: o modelo **nunca** escreve um filtro, só escolhe um de uma lista que o
+loader já produziu.
 
-A emenda r7 não afrouxou a garantia — trocou o mecanismo. Antes: o modelo não
-podia escrever. Agora: ele escreve, e todo valor é conferido contra
-`getCatalogVocabulary()` antes de virar SQL. **Se algum dia essa validação for
-removida ou contornada, a proteção some e esta regra antiga volta a ser a única
-defesa.** É a linha para vigiar em code review.
+**E ela voltou a valer.** A emenda r7 durou um dia. Na v3 o modelo não autora
+filtro em runtime — escreve linhas offline, revisadas por gente — então a regra
+não é cruzada e a spec voltou para r6. Este bloco fica aqui como registro de que
+a emenda existiu e foi retirada, não porque a regra esteja revogada.
+
+---
+
+# PRÉ CHANGES 10 — a v2 inteira: o agente montando coleções em runtime
+
+**Viveu:** 07/08 a 08/08, um dia. Nunca virou código.
+**Substituída por:** as duas passadas offline + `product_affinity`.
+
+## O contrato central
+
+```ts
+export interface CollectionBrief {
+  title: string;   // autoral, aparece na home como o agente escreveu
+  why: string;     // por que ESTA pessoa vê ESTA coleção
+
+  criteria: {      // validado contra CatalogVocabulary antes de virar SQL
+    types?: string[];
+    collections?: string[];
+    tags?: { all?: string[]; any?: string[] };
+    priceBand?: { min?: number; max?: number };
+    optionValues?: Record<string, string[]>;  // { Size: ["M"] }
+    requireAvailable?: boolean;
+  };
+
+  order?: "affinity" | "popularity" | "price:asc" | "price:desc" | "newest";
+  limit: number;
+  minResults: number;
+  relaxOrder: Array<keyof CollectionBrief["criteria"]>;
+}
+
+export interface ResolvedCollection {
+  brief: CollectionBrief;
+  products: Product[];
+  matched: number;
+  relaxedBy: string[];   // a UI lê isto: título que promete o que o critério
+                         // não entregou mais é título que mente
+}
+```
+
+## O resolvedor, em quatro passos
+
+```
+1. VALIDA    todo valor de types/collections/tags/optionValues conferido contra
+             getCatalogVocabulary(). Valor inexistente é DESCARTADO antes de
+             virar SQL — nunca causa erro, nunca vaza.
+2. EXECUTA   WHERE product_type IN (...) AND tags @> (...) AND price BETWEEN ...
+             AND EXISTS (variante com a opção pedida E available = true)
+3. CONTA     se matched >= brief.minResults, devolve e acabou.
+4. AFROUXA   se veio pouco, remove a primeira restrição de brief.relaxOrder e
+             volta ao 2. Registra o removido em relaxedBy[].
+```
+
+## O fluxo do `collection-agent`
+
+```text
+1. lê user_context + user_events recentes            (1 query)
+2. lê getCatalogVocabulary()                          (cacheado por isolate)
+3. UMA chamada, Opus, structured output — o agente decide sozinho:
+     · quantas coleções montar (0 a 4)
+     · o eixo de cada uma (não há eixo pré-definido)
+     · o título e a narrativa
+     · a ordem em que aparecem
+     · o critério estruturado
+     · em que ordem afrouxar
+4. para cada brief → resolve_collection
+5. descarta coleção abaixo do mínimo mesmo após afrouxar
+6. recommendation_log, com o brief inteiro gravado
+```
+
+## Por que caiu
+
+**1. Não sabia expressar combinação.** `types`, `tags`, `priceBand`,
+`optionValues` descrevem **conjuntos por atributo**. A base do produto pede
+complementaridade — que a calça e o gorro fecham o look com o moletom — e isso é
+uma relação **produto→produto**, não um filtro. Por mais autoridade que se desse
+ao modelo, o contrato não sabia dizer "isto vai com aquilo". Jaccard de tags
+devolve outra jaqueta.
+
+**2. Não cabia num fim de semana.** Dependia de `visitors` + `user_events` +
+`user_context` — ~6h de caminho crítico para rastrear comportamento anônimo,
+quando 3 dos 4 sinais da base já estão persistidos hoje.
+
+## O que vale guardar daqui
+
+- **O motor de afrouxamento** (`relaxOrder`, `minResults`, `relaxedBy`) é a peça
+  mais elaborada dos dois desenhos descartados. Se um dia houver recorte composto
+  em runtime, ele volta pronto — inclusive a ideia de que **o agente** declara a
+  ordem de afrouxar, porque só ele sabe qual restrição carrega o título.
+- **A validação contra `getCatalogVocabulary()`** continua sendo o desenho certo
+  para qualquer futuro em que o modelo componha critério em runtime.
+- **`occasion` na v3 é herdeira direta** da ideia de eixos não enumerados: em vez
+  do agente inventar o eixo por pessoa, ele inventa por combinação, offline.

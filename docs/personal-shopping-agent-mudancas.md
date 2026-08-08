@@ -29,20 +29,43 @@ A spec precisava mudar junto: a própria skill diz que *"se algo aqui contradiz 
 spec, a spec ganha"*. Corrigir só a skill teria criado uma regra que perde para
 a versão antiga.
 
-**Quarta emenda, mesma data — o agente no comando (r7).** O time decidiu que o
-agente é o protagonista do produto: ele monta as coleções em vez de classificar
-intenção para um ranker fixo. A decisão inteira, com o descartado à vista, está
-em `personal-shopping-agent-proposta.md` §15. Ela cruzava a exclusão
-*"No LLM-authored filter query params"* da spec, então a spec foi para **r7** —
-pela mesma razão do parágrafo acima. As §1, §4, §6, §8, §9 e §10 deste documento
-já refletem a mudança; o §1 (genérico por construção) ficou **mais** importante
-com ela, não menos, porque agora é o vocabulário do banco que limita o que o
-agente pode inventar.
+**Quarta emenda (07/08) e quinta (08/08) — e a quarta foi revertida.**
 
-O desenho que essa emenda substituiu está guardado em
-`personal-shopping-agent-pre-changes.md`, bloco por bloco. **Ele é histórico e
-está revogado** — o arquivo avisa isso no topo, para que ninguém (nem nenhum
-agente) o leia como plano em vigor.
+Em 07/08 o time decidiu pôr o agente no comando montando coleções em runtime
+(`CollectionBrief`). Isso cruzava a exclusão *"No LLM-authored filter query
+params"* e levou a spec para r7.
+
+Em 08/08, com a **base do produto** e o **prazo** finalmente escritos, essa
+direção caiu:
+
+> Um agente que, a partir dos produtos que a pessoa **comprou**, **se interessou**,
+> **favoritou** e pediu **avise-me**, extrai o máximo de especificidades do produto
+> para recomendar as **melhores combinações** e produtos próximos.
+> Hackathon de **um fim de semana**.
+
+Duas palavras quebram o plano da quarta emenda: **combinações** (o
+`CollectionBrief` só sabia expressar semelhança) e **fim de semana** (as fases 0 e
+1 eram ~6h construindo rastreamento de comportamento anônimo, quando 3 dos 4
+sinais são declarados e já estão persistidos hoje).
+
+**A quinta emenda:** o agente continua sendo quem raciocina, mas raciocina
+**antes** — duas passadas offline sobre os 136 produtos, e o domingo vira uma
+query. A decisão inteira, com as três posições lado a lado, está em
+`personal-shopping-agent-proposta.md` §15.
+
+**A spec volta para r6.** Sem o modelo autorando filtro em runtime, a exclusão não
+é cruzada e a emenda r7 fica sem objeto. Mexer em documento normativo sem
+necessidade é dívida.
+
+O §1 (genérico por construção) **sobrevive intacto e fica mais fácil de honrar**:
+o prompt de extração é genérico ("leia a descrição, emita os atributos que
+encontrar"), e a saída específica de moda vive no banco, não no código. Se alguém
+levantar conflito entre isso e "o máximo de especificidades", é falso dilema.
+
+Os dois desenhos substituídos estão guardados em
+`personal-shopping-agent-pre-changes.md`, bloco por bloco. **São históricos e
+estão revogados** — o arquivo avisa isso no topo, para que ninguém (nem nenhum
+agente) os leia como plano em vigor.
 
 Tudo abaixo está **por fazer**.
 
@@ -52,30 +75,38 @@ Tudo abaixo está **por fazer**.
 
 **Decisão:** o agente não pode saber que esta loja vende roupa.
 
-Isso reverte a direção que a proposta tomava. O `size_fit` que eu tinha proposto
-como multiplicador do ranking era bom para moda e inútil para qualquer outro
-catálogo. Vira `option_fit`, que é a mesma ideia sem o substantivo:
+> **Esta seção sobreviveu às duas mudanças de direção** e ficou mais fácil de
+> honrar em cada uma. Na v3, o prompt das passadas é genérico (*"leia a
+> descrição, emita os atributos que encontrar"*) e **toda** a especificidade de
+> moda passa a viver no banco, escrita pelo modelo. Não há tensão entre isto e
+> *"extrair o máximo de especificidades do produto"*: uma coisa é o que o **código**
+> sabe, outra é o que os **dados** contêm. Se alguém levantar esse dilema, é falso.
+
+Isso reverteu a direção que a proposta tomava. O `size_fit` proposto como
+multiplicador do ranking era bom para moda e inútil para qualquer outro catálogo.
+Virou `option_fit`, e na v3 virou `occasion` — a mesma ideia, sem substantivo:
 
 ```
-antes:  × size_fit    -- tamanho da pessoa está disponível?
-depois: × option_fit  -- os valores de opção que esta pessoa demonstrou
-                        preferir estão disponíveis neste produto?
+v1:  × size_fit      -- tamanho da pessoa está disponível?
+v2:  × option_fit    -- os valores de opção que ela prefere estão disponíveis?
+v3:  occasion TEXT   -- o eixo pelo qual estes produtos combinam, nomeado
+                        pelo modelo a partir DESTE catálogo
 ```
 
-Em moda, a dimensão descoberta é `Size` e o efeito é idêntico. Em eletrônico,
-seria `Voltagem` ou `Capacidade`. Em vinho, `Safra`. O código não sabe a
-diferença — ele lê `findOptionNames()` e trabalha com o que voltar.
+Em moda, a dimensão descoberta é `Size` e a ocasião é "inverno". Em eletrônico,
+seria `Voltagem` e "home office". Em vinho, `Safra` e "harmonização". O código não
+sabe a diferença — lê `findOptionNames()` e `SELECT DISTINCT occasion`, e trabalha
+com o que voltar.
 
 ### A regra
 
-> **Nenhum literal de catálogo dentro de `src/platform/{context,collections,ranking,agent,analytics}`.**
-> Sem `"T-Shirt"`, sem `"winter"`, sem `"shoes"`, sem `Size`. Todo vocabulário é
-> lido do banco em runtime.
+> **Nenhum literal de catálogo dentro de `src/platform/seeds/`, e nenhum no prompt
+> das passadas.** Sem `"T-Shirt"`, sem `"winter"`, sem `"shoes"`, sem `Size`, sem
+> uma união de literais para `occasion`. Todo vocabulário é lido do banco.
 
 Não é purismo. É a mesma disciplina que a spec aprovada já aplica ao agente de
 busca — *"selecting from a runtime-discovered vocabulary makes filter
-hallucination structurally impossible, not just mitigated"*. O que muda é
-estender a regra do agente de busca para o ranking e para o perfil.
+hallucination structurally impossible, not just mitigated"*.
 
 ### A peça que falta
 
@@ -96,35 +127,57 @@ export interface CatalogVocabulary {
 export const getCatalogVocabulary = (): Promise<CatalogVocabulary> => { /* ... */ };
 ```
 
-Três consumidores, e é o que torna tudo portável:
+**Onde ela é consumida mudou em 08/08**, mas ela não deixou de ser necessária —
+mudou de lugar, do runtime para os scripts:
 
-1. **Prompt do `collection-agent`** — a parte volátil do prompt (depois do
-   breakpoint de cache) carrega o vocabulário. É literalmente o que o agente pode
-   usar para inventar um recorte: sem isso, ele não tem o que compor. O prompt
-   estável não cita nenhum produto.
-2. **Validação da saída do LLM** — atributo que não está no vocabulário é
-   descartado antes de virar filtro. Com o agente autorando critério
-   (`CollectionBrief`, §6), esta passagem deixou de ser rede de segurança e
-   virou a **única** coisa entre o modelo e o SQL.
-3. **Ranking** — as faixas de preço saem de percentis do próprio catálogo, não de
-   `R$ 150–350` escrito à mão.
+1. **Validação da saída das passadas** — `relatedId` conferido contra `products`,
+   `name` conferido contra o que existe. É o que impede que um handle inventado
+   pelo modelo vire `INSERT` e exploda no meio de um `db:migrate`.
+2. **Contexto das duas passadas** — o modelo precisa saber que dimensões esta loja
+   tem para escrever atributos e combinações coerentes com ela.
+3. **`SELECT DISTINCT occasion`** — no runtime, é o que a section usa para montar
+   os blocos. Não é o `CatalogVocabulary` completo, mas é a mesma disciplina:
+   vocabulário vem do banco, nunca do código.
+
+O que **saiu**: os percentis de preço (existiam para o ranker, que não existe
+mais) e o breakpoint de cache de prompt (não há prompt em runtime).
 
 Duas das cinco consultas já existem (`findOptionNames`, `findCollectionHandles`,
 em `catalog.d1.ts:314,342`). As outras três são `SELECT DISTINCT`.
 
 ### Como se verifica que continua genérico
 
-- **Guarda de código:** um script que faz grep dos valores reais do catálogo
-  dentro dos domínios do agente e falha se achar algum. ~30 linhas, encaixa no
-  `validate-domain.mjs` que a skill já roda.
-- **Teste real:** apontar o `DATABASE_URL` para um banco com catálogo diferente e
-  ver a pipeline de pé. É o teste de portabilidade de verdade, e é o slide mais
-  forte que essa decisão compra: *"trocamos o catálogo inteiro e não mudamos uma
-  linha"*.
+O **guard script** e o **teste de trocar `DATABASE_URL`** saíram do plano do fim
+de semana (é virtude que juiz nenhum vê), mas ficam registrados como o jeito
+certo de verificar. Para o fim de semana, três checagens a olho, na revisão:
+
+- o prompt das passadas não cita nenhuma peça de roupa
+- `occasion` é `string` no tipo, não união de literais
+- `src/platform/seeds/` não importa `@anthropic-ai/sdk`
 
 ---
 
-## 2. Identidade: o que muda depois da discussão
+## 2. Identidade: fora do escopo do fim de semana (08/08)
+
+> **Esta seção inteira saiu do plano**, e o motivo é que ela resolvia um problema
+> que não temos. `visitors`, `deco_visitor`, `deco_session` e o banner de
+> consentimento existiam para dar identidade a **comportamento anônimo de
+> navegação**. A base do produto é feita de sinais **declarados**, e declarado é
+> justamente o que já está gravado:
+>
+> | Sinal | Onde já está |
+> |---|---|
+> | Favoritos | cookie `deco_wishlist`, TTL 1 ano — `readWishlistCookie(req)` (`_cookie.ts:6`) |
+> | Avise-me | `stock_alerts` — `findWaitedItems(email)` (`alerts.d1.ts:124`) |
+> | Vistos | falta: **um cookie `deco_recent`**, não um pipeline de eventos |
+> | Comprou | não existe — vira seed para as personas (proposta §4) |
+>
+> Sobra **uma** tarefa desta seção: o cookie `deco_recent` com os últimos N
+> handles, ~30 min, sexta à noite. As três armadilhas abaixo continuam valendo
+> para ele — sobretudo a primeira, que é a que apaga histórico em silêncio.
+>
+> O resto fica registrado para quando houver prazo. O raciocínio não envelheceu;
+> o escopo é que mudou.
 
 A posição do time — o agente é para loja que **já vende**, e mais tempo no site
 significa mais dado — está certa, e muda a prioridade. Identidade sai de
@@ -192,29 +245,42 @@ explica *por que* ela comprou.
 DDL completo em `personal-shopping-agent-proposta.md` §4. Aqui só o que mudou
 depois da discussão, e a ordem.
 
-| # | Arquivo | O que cria | Muda em relação à proposta |
+| # | Arquivo | O que cria | Quando |
 |---|---|---|---|
-| 0012 | `0012_visitors.sql` | `visitors` (visitor_id, email, consent, bucket) | — |
-| 0013 | `0013_user_events.sql` | `user_events` + 3 índices | acrescentar `session_id` no índice principal: `(visitor_id, session_id, created_at DESC)`, por causa da decisão de sessão-primeiro |
-| 0014 | `0014_user_context.sql` | `user_context`, `user_intent` | — |
-| 0015 | `0015_agent_logs.sql` | `recommendation_log`, `query_cache` | — |
-| 0016 | `0016_fts_dictionary.sql` | recria o índice FTS no dicionário certo | sem dependência de nada; pode entrar hoje |
+| 0012 | `0012_product_affinity.sql` | `product_affinity` + índice por semente | sáb tarde, **antes** de rodar a passada B |
+| 0013 | `0013_orders_seed.sql` | `orders` mínima, semeada para as personas | sex noite ou sáb |
+| 0014 | `0014_catalog_enrichment.sql` | **o output revisado das passadas A e B**, como `INSERT` | sáb noite, depois da revisão |
 
-Sobre a **0016**: `db/migrations/0009:29` usa `to_tsvector('english', ...)` e o
-catálogo virou misto (inglês nos ~32 herdados, português nos 104 da `0011`).
-Como não dá para escolher um dicionário certo para os dois, a saída honesta é
-`'simple'` — sem stemming, igual para ambos — ou uma coluna `tsvector` por
-produto com o dicionário do idioma. Para o MVP, `'simple'` resolve e são 3
-linhas. **Decidir na hora de escrever, não antes.**
+**A 0014 é a mais importante e a menos óbvia.** O output das duas passadas não
+fica em script: vira SQL commitado, exatamente como a `0008` fez com os atributos
+escritos à mão. Razão prática: `product_affinity` tem FK
+`ON DELETE CASCADE` para `products` — corretamente, porque é dado derivado — e
+portanto `db:reset` a esvazia. Se os dados só existissem como saída de script,
+regenerar custaria chamadas de modelo na pior hora possível.
 
-Todas seguem as convenções já estabelecidas nas migrations existentes, e as duas
-não são estéticas:
+O script é ferramenta de autoria. A migration é a dependência.
 
-- `created_at` é `TEXT` ISO-8601, não `timestamptz` — o driver devolveria `Date`
-  e o tipo passaria a mentir (`0005:31`).
-- **Sem `FOREIGN KEY`** para `products`/`variants` — o seed do catálogo apaga e
-  reinsere linhas, e um `ON DELETE CASCADE` destruiria histórico de
-  comportamento no `db:reset` (`0005:13-18`).
+**Uma linha obrigatória no cabeçalho da 0014:**
+
+```sql
+-- Saída das passadas A e B, REVISADA À MÃO em <data>.
+-- Regenerar sem revisar quebra a garantia: a proteção contra combinação
+-- errada aqui é revisão humana, não validação em código.
+```
+
+Diferente de uma validação em runtime, revisão humana não se defende sozinha —
+some sem deixar rastro se alguém automatizar a regeneração depois.
+
+Migrations que **saíram** do escopo: `visitors`, `user_events`, `user_context`,
+`agent_logs` (as tabelas de comportamento, §2) e a `0016_fts_dictionary` — esta
+última cai de prioridade porque a recomendação aqui não passa por busca textual.
+
+Convenções que continuam valendo: `created_at` é `TEXT` ISO-8601, não
+`timestamptz` (`0005:31`). **A regra de não usar `FOREIGN KEY` não se aplica
+aqui** — ela vale para tabelas de comportamento, cujo histórico o `db:reset` não
+pode destruir (`0005:13-18`). `product_affinity` é derivada do catálogo: se os
+produtos caem, ela **deve** cair junto. Dado derivado que sobrevive à sua fonte é
+dado que mente.
 
 ---
 
@@ -222,44 +288,36 @@ não são estéticas:
 
 Estrutura espelhando `src/platform/cart/`, que é o padrão que o validador cobra.
 
+**Um domínio novo.** Os quatro das versões anteriores (`context`, `collections`,
+`ranking`, `analytics`) saíram junto com as tabelas que os sustentavam.
+
 ```
-src/platform/context/          ← identidade, eventos, perfil, intenção
-  context.types.ts             VisitorIdentity, UserContextSnapshot, Intent
-  context.cookies.ts           deco_session + deco_visitor (server-side)
-  context.d1.ts                único lugar com SQL de eventos/contexto
-  context.actions.ts           trackEvents(), getSnapshot()
-  context.processor.ts         eventos → snapshot, em SQL agregado
-  index.ts
-
-src/platform/collections/      ← O AGENTE NO COMANDO (novo, 2026-08-07)
-  collections.types.ts         CollectionBrief, ResolvedCollection
-  collections.agent.ts         a chamada que MONTA as coleções (Opus)
-  collections.validate.ts      criteria → criteria seguro, contra o vocabulário
-  collections.d1.ts            resolve_collection: executa · conta · afrouxa
-  collections.actions.ts       buildPersonalCollections(visitorId)
-  index.ts
-
-src/platform/ranking/          ← desempate DENTRO da coleção, não decisão
-  ranking.types.ts             ScoredProduct, ScoreBreakdown
-  ranking.ts                   orderWithin(brief.order, products, snapshot)
-  ranking.weights.ts           pesos num objeto só, para tunar sem mexer na lógica
-  index.ts
-
-src/platform/agent/            ← já previsto na spec aprovada — agente de BUSCA
-  agent.types.ts               FilterCandidate, AgentSelection, StructuredFilters
-  agent.claude.ts              chamada única, structured output, cache breakpoint
-  agent.filters.ts             ProductListingPage["filters"] → FilterCandidate[]
-  agent.d1.ts                  query_cache
-  agent.actions.ts             resolveSearchQuery()
-  index.ts
-
-src/platform/analytics/        ← já previsto na spec aprovada
-  analytics.types.ts           AgentQueryLog, TopicRanking
-  analytics.d1.ts              recommendation_log, agregações
-  analytics.actions.ts         logRecommendation(), getTopicRankings()
-  analytics.hooks.ts
+src/platform/seeds/            ← as sementes e as combinações (novo, 08/08)
+  seeds.types.ts               Seed, AffinityRow, SeedKind
+  seeds.cookies.ts             deco_recent (server-side, últimos N handles)
+  seeds.d1.ts                  getSeeds(req) · getAffinities(groupIds, kind?)
+  seeds.actions.ts             buildPersonalShelf(req) — a query do domingo
   index.ts
 ```
+
+**Fora de `src/platform/`, porque não é runtime:**
+
+```
+scripts/enrich/
+  pass-a-attributes.ts         lê catálogo → product_props     (sáb manhã)
+  pass-b-affinity.ts           lê catálogo → product_affinity  (sáb tarde)
+  review.ts                    dump legível para a revisão     (sáb noite)
+  emit-migration.ts            output revisado → 0014.sql
+```
+
+A separação importa: `scripts/` roda na máquina de quem está construindo, com
+chave de API. `src/platform/seeds/` roda em produção e **não conhece nenhum
+modelo**. Se alguém um dia importar `@anthropic-ai/sdk` dentro de
+`src/platform/seeds/`, a garantia de "zero LLM em runtime" foi quebrada — e isso
+é fácil de checar em review.
+
+`src/platform/agent/` (agente de busca) continua previsto na spec, fora do escopo
+deste fim de semana.
 
 Regras que o validador vai cobrar e que é mais barato lembrar agora:
 
@@ -274,21 +332,28 @@ Regras que o validador vai cobrar e que é mais barato lembrar agora:
 
 | Arquivo | Mudança | Risco |
 |---|---|---|
-| `src/server.ts` | middleware que garante `deco_session` e `deco_visitor` na resposta | **médio** — é o entry. O `RequestContext.run` e a dedup de `Set-Cookie` que já vivem lá não podem ser quebrados; ver `docs/deploy-vercel-supabase.md` §"O que precisou ser reimplementado" |
-| `src/setup.ts` | registrar `site/actions/events/track` no `registerInvokeHandlers` e o loader da shelf | baixo — padrão existente, copiar de `notifyMe/subscribe` |
-| `src/routes/__root.tsx` | captura de eventos do browser (ver abaixo) | baixo |
-| `src/loaders/` | `personalCollections.ts` novo | baixo |
-| `src/sections/Product/` | section `PersonalCollections.tsx` — renderiza **N coleções**, não uma prateleira fixa; **dados buscados client-side** | baixo, mas ver a armadilha de cache abaixo, e o layout tem que aguentar 0 a 4 blocos |
+| `src/server.ts` | middleware que grava `deco_recent` (últimos N handles vistos) | **médio** — é o entry. O `RequestContext.run` e a dedup de `Set-Cookie` que já vivem lá não podem ser quebrados; ver `docs/deploy-vercel-supabase.md` §"O que precisou ser reimplementado" |
+| `src/setup.ts` | registrar o loader da vitrine no `registerInvokeHandlers` | baixo — padrão existente, copiar de `notifyMe/subscribe` |
+| `src/loaders/` | `personalShelf.ts` novo — chama `buildPersonalShelf(req)` | baixo |
+| `src/sections/Product/` | section `PersonalShelf.tsx` — blocos por `occasion`, **dados buscados client-side** | baixo, mas ver a armadilha de cache abaixo |
+| `src/components/product/` | complementos na PDP, mesma tabela | baixo |
 | `.deco/blocks/pages-home.json` | posicionar a section na home | conteúdo, não código |
 | `db/README.md` | **está desatualizado** e engana quem chega novo | doc |
 
-### Sobre a captura de eventos (`__root.tsx`)
+**`src/routes/__root.tsx` saiu da lista.** Não há mais captura de eventos do
+browser: o wrapper no `dispatch`, o `sendBeacon` e o endpoint
+`site/actions/events/track` existiam para alimentar `user_events`, que foi
+cortada. A subseção abaixo fica registrada porque o levantamento é bom e a
+armadilha do `subscribe` é real — mas não é trabalho deste fim de semana.
 
-O framework já dispara os 8 eventos que o MVP precisa —
+<details>
+<summary>Captura de eventos do browser (fora do escopo, registrado)</summary>
+
+O framework já dispara os 8 eventos —
 `view_item`, `view_item_list`, `select_item`, `search`, `add_to_cart`,
 `add_to_wishlist`, `view_promotion`, `select_promotion` — a partir dos atributos
 `data-event` que `src/sdk/useSendEvent.ts` coloca nos componentes.
-**Nenhum componente precisa ser tocado.**
+**Nenhum componente precisaria ser tocado.**
 
 Verificado: o script do framework despacha via `window.DECO.events.dispatch(...)`
 (`@decocms/blocks/src/sdk/analytics.ts:29`), com guarda de existência.
@@ -296,7 +361,7 @@ Verificado: o script do framework despacha via `window.DECO.events.dispatch(...)
 em `src/components/search/Searchbar/Form.tsx:57-61` afirma que o tipo ambiente o
 declara, mas o tipo declarar não é o mesmo que o barramento existir.
 
-Por isso o plano **envolve o `dispatch`** em vez de depender do `subscribe`:
+Por isso o plano **envolvia o `dispatch`** em vez de depender do `subscribe`:
 
 ```
 1. guarda a referência original de window.DECO.events.dispatch
@@ -305,132 +370,108 @@ Por isso o plano **envolve o `dispatch`** em vez de depender do `subscribe`:
 ```
 
 Funciona existindo `subscribe` ou não, não altera o comportamento atual do
-analytics, e some sozinho se o barramento não estiver montado. Se durante a
-implementação o `subscribe` se provar real e estável, trocar por ele é melhor —
-mas não é premissa.
+analytics, e some sozinho se o barramento não estiver montado.
 
-Três eventos do MVP doc **não** existem hoje e precisam de captura no servidor,
-onde a informação de fato está: `search` com resultado (quantos itens voltaram),
-`notifyMe` (já grava em `stock_alerts` — só espelhar em `user_events`) e
-`purchase` (não existe pipeline de compra; fica de fora, e a §9 da proposta já
-declara isso como não mensurável).
+</details>
 
 ### A armadilha que vai aparecer no dia da demo
 
-A home tem TTL longo de HTML. Uma section que renderize a shelf no servidor
+A home tem TTL longo de HTML. Uma section que renderize a vitrine no servidor
 **congela a personalização** dentro da janela da apresentação e parece quebrada.
-A shelf busca os dados client-side via TanStack Query — mesmo padrão de
+A section busca os dados client-side via TanStack Query — mesmo padrão de
 `src/components/search/SearchResult.tsx`. Isso já está registrado como
 "o bug mais provável de aparecer no dia" na skill do time; ninguém precisa
 descobrir de novo.
+
+E aqui ela ficou **mais** crítica, não menos: o momento da demo é favoritar um
+produto ao vivo e a vitrine mudar no reload. Com HTML cacheado, não muda — e o
+efeito é exatamente o de um sistema quebrado.
 
 ---
 
 ## 6. Contratos compartilhados novos
 
-Vão em `src/platform/context/context.types.ts` e são importados, nunca
-redeclarados — três consumidores leem cada um deles.
+Vão em `src/platform/seeds/seeds.types.ts` e são importados, nunca redeclarados.
+
+`UserContextSnapshot` e `Intent` foram cortados junto com as tabelas de
+comportamento (§2). São dois contratos a menos para manter, e a razão é boa: **as
+sementes são a intenção**. Quem favoritou uma jaqueta e pediu "avise-me" de um
+moletom não precisa de um objeto `Intent` para declarar que está montando um look
+de inverno.
 
 ```ts
-/** O que o ranker recebe. Pequeno de propósito: cabe num prompt e numa linha. */
-export interface UserContextSnapshot {
-  visitorId: string;
-  contextVersion: number;
-  profile: {
-    /** Eixos descobertos, não campos fixos: { Size: {M: 4, G: 1}, Color: {...} } */
-    optionAffinity: Record<string, Record<string, number>>;
-    tagAffinity: Record<string, number>;
-    typeAffinity: Record<string, number>;
-    priceBand: { min: number; max: number } | null;
-  };
-  session: {
-    recentSearches: string[];
-    viewedHandles: string[];
-    waitedVariantIds: string[];
-    cartHandles: string[];
-  };
+export type SeedKind = "wishlist" | "waited" | "recent" | "purchased";
+
+/** O que a pessoa declarou querer. Substitui perfil + intenção. */
+export interface Seed {
+  productGroupId: string;
+  kind: SeedKind;
+  /** ISO 8601. Desempata a ordem da vitrine: semente recente puxa mais. */
+  at: string;
 }
 
-export interface Intent {
-  topicKey: string;      // normalizado: minúsculo, sem acento, hífen
-  label: string;
-  types: string[];       // validados contra CatalogVocabulary
-  collections: string[];
-  tags: string[];
-  priceBand: { min: number; max: number } | null;
-  confidence: number;    // < 0.4 → não personalizar
-  source: "llm" | "search-resolver" | "heuristic";
+/** Uma linha de product_affinity, já com o produto resolvido. */
+export interface AffinityRow {
+  seedId: string;          // de qual semente esta recomendação saiu
+  product: Product;
+  kind: "complement" | "similar";
+  /** Vocabulário emitido pelo modelo na passada B. NÃO enumerado no código. */
+  occasion: string | null;
+  /** Escrito pelo agente, offline, revisado. É o texto do card. */
+  reason: string;
+  position: number;
 }
 ```
 
-`optionAffinity` é o campo que carrega a decisão de genericidade: é um mapa de
-dimensões descobertas, não um campo `size`. Um `size?: string` aqui seria a
-forma mais silenciosa de tornar o sistema específico de moda para sempre.
+**`occasion` é `string`, não uma união de literais**, e isso é deliberado: é a
+mesma disciplina do `optionAffinity` das versões anteriores. Um
+`occasion: "inverno" | "trabalho" | ...` aqui seria a forma mais silenciosa de
+tornar o sistema específico de moda para sempre — e o vocabulário tem que vir do
+banco, porque quem o escreveu foi o modelo, lendo *este* catálogo.
 
-### `CollectionBrief` — a saída do agente (novo, 2026-08-07)
+**`reason` nunca é opcional.** Um complemento sem explicação é um carrossel
+comum. Se a passada B não soube dizer por que dois produtos combinam, a linha não
+deveria ter sido gravada.
 
-Este é **o contrato mais importante do projeto** desde a decisão de pôr o agente
-no comando (`personal-shopping-agent-proposta.md` §15). É o que o modelo escreve
-e o que o banco executa — a fronteira entre "quem decide" e "quem garante".
+### O contrato das passadas (offline)
+
+O que os scripts de `scripts/enrich/` emitem, antes de virar SQL. Fica aqui e não
+em `src/platform/` porque **nada disso existe em runtime**.
 
 ```ts
-// src/platform/collections/collections.types.ts
-
-export interface CollectionBrief {
-  /** Título autoral. Aparece na home exatamente como o agente escreveu. */
-  title: string;
-  /** A narrativa: por que ESTA pessoa está vendo ESTA coleção. */
-  why: string;
-
-  /** O recorte. Todo valor aqui é validado contra CatalogVocabulary
-   *  antes de virar SQL — valor inexistente é descartado, não erra. */
-  criteria: {
-    types?: string[];
-    collections?: string[];
-    tags?: { all?: string[]; any?: string[] };
-    priceBand?: { min?: number; max?: number };
-    /** Dimensões descobertas, não `size`: { Size: ["M"] }, { Voltagem: ["220V"] } */
-    optionValues?: Record<string, string[]>;
-    requireAvailable?: boolean;
-  };
-
-  /** Desempate DENTRO do que casou. Não decide quem entra. */
-  order?: "affinity" | "popularity" | "price:asc" | "price:desc" | "newest";
-  limit: number;
-  /** Abaixo disto a coleção não vale a pena existir. */
-  minResults: number;
-  /**
-   * Ordem de afrouxamento, decidida pelo agente. Só ele sabe qual restrição
-   * carrega a narrativa do título: em "no seu M, pronto pra levar",
-   * optionValues é a ÚLTIMA coisa que pode cair.
-   */
-  relaxOrder: Array<keyof CollectionBrief["criteria"]>;
+/** Passada A: uma linha de product_props. */
+export interface ExtractedProp {
+  productGroupId: string;
+  /** Ex.: "material", "caimento", "ocasiao". Emitido pelo modelo, não enumerado. */
+  name: string;
+  value: string;
 }
 
-export interface ResolvedCollection {
-  brief: CollectionBrief;
-  products: Product[];
-  matched: number;
-  /** O que precisou ser removido para chegar ao mínimo. A UI LÊ isto:
-   *  título que promete o que o critério não entregou mais é título que mente. */
-  relaxedBy: string[];
+/** Passada B: uma linha de product_affinity, antes da revisão. */
+export interface ProposedAffinity {
+  productGroupId: string;
+  relatedId: string;
+  kind: "complement" | "similar";
+  occasion: string | null;
+  reason: string;
+  position: number;
 }
 ```
 
-Três regras que não são estéticas:
+Duas regras que não são estéticas:
 
-1. **`criteria` nunca vira SQL sem passar pela validação.** É o que mantém a
-   promessa da §1 deste documento e a da spec — filtro alucinado é
-   estruturalmente impossível, não "mitigado".
-2. **`optionValues` é `Record<string, string[]>`, não `size`.** Mesma razão do
-   `optionAffinity` acima, e o mesmo erro seria fatal aqui.
-3. **`relaxedBy` não é log, é dado de UI.** Se o agente pediu M e o resolvedor
-   teve que soltar essa restrição para não devolver uma coleção vazia, o card
-   precisa parar de dizer "no seu M".
+1. **Nenhum dos dois entra no banco sem passar pela revisão.** `emit-migration.ts`
+   lê o arquivo **revisado**, não a saída bruta do modelo. Se algum dia esses dois
+   passos forem encadeados num comando só, a garantia do projeto muda de natureza
+   sem ninguém decidir isso.
+2. **`relatedId` é conferido contra `products` antes de virar `INSERT`.** O modelo
+   pode inventar um handle; a FK pegaria isso na migration, mas com erro feio no
+   meio de um `db:migrate`. Melhor filtrar na emissão.
 
-`topicKey` normalizado **igual em todo lugar** — é o que costura o agente, o
-dashboard e a `TrendingCollections`. Dois formatos significam ranking partido ao
-meio, e o sintoma é "o ranking está estranho", não um erro.
+O antigo `CollectionBrief` — o contrato central da versão de 07/08 — está
+preservado em `personal-shopping-agent-pre-changes.md`. Ele caiu porque
+`types`/`tags`/`priceBand` descrevem **conjuntos por atributo**, e combinar é uma
+relação **produto→produto** que não cabe nesse vocabulário.
 
 ---
 
@@ -438,9 +479,15 @@ meio, e o sintoma é "o ranking está estranho", não um erro.
 
 | Item | O quê | Onde |
 |---|---|---|
-| `@anthropic-ai/sdk` | cliente do LLM, **só no servidor** | `package.json` — instalar com `bun install`, ver armadilha abaixo |
-| `@vercel/functions` | `waitUntil` para escrita fora do caminho crítico | idem |
-| `ANTHROPIC_API_KEY` | env var da Vercel + `.env` local | **nunca no client**: o CSP não protege chave, quem protege é ela não sair do servidor |
+| `@anthropic-ai/sdk` | cliente do LLM — **`devDependency`**, porque só `scripts/enrich/` usa | `package.json` — instalar com `bun install`, ver armadilha abaixo |
+| `ANTHROPIC_API_KEY` | só no `.env` local de quem roda as passadas | **não precisa ir para a Vercel**, a menos que a manchete opcional entre |
+
+**O SDK como `devDependency` não é detalhe de organização — é a garantia virando
+código.** Se o cliente do modelo não está nas dependências de produção, "zero LLM
+em runtime" para de ser promessa de documento e vira algo que o build reclama.
+
+`@vercel/functions` saiu: o `waitUntil` existia para gravar eventos fora do
+caminho crítico, e não há mais eventos para gravar.
 
 **Armadilha de instalação:** o repo tem `patchedDependencies`, que é campo do
 **bun**. Quem instalar com `npm` precisa rodar `bun install` depois, ou a Vercel
@@ -459,61 +506,65 @@ a correção é o mesmo padrão de stub.
 
 Cada linha só está pronta quando a prova passa. "Está implementado" não é prova.
 
-| # | Passo | Prova de que funcionou | ~h |
-|---|---|---|---|
-| 1 | Migrations 0012–0015 | `npm run db:migrate` roda duas vezes sem erro (idempotente) | 1h |
-| 2 | `getCatalogVocabulary()` | devolve os eixos reais; nenhum literal de catálogo no arquivo | 1h |
-| 3 | Cookies + `visitors` | duas abas anônimas diferentes = dois `visitor_id`; a mesma aba recarregada = o mesmo | 2h |
-| 4 | Captura + `user_events` | navegar 2 min gera linhas com `session_id` correto; `select count(*)` sobe | 3h |
-| 5 | `context.processor` | dois perfis navegando diferente produzem `user_context.profile` **diferentes** — no SQL, antes de qualquer UI | 2h |
-| 6 | `collections.validate` + `resolve_collection` | um brief escrito à mão vira produtos reais; um brief com tag inventada é **limpo, não quebra**; um brief impossível afrouxa na ordem pedida e reporta `relaxedBy` | 3h |
-| 7 | **`collections.agent`** | **dois contextos entram, saem coleções com número, eixos e títulos diferentes — em JSON, sem UI nenhuma** ← é a tese inteira | 4h |
-| 8 | Section de coleções na home | a home dos dois perfis mostra **estruturas** diferentes, não só produtos diferentes | 3h |
-| 9 | `recommendation_log` + A/B | bucket 0 vê vitrine fixa, bucket 1 as coleções do agente; o brief fica gravado ao lado do resultado | 3h |
-| 10 | `/mcp` (3 toolsets) | um cliente MCP externo lista as tools e busca produtos | 3h |
-| 11 | `search-resolver` no `/s` | busca livre que hoje dá zero resulta em PLP filtrada | 4h |
+| # | Quando | Passo | Prova de que funcionou | ~h |
+|---|---|---|---|---|
+| 1 | Sex noite | cookie `deco_recent` | recarregar mantém os handles; aba anônima começa vazia | 1h |
+| 2 | Sex noite | `getSeeds(req)` | uma persona semeada devolve os 4 `SeedKind` numa lista só | 1h |
+| 3 | Sáb manhã | passada A em **10 produtos** | ler as 10 saídas à mão e reconhecer o produto na descrição dos atributos | 1h |
+| 4 | Sáb manhã | passada A nos 136 | `product_props` cresce; nenhum `name` fora do vocabulário emitido | 2h |
+| 5 | Sáb tarde | `0012_product_affinity` | `db:migrate` roda duas vezes sem erro (idempotente) | 30min |
+| 6 | Sáb tarde | passada B no catálogo | **≥ 90% dos produtos com ≥ 3 complementos**, todos com `reason` e `occasion` | 3h |
+| 7 | Sáb noite | **revisão + `emit-migration`** | 100% das personas conferidas; aprovação ≥ 85%; `0014.sql` commitado | 1h |
+| 8 | Dom manhã | `buildPersonalShelf(req)` | **duas personas, mesma home, blocos e produtos diferentes — em JSON** | 1h |
+| 9 | Dom manhã | Section na home | **favoritar ao vivo → recarregar → a vitrine muda** ← é a tese inteira | 2h |
+| 10 | Dom manhã | complementos na PDP | abrir qualquer produto mostra o que combina, com o motivo | 1h |
+| 11 | Dom tarde | manchete opcional | derrubar a rede e a vitrine continuar inteira | 2h |
 
-**O passo 7 é o corte, e mudou de natureza.** Na versão anterior deste plano, o
-passo 7 era a UI e o LLM só entrava no 8 — a ideia era provar que dava para
-personalizar sem modelo nenhum. Com a decisão de pôr o agente no comando
-(`personal-shopping-agent-proposta.md` §15), isso se inverteu: **o passo 7 é o
-agente, e ele vem antes da UI de propósito.**
+**O passo 7 é o corte, e mudou de natureza duas vezes.** Na primeira versão deste
+plano, o corte era a UI e o LLM só entrava depois. Na segunda, o corte era o
+agente montando coleções. Agora é **a revisão humana** — a hora que parece
+dispensável e é a que compra a demo.
 
-A razão é econômica, não estética. Se o agente não produz recortes interessantes,
-descobrir isso olhando um JSON no passo 7 custa meio dia; descobrir olhando a
-home montada custa dois. E se ele produz, a section vira renderização de uma
-saída que já se sabe boa.
+Com a `0014` commitada, existe demonstração mesmo que todo o resto falhe: os
+dados estão no banco e a vitrine é uma query. Sem ela, não existe nada, por mais
+bonita que a section esteja.
 
-**Ordem de corte:** 11 → 10 → 9. Do 1 ao 8 não há o que cortar — juntos, são o
-produto. Dentro do passo 7, o corte é o número de coleções por pessoa (uma, em
-vez de até quatro), nunca a autoria do recorte.
+**Ordem de corte:** 11 → 10. Do 1 ao 9 não há o que cortar. Dentro do passo 6, o
+corte é o número de complementos por produto (3 em vez de 5), nunca a revisão.
 
-**O passo 6 antes do 7 não é acidente.** O resolvedor precisa estar de pé e
-testado *antes* de existir agente para alimentá-lo, senão a primeira vez que uma
-coleção voltar vazia ninguém vai saber se a culpa é do modelo, do critério ou do
-catálogo. Com o passo 6 provado com briefs escritos à mão, a resposta é sempre:
-é do modelo.
+**O passo 3 antes do 4 não é acidente.** Rodar a passada A nos 136 antes de olhar
+10 saídas à mão é gastar tempo e chamadas para descobrir tarde que o prompt está
+errado. Dez produtos custam minutos e respondem a única pergunta que importa
+naquele momento: *o modelo entendeu o que estamos pedindo?*
+
+**Reparem que do passo 8 em diante não há nenhuma chamada de modelo.** Isso não é
+economia — é a garantia do desenho, tornada verificável: se alguém precisar de uma
+chave de API para rodar a demo, algo saiu do lugar.
 
 ---
 
 ## 9. Checklist de portabilidade
 
 Isto é o que precisa ser verdade para a mesma pipeline rodar noutra loja. Vale
-como critério de revisão de PR, não como aspiração:
+como critério de revisão de PR, não como aspiração.
+
+> O guard script e o teste de trocar `DATABASE_URL` saíram do plano do fim de
+> semana — é virtude de engenharia que juiz nenhum vê. **A disciplina fica**: a
+> lista abaixo é rápida de conferir a olho, e o item que mais importa agora é o
+> penúltimo, porque é onde o novo desenho poderia escorregar sem ninguém notar.
 
 - [ ] Nenhum `product_type`, tag, coleção ou nome de opção escrito à mão em
-      `src/platform/{context,collections,ranking,agent,analytics}`
-- [ ] Faixas de preço vêm de percentis do catálogo, não de números no código
-- [ ] Prompt estável (antes do breakpoint de cache) não cita nenhum produto,
-      categoria ou atributo desta loja
-- [ ] Saída do LLM validada contra `CatalogVocabulary` antes de virar filtro
-- [ ] `optionAffinity` e `CollectionBrief.criteria.optionValues` são mapas de
-      dimensões descobertas — não existe campo `size` em lugar nenhum
-- [ ] Nenhuma lista de coleções possíveis no código. Se existir um
-      `SHELVES = [...]` para o agente escolher, a decisão da §15 da proposta foi
-      desfeita sem ninguém perceber
-- [ ] Trocar o `DATABASE_URL` por um catálogo diferente não quebra nada nem
-      exige mudança de código
+      `src/platform/seeds/`
+- [ ] O prompt das duas passadas é genérico — *"leia a descrição, emita os
+      atributos que encontrar"* —, sem vocabulário de moda
+- [ ] `occasion` é `string`, não união de literais. Um
+      `"inverno" | "trabalho" | ...` no tipo trava o sistema em moda para sempre
+- [ ] Nenhuma lista de blocos possíveis no código. Os agrupamentos da vitrine vêm
+      de `SELECT DISTINCT occasion`, não de um `SHELVES = [...]`
+- [ ] **`@anthropic-ai/sdk` não aparece em `dependencies` nem em nenhum import
+      dentro de `src/`** — se aparecer, "zero LLM em runtime" deixou de ser verdade
+- [ ] Trocar o `DATABASE_URL` por um catálogo diferente e rodar as duas passadas
+      produz uma vitrine coerente, sem mudança de código
 
 ---
 
@@ -526,14 +577,12 @@ como se perde uma tarde:
   `/s?q=`. A spec é explícita: o Searchbar é **estendido, não substituído**.
 - **Nenhuma ação de carrinho ou checkout.** O agente é read-only. Exclusão da
   spec, ainda em vigor.
-- **Nenhuma UI de chat.** A narrativa da coleção é texto no card, não conversa.
-  O agente ganhou autoridade sobre o recorte, não uma caixa de diálogo.
-- **O agente não escolhe produto por ID.** Ele escreve o critério; o SQL responde
-  quem atende. Essa fronteira é o que sustenta a especificidade — ver
-  `personal-shopping-agent-proposta.md` §15.
-- **Nenhum componente de produto precisa ser instrumentado** — os eventos já
-  são disparados.
-- **Nenhuma escrita em `.deco/blocks/*.json` por código.** Proposta se aplica
-  escrevendo em tabela, e a section lê de lá.
+- **Nenhuma UI de chat.** O `reason` da combinação é texto no card, não conversa.
+- **Disponibilidade nunca é afirmação do modelo.** O `JOIN` com `variants` na
+  leitura é quem decide o que aparece. O agente diz o que combina; o banco diz o
+  que existe.
+- **Nenhum componente de produto precisa ser instrumentado** — e agora nem os
+  eventos precisam ser capturados.
+- **Nenhuma escrita em `.deco/blocks/*.json` por código.** A section lê de tabela.
 - **Embeddings continuam fora** (decisão D4). A coluna existe, vazia, e assim fica.
 - **Browser context / extensão continua fora** (decisão D2). Vira slide.
