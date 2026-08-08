@@ -201,6 +201,13 @@ registerCommerceLoaders({
     (await import("./loaders/personalShelf")).default(props),
   "site/loaders/personalShelf": async (props: any) =>
     (await import("./loaders/personalShelf")).default(props),
+  // O look que o agente compõe em volta da peça aberta. Recebe `req` porque o
+  // handle vem da URL quando a prop está vazia — que é o caso na PDP, onde um
+  // bloco só serve as 136 peças.
+  "site/loaders/completeTheLook.ts": async (props: any, req: any) =>
+    (await import("./loaders/completeTheLook")).default(props, req),
+  "site/loaders/completeTheLook": async (props: any, req: any) =>
+    (await import("./loaders/completeTheLook")).default(props, req),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --
@@ -211,6 +218,12 @@ registerInvokeHandlers({
     (await import("./actions/wishlist/submit")).default(props, req),
   "site/actions/wishlist/submit": async (props, req) =>
     (await import("./actions/wishlist/submit")).default(props, req),
+  // O seletor de cidade. Vence o geo por IP, e é o que torna a feature
+  // observável em `vite dev`, onde os headers da Vercel não existem.
+  "site/actions/look/setLocal.ts": async (props, req) =>
+    (await import("./actions/look/setLocal")).default(props as any, req),
+  "site/actions/look/setLocal": async (props, req) =>
+    (await import("./actions/look/setLocal")).default(props as any, req),
   "site/actions/shipping/simulate.ts": async (props, req) =>
     (await import("./actions/shipping/simulate")).default(props, req),
   "site/actions/shipping/simulate": async (props, req) =>

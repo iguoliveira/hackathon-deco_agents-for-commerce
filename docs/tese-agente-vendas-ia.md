@@ -1,5 +1,20 @@
 # SPEC: conversational-recommendation-agent
 
+> **08/08 — NORMATIVA E OCIOSA.** O agente de busca que este arquivo especifica
+> (`/s` loader, `FilterCandidate`, `query_cache`) está **fora do escopo do fim de
+> semana** e nenhuma linha dele foi construída. O que se constrói é
+> [`agente-de-combinacoes.md`](agente-de-combinacoes.md).
+>
+> **As `explicit_exclusions` continuam governando o código novo**, e são o motivo
+> de este arquivo seguir sendo lido: sem escrita em carrinho ou checkout, sem UI
+> de chat, sem `tool_use` loop no caminho quente, sem escrita em
+> `.deco/blocks/*.json`. O agente de composição respeita as quatro.
+>
+> O `implementation_status` abaixo está desatualizado em dois pontos: o runtime é
+> **Vercel Node + Supabase Postgres**, não Workers + D1 (ver
+> `deploy-vercel-supabase.md`), e a PDP/PLP/busca **já migraram** para os loaders
+> locais — não estão mais no Shopify.
+
 ## metadata
 ```yaml
 project: demo-storefront

@@ -29,8 +29,14 @@ ele revela sobre o gosto da pessoa para mostrar o que **já existe** em estoque.
 - [x] Tamanhos esgotados aparecem riscados no seletor da PDP
 - [x] Quem já pediu vê que pediu ao voltar (logado)
 - [x] `findWaitedItems` devolve o desejo já cruzado com o catálogo
-- [ ] **O agente que monta a vitrine** — próximo passo, ainda não existe
+- [x] **O agente que monta a vitrine** — construído, ver [`agente-vitrine.md`](agente-vitrine.md)
 - [ ] Envio de e-mail — não existe e não está planejado (ver *Armadilhas*)
+
+> **08/08:** este sinal deixou de ser a única entrada do agente. Em
+> [`agente-de-combinacoes.md`](agente-de-combinacoes.md) ele vira **uma das quatro
+> sementes** (`avise-me`, favoritos, vistos, comprou) que alimentam o agente de
+> composição da PDP. O diagnóstico da seção *O que ainda limita* abaixo — "só entra
+> quem clicou num produto esgotado" — é exatamente o que aquela mudança endereça.
 
 ## Como funciona
 
