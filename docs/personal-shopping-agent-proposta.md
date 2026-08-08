@@ -762,6 +762,12 @@ depois de medir a vitrine, não antes.
 Esta seção registra a mudança de direção que reescreveu as §3, §5, §7, §8, §9,
 §11 e §13. Fica com o descartado à vista, pela mesma razão das outras decisões.
 
+> **O desenho anterior está preservado na íntegra** em
+> `personal-shopping-agent-pre-changes.md` — a fórmula de ranking, os limiares de
+> confiança, o diagrama antigo e o plano de fases, cada bloco marcado
+> `PRÉ CHANGES` e com o motivo da troca. Voltar atrás não exige arqueologia no
+> git.
+
 ### O que mudou
 
 | | Antes | Agora |

@@ -6,6 +6,8 @@
 > - `personal-shopping-agent-optimization.md` — latência e custo
 > - `personal-shopping-agent-proposta.md` — o desenho aterrado neste repo, com o
 >   DDL completo, as tools, os MCPs e os agentes
+> - `personal-shopping-agent-pre-changes.md` — **histórico, revogado**: o desenho
+>   anterior à decisão de 07/08, guardado para o caso de precisarmos voltar
 >
 > **Este arquivo é a lista de mudanças.** Arquivo por arquivo, o que muda e como
 > se prova que funcionou. Não repete o DDL nem o raciocínio dos outros três —
@@ -36,6 +38,11 @@ pela mesma razão do parágrafo acima. As §1, §4, §6, §8, §9 e §10 deste d
 já refletem a mudança; o §1 (genérico por construção) ficou **mais** importante
 com ela, não menos, porque agora é o vocabulário do banco que limita o que o
 agente pode inventar.
+
+O desenho que essa emenda substituiu está guardado em
+`personal-shopping-agent-pre-changes.md`, bloco por bloco. **Ele é histórico e
+está revogado** — o arquivo avisa isso no topo, para que ninguém (nem nenhum
+agente) o leia como plano em vigor.
 
 Tudo abaixo está **por fazer**.
 
