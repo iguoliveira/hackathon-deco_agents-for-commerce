@@ -115,59 +115,79 @@ const main = async (): Promise<void> => {
   }
 
   // ------------------------------------------------------------------
-  titulo("3. O loader lê o slug de __pageUrl, não da requisição corrente");
+  titulo("3. O loader monta a section na home, com a peça vinda da prop");
   // ------------------------------------------------------------------
-  // Este é o teste que encena o caminho diferido: fora de um RequestContext,
-  // a ÚNICA coisa que o loader tem é `__pageUrl`. Se ele dependesse de
+  // **Reescrito depois da #27**, que tirou a section da PDP e a pôs na home. O
+  // bloco anterior chamava o loader com `__pageUrl` de PDP e afirmava que aquilo
+  // devolvia look — o que o guarda `ehHome` agora recusa, corretamente. A #27
+  // mudou o loader e não mexeu neste script, então o teste passou a exercitar um
+  // caminho que a feature abandonou.
+  //
+  // Continua encenando o caminho diferido: fora de um RequestContext, a ÚNICA
+  // coisa que o loader tem é `__pageUrl`. Se ele dependesse de
   // `RequestContext.request.url`, tudo abaixo voltaria null.
-  const pelaPagina = await completeTheLookLoader({
-    __pageUrl: `https://loja.exemplo.com/products/${slugDaPdp}`,
+  const pelaHome = await completeTheLookLoader({
+    handle,
+    __pageUrl: "https://loja.exemplo.com/",
   });
 
-  // Sem o fallback por SQL, `null` aqui tem DUAS causas possíveis, e confundi-las
-  // manda consertar o arquivo errado: ou o slug não resolveu (o bug que este
-  // script existe para pegar), ou o par (peça, contexto) simplesmente não está
-  // no cache. Este script roda do terminal, então o contexto é sempre
-  // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
-  if (pelaPagina === null) {
+  // `null` aqui tem mais de uma causa, e confundi-las manda consertar o arquivo
+  // errado: o guarda pode ter recusado a página, o handle pode não ter
+  // resolvido, ou o par (peça, dia) simplesmente não está no cache — que é o
+  // caso comum, já que a chave inclui o dia desde a #30.
+  if (pelaHome === null) {
     console.error(
-      `\n  Não há look gravado para \`${handle}\` no dia de hoje (${diaDeHoje()}).\n` +
-        "  Isso NÃO é falha de renderização — desde que o fallback por SQL caiu, a\n" +
-        "  section só aparece com o cache quente, e a chave inclui o dia. Aqueça e\n" +
-        "  rode de novo:\n\n" +
-        `      npm run look:refresh -- ${handle}\n`,
+      `\n  O loader devolveu null para \`${handle}\` na home, dia ${diaDeHoje()}.\n` +
+        "  A causa mais provável NÃO é renderização: a chave do cache inclui o dia,\n" +
+        "  então o que estava quente ontem não está hoje. Aqueça e rode de novo:\n\n" +
+        `      npm run look:refresh -- ${handle}\n\n` +
+        "  Se persistir depois de aquecer, aí sim é o loader — comece pelo guarda\n" +
+        "  `ehHome` em src/loaders/completeTheLook.ts.\n",
     );
     process.exit(1);
   }
 
   ok(
-    "PDP via __pageUrl devolve look",
-    pelaPagina !== null,
-    "o loader não recuperou o slug — voltou ao bug do `_serverFn`",
+    "home + handle na prop devolve look",
+    pelaHome !== null,
+    "o loader não montou a section — veja o guarda `ehHome` ou o `_serverFn`",
   );
-  ok("o look tem blocos", (pelaPagina?.blocos.length ?? 0) > 0);
+  ok("o look tem blocos", (pelaHome?.blocos.length ?? 0) > 0);
   ok(
     "o look tem pelo menos 4 peças",
-    (pelaPagina?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
+    (pelaHome?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
   );
   ok(
     "cada peça carrega um produto renderizável (url + preço)",
-    (pelaPagina?.blocos ?? []).every((bloco) =>
+    (pelaHome?.blocos ?? []).every((bloco) =>
       bloco.pecas.every((peca) => !!peca.product.url && !!peca.product.offers),
     ),
   );
   ok(
     "a procedência vem preenchida",
-    !!pelaPagina?.lugar && !!pelaPagina?.mes,
-    `lugar="${pelaPagina?.lugar}" mes="${pelaPagina?.mes}"`,
+    !!pelaHome?.lugar && !!pelaHome?.mes,
+    `lugar="${pelaHome?.lugar}" mes="${pelaHome?.mes}"`,
   );
 
-  // Uma URL que NÃO é de produto não pode virar look.
+  // O guarda da #27: fora da home, a section não existe — nem em PDP, que é
+  // onde ela morava antes e de onde alguém pode tentar trazê-la de volta pelo
+  // admin sem perceber que a decisão foi deliberada.
   ok(
-    "URL de PLP não vira look",
-    (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/s?q=tee" })) === null,
+    "PDP não monta a section, mesmo com handle válido",
+    (await completeTheLookLoader({
+      handle,
+      __pageUrl: `https://loja.exemplo.com/products/${slugDaPdp}`,
+    })) === null,
   );
-  ok("sem __pageUrl e sem RequestContext devolve null", (await completeTheLookLoader({})) === null);
+  ok(
+    "PLP também não",
+    (await completeTheLookLoader({ handle, __pageUrl: "https://loja.exemplo.com/s?q=tee" })) ===
+      null,
+  );
+  ok(
+    "home sem handle devolve null em vez de adivinhar a peça",
+    (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/" })) === null,
+  );
 
   // A prop fixa continua servindo para fixar uma peça fora da PDP.
   ok(
@@ -178,7 +198,7 @@ const main = async (): Promise<void> => {
   // ------------------------------------------------------------------
   titulo("4. O que a section vai desenhar");
   // ------------------------------------------------------------------
-  const look = pelaPagina!;
+  const look = pelaHome!;
   console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
   console.log(`  procedência: ${look.lugar} em ${look.mes}`);
   for (const bloco of look.blocos) {
