@@ -31,6 +31,8 @@ import completeTheLookLoader from "../src/loaders/completeTheLook";
 import { lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
 import { montarCandidatos, comOGuardaRoupa } from "../src/platform/look/look.candidates";
+import { validar as validarVitrine, MAX_PECAS as VITRINE_MAX } from "../src/platform/vitrine/vitrine.agent";
+import type { Candidato as ProdutoDaVitrine } from "../src/platform/vitrine/vitrine.types";
 import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
@@ -142,6 +144,48 @@ const main = async (): Promise<void> => {
   ok("comprada E favoritada conta nos dois campos",
      (ambos.combinaComOGuardaRoupa ?? []).includes("winter") &&
        (ambos.combinaComOQueQuer ?? []).includes("winter"));
+
+  // ------------------------------------------------------------------
+  titulo("0b. A vitrine nao pode mostrar produto que o modelo inventou");
+  // ------------------------------------------------------------------
+  //
+  // A etapa 3 pesa mais na vitrine que no `look`: la o modelo escolhia entre 18
+  // candidatos ancorados na peca aberta, e a ancora ja restringia. Aqui escolhe
+  // entre 127 sem nada que o obrigue a se relacionar com coisa alguma — esta
+  // funcao e a unica fronteira entre o catalogo e a tela, junto com a persona.
+  const pool: ProdutoDaVitrine[] = [
+    { handle: "a", titulo: "A", tipo: "T", preco: 10, tags: [], opcoesDisponiveis: [] },
+    { handle: "b", titulo: "B", tipo: "T", preco: 20, tags: [], opcoesDisponiveis: [] },
+  ];
+
+  const doModeloVitrine = [
+    { handle: "a", motivo: "combina com o cardiga que voce comprou" },
+    { handle: "inventado", motivo: "parece otimo" },
+    { handle: "b", motivo: "   " },
+    { handle: "a", motivo: "de novo a mesma peca" },
+    "lixo",
+    { motivo: "sem handle" },
+  ];
+
+  const vit = validarVitrine(doModeloVitrine, pool);
+  ok("handle inventado e descartado", !vit.some((p) => p.handle === "inventado"));
+  ok("peca sem motivo e descartada", !vit.some((p) => p.handle === "b"));
+  ok("duplicata nao entra duas vezes", vit.filter((p) => p.handle === "a").length === 1);
+  ok("lixo na lista nao quebra nem entra", vit.length === 1, `${vit.length} peca(s)`);
+  ok("a que sobrou mantem o motivo", vit[0]?.motivo.startsWith("combina com"));
+  ok("e recebe position", vit[0]?.position === 0);
+  ok("lista que nao e lista vira vazia", validarVitrine("nada disso", pool).length === 0);
+
+  // O teto existe porque a home nao e catalogo. Sem ele, um modelo generoso
+  // devolve os 127 e a section vira a loja inteira.
+  const muitos = Array.from({ length: VITRINE_MAX + 5 }, (_, i) => ({
+    handle: `p${i}`,
+    motivo: "motivo valido",
+  }));
+  const poolGrande: ProdutoDaVitrine[] = muitos.map((m) => ({
+    handle: m.handle, titulo: m.handle, tipo: "T", preco: 1, tags: [], opcoesDisponiveis: [],
+  }));
+  ok(`o teto de ${VITRINE_MAX} pecas e respeitado`, validarVitrine(muitos, poolGrande).length === VITRINE_MAX);
 
   // ------------------------------------------------------------------
   titulo("1. acharAncora aceita o slug que o site realmente gera");
