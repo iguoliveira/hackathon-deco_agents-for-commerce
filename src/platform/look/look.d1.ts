@@ -163,6 +163,64 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
   }
 };
 
+/**
+ * O que a pessoa favoritou **estando logada**.
+ *
+ * A wishlist tem duas casas, e o agente precisa das duas. O cookie
+ * `deco_wishlist` sempre existiu e é o que faz um visitante deslogado ter look
+ * pessoal; a tabela `wishlist_items` é onde o favorito passa a morar quando há
+ * sessão. Ler só o cookie deixaria de fora exatamente quem se identificou — e
+ * quem se identificou é o público desta feature (ver o recorte no topo de
+ * docs/agente-de-combinacoes.md).
+ *
+ * Quem une as duas é `colherSementes`; aqui só sai a metade do banco.
+ *
+ * **`created_at` real, não `now()`.** As seis vagas de semente são disputadas
+ * por força e depois por recência, e o cookie não guarda quando cada favorito
+ * foi feito — todos entram com o mesmo instante e o desempate vira sorteio. Com
+ * a data verdadeira, quem tem doze favoritos vê os últimos chegarem ao prompt,
+ * que é o que qualquer pessoa esperaria.
+ *
+ * **`wishlist_items` pode não existir.** A migration que a cria vive na branch
+ * da PR #15 e ainda não está em `main`; num clone limpo esta consulta falha, o
+ * `catch` devolve `[]`, e o agente segue com o cookie — que é o comportamento
+ * de hoje. Nada quebra enquanto a #15 não entra.
+ */
+export const favoritosDe = async (email: string, limite: number): Promise<Semente[]> => {
+  const db = getDb();
+  if (!db) return [];
+
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT DISTINCT ON (p.product_group_id)
+                p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO},
+                to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+           FROM wishlist_items w
+           JOIN variants v ON v.variant_id = w.product_id
+           JOIN products p ON p.product_group_id = v.product_group_id
+          WHERE w.user_id = ?
+          ORDER BY p.product_group_id, w.created_at DESC
+          LIMIT ?`,
+      )
+      .bind(email, limite)
+      .all<CompraRow>();
+
+    return results.map((linha) => ({
+      productGroupId: linha.product_group_id,
+      titulo: linha.title,
+      tipo: linha.product_type ?? "",
+      tags: linha.tags ?? [],
+      kind: "wishlist" as const,
+      em: linha.created_at,
+    }));
+  } catch (erro) {
+    // Inclui "relation wishlist_items does not exist" enquanto a #15 não entra.
+    console.error("[look] favoritosDe falhou", erro);
+    return [];
+  }
+};
+
 // ---------------------------------------------------------------------------
 // A âncora
 // ---------------------------------------------------------------------------

@@ -1,10 +1,16 @@
 /**
  * As sementes: tudo o que a pessoa já declarou querer, numa lista só.
  *
- *   comprou    orders            (semeada para as personas — dito no slide)
+ *   comprou    orders + order_items
  *   avise-me   stock_alerts      o sinal mais forte que a loja recebe de graça
- *   favoritou  cookie deco_wishlist
+ *   favoritou  wishlist_items (logado) ∪ cookie deco_wishlist (todos)
  *   viu        cookie deco_recent
+ *
+ * **A wishlist tem duas casas, e as duas contam.** O cookie sempre existiu e é o
+ * que dá look pessoal a quem não entrou; `wishlist_items` é onde o favorito
+ * passa a morar quando há sessão. Ler só o cookie deixava de fora exatamente
+ * quem se identificou — e é essa a pessoa que a feature atende (ver o recorte no
+ * topo de docs/agente-de-combinacoes.md).
  *
  * **Três das quatro já estavam persistidas e ninguém as lia como semente.** Era
  * o buraco que fazia o agente da vitrine depender de um único sinal — e o
@@ -18,7 +24,7 @@
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { readWishlistCookie } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
-import { comprasDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
+import { comprasDe, favoritosDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
 import { lerVistos } from "./look.cookies";
 import type { Semente, SeedKind } from "./look.types";
 
@@ -50,10 +56,11 @@ const FORCA: Record<SeedKind, number> = {
 /**
  * As sementes de quem está fazendo esta requisição.
  *
- * `email` é opcional porque **duas das quatro fontes não precisam de
- * identidade**: favoritos e vistos são cookies de primeira parte. Um visitante
- * deslogado que favoritou três peças tem um look pessoal, e isso é o que faz o
- * momento da demo funcionar sem login.
+ * `email` é opcional porque **duas fontes não precisam de identidade**: o cookie
+ * de favoritos e o de vistos. Um visitante deslogado que favoritou três peças
+ * tem um look pessoal, e isso é o que faz o momento da demo funcionar sem login.
+ * Com sessão, `wishlist_items` entra por cima e o favorito sobrevive à troca de
+ * dispositivo.
  *
  * A identidade nunca vem por parâmetro de quem chama de fora — mesma regra de
  * `notifyMe/subscribe.ts` ("a sessão vence o e-mail do corpo"). Aqui ela vem de
@@ -70,14 +77,22 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
   const favoritos = request ? readWishlistCookie(request).productIDs : [];
   const vistos = lerVistos(request);
 
-  // As quatro em paralelo: são independentes, e serializá-las somaria quatro
-  // idas ao banco no caminho de uma PDP.
-  const [comprados, esperados, favoritados, olhados] = await Promise.all([
-    email ? comprasDe(email) : Promise.resolve([]),
-    email ? findWaitedItems(email, MAX_SEMENTES) : Promise.resolve([]),
-    sementesPorVariante(favoritos, "wishlist", agora),
-    sementesPorHandle(vistos, "recent", agora),
-  ]);
+  // As cinco em paralelo: são independentes, e serializá-las somaria cinco idas
+  // ao banco no caminho de uma PDP.
+  //
+  // A wishlist aparece duas vezes de propósito — ela tem duas casas. O cookie
+  // atende quem não está logado e sempre existiu; `wishlist_items` é onde o
+  // favorito passa a morar quando há sessão. Ler só o cookie deixava de fora
+  // justamente quem se identificou.
+  const [comprados, esperados, favoritadosNoBanco, favoritadosNoCookie, olhados] = await Promise.all(
+    [
+      email ? comprasDe(email) : Promise.resolve([]),
+      email ? findWaitedItems(email, MAX_SEMENTES) : Promise.resolve([]),
+      email ? favoritosDe(email, MAX_SEMENTES) : Promise.resolve([]),
+      sementesPorVariante(favoritos, "wishlist", agora),
+      sementesPorHandle(vistos, "recent", agora),
+    ],
+  );
 
   const esperadasComoSemente: Semente[] = esperados.map((item) => ({
     productGroupId: item.productGroupId,
@@ -93,7 +108,19 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     em: item.waitedAt,
   }));
 
-  return consolidar([...comprados, ...esperadasComoSemente, ...favoritados, ...olhados]);
+  // **O banco vem antes do cookie, e a ordem é a decisão.** `consolidar` fica com
+  // a PRIMEIRA semente de cada produto quando as forças empatam — e as duas
+  // fontes de favorito produzem `kind: "wishlist"`, então empatam sempre. A do
+  // banco carrega o `created_at` verdadeiro; a do cookie carrega `agora` para
+  // tudo. Invertendo, a mesma peça favoritada nas duas casas entraria com data
+  // falsa e o desempate por recência viraria sorteio.
+  return consolidar([
+    ...comprados,
+    ...esperadasComoSemente,
+    ...favoritadosNoBanco,
+    ...favoritadosNoCookie,
+    ...olhados,
+  ]);
 };
 
 /**

@@ -70,7 +70,7 @@ Levantado lendo o código, não os docs.
 | Transporte até o modelo | `shelf.decopilot.ts` `perguntar()` | thread nova por execução, SSE, verificado |
 | Parsing tolerante | `shelf.agent.ts:44` `extrairJson` | o Decopilot não garante saída estruturada |
 | Validação contra os candidatos | `shelf.agent.ts:90` `validar` | descarta, nunca conserta |
-| Favoritos | cookie `deco_wishlist` — `_cookie.ts:6` | semente, **hoje ninguém lê como tal** |
+| Favoritos | cookie `deco_wishlist` — `_cookie.ts:6` | semente (desde 09/08, também de `wishlist_items`) |
 | Avise-me | `stock_alerts` — `alerts.d1.ts` `findWaitedItems` | semente |
 | Reconferir estoque no render | `catalog.d1.ts:390` | preserva a ordem pedida |
 
@@ -295,10 +295,26 @@ leitura, pelo `JOIN`.
 
 | Semente | Onde já está | Falta |
 |---|---|---|
-| Favoritos | cookie `deco_wishlist`, TTL 1 ano | ler no servidor |
+| Favoritos | `wishlist_items` (logado) ∪ cookie `deco_wishlist` (todos) | **nada** — ver a nota abaixo |
 | Avise-me | `stock_alerts` | nada |
 | Vistos | — | cookie `deco_recent`, ~30 min |
 | Comprou | `orders` + `order_items` | **nada** — ver [`pedidos-e-compra-simulada.md`](pedidos-e-compra-simulada.md) |
+
+> **09/08 — a wishlist tem duas casas, e as duas contam.** O cookie sempre
+> existiu e é o que dá look pessoal a quem não entrou. Quando a PR #15 levou o
+> favorito para `wishlist_items`, o agente passaria a **não enxergar justamente
+> quem se identificou** — que é o público desta feature pelo recorte do topo.
+> `favoritosDe()` fecha isso, e `colherSementes` une as duas fontes.
+>
+> **A ordem entre elas é decisão, não acaso:** o banco vem primeiro. `consolidar`
+> fica com a primeira semente de cada produto quando as forças empatam, e as duas
+> casas produzem `wishlist`. A do banco carrega o `created_at` verdadeiro; a do
+> cookie carrega o instante da requisição para tudo. Invertendo, o desempate por
+> recência entre favoritos viraria sorteio.
+>
+> **A migration ainda não está em `main`** (vive na branch da #15). Sem a tabela,
+> a consulta falha, o `catch` devolve `[]`, e o agente segue com o cookie — que é
+> o comportamento anterior. Nada quebra na espera.
 
 > **08/08:** a linha "Comprou" deixou de ser pendência. Existe carrinho, botão de
 > finalizar e tela de pedidos, e a compra é gravada de verdade — o que a torna
