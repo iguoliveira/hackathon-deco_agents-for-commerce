@@ -83,6 +83,12 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     productGroupId: item.productGroupId,
     titulo: item.title,
     tipo: item.productType,
+    // Vazio: `WaitedItem` não carrega tags, e buscá-las custaria uma consulta a
+    // mais no caminho da PDP. A consequência é limitada e vale dizer qual: uma
+    // peça que só foi ESPERADA não contribui para `combinaComOGuardaRoupa` —
+    // ela ainda chega ao modelo com título e tipo, como antes. Compras e
+    // favoritos, que são posse ou intenção declarada, trazem as tags.
+    tags: [],
     kind: "waited" as const,
     em: item.waitedAt,
   }));

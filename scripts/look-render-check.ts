@@ -290,9 +290,12 @@ const main = async (): Promise<void> => {
   ok("handle inventado é descartado", !validadas.some((p) => p.handle.endsWith("x")));
   ok("peça sem motivo é descartada", validadas.length === 1);
 
+  // `tags: []` porque estas duas asserções são sobre `consolidar` — dedup por
+  // produto e desempate por força —, e nenhuma das duas lê tags. Preencher com
+  // tags inventadas daria a impressão de que elas participam do que se mede.
   const sementes: Semente[] = [
-    { productGroupId: "a", titulo: "A", tipo: "T", kind: "recent", em: "2026-08-01" },
-    { productGroupId: "a", titulo: "A", tipo: "T", kind: "purchased", em: "2026-07-01" },
+    { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kind: "recent", em: "2026-08-01" },
+    { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kind: "purchased", em: "2026-07-01" },
   ];
   ok("a mesma peça por dois caminhos vira uma semente só", consolidar(sementes).length === 1);
   ok("e fica com a origem mais forte", consolidar(sementes)[0]?.kind === "purchased");

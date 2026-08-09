@@ -186,6 +186,27 @@ function HeroSlide({ image, mobileImage, href = "/", headline, logo, logoAlt, is
   );
 }
 
+/**
+ * Esqueleto do herói enquanto os produtos em destaque carregam.
+ *
+ * Reproduz a caixa externa exata do componente real — `px-3`, `h-screen`,
+ * `pt-17 pb-3 sm:pt-15` — porque um esqueleto de altura diferente faz a página
+ * inteira pular quando o conteúdo chega. Numa section que ocupa a tela toda, o
+ * salto é a diferença entre "carregando" e "quebrado".
+ *
+ * Existe porque esta section passou a ser diferida: ela resolvia TRÊS
+ * `catalogProductByHandle` antes do primeiro byte (~1,5s cada, medido), e a
+ * home levava 6,5s para responder qualquer coisa — em produção também, não só
+ * no dev.
+ */
+export const LoadingFallback = () => (
+  <div className="flex flex-col gap-2 px-3">
+    <div className="flex h-screen flex-col gap-2 pt-17 pb-3 sm:pt-15">
+      <div className="min-h-0 flex-1 animate-pulse rounded bg-base-200" />
+    </div>
+  </div>
+);
+
 export default function Hero({ slides, categories = [], infoBullets = [], interval }: Props) {
   const id = useId();
   const first = slides[0];
