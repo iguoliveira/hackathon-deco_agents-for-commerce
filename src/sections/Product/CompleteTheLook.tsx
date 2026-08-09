@@ -6,12 +6,20 @@ import Section from "~/components/ui/Section";
 import { useSendEvent } from "~/sdk/useSendEvent";
 import { type LoadingFallbackProps } from "~/types/deco";
 
+/** O nome da section na tela. Ver `Props.titulo`. */
+export const TITULO_PADRAO = "Recomendações Com a sua cara";
+
 export interface Props {
   /**
    * @title O look
-   * @description Resolve com `site/loaders/completeTheLook.ts`. Na PDP, deixe o handle vazio lá.
+   * @description Resolve com `site/loaders/completeTheLook.ts`. Deixe o handle vazio para usar a peça da URL.
    */
   look: LookPersonalizado | null;
+  /**
+   * @title Título da section
+   * @description O nome que aparece na tela. Vazio usa "Recomendações Com a sua cara".
+   */
+  titulo?: string;
   /**
    * @title Mostrar a procedência
    * @description A linha "montado para <cidade>, a partir de N sinais". Deixe ligado na demo — é o que torna a personalização visível.
@@ -34,8 +42,21 @@ export interface Props {
  *
  * Some da página quando não há look. Composição vazia é pior que seção nenhuma.
  */
-export default function CompleteTheLook({ look, mostrarProcedencia = true }: Props) {
+export default function CompleteTheLook({
+  look,
+  titulo,
+  mostrarProcedencia = true,
+}: Props) {
   const todas = look?.blocos.flatMap((bloco) => bloco.pecas) ?? [];
+
+  // O nome da section é FIXO; o `look.titulo` que o agente escreve não vai mais
+  // para a tela. A troca é deliberada: como cabeçalho ele mudava a cada
+  // recarregamento ("Camadas para o frio de SP", "Complete o look casual"), e um
+  // título instável no mesmo lugar da página lê como erro, não como
+  // personalização. O que prova o agente continua na tela — a procedência logo
+  // abaixo, os rótulos de ocasião e o motivo em cada peça —, e o `look.titulo`
+  // segue alimentando a analítica, onde a variação é dado e não ruído.
+  const nome = titulo?.trim() || TITULO_PADRAO;
 
   const viewItemListEvent = useSendEvent({
     on: "view",
@@ -55,7 +76,7 @@ export default function CompleteTheLook({ look, mostrarProcedencia = true }: Pro
   return (
     <Section.Container {...viewItemListEvent}>
       <div className="flex flex-col gap-1">
-        <span className="text-display font-medium text-ink">{look.titulo}</span>
+        <span className="text-display font-medium text-ink">{nome}</span>
         {mostrarProcedencia && (
           // A procedência é o que responde "por que ESTE look?" antes de alguém
           // perguntar — e é a única coisa na tela que prova que a cidade e o
@@ -110,9 +131,13 @@ export default function CompleteTheLook({ look, mostrarProcedencia = true }: Pro
   );
 }
 
-export const LoadingFallback = ({ look }: LoadingFallbackProps<Props>) => (
+// O fallback usa o MESMO nome fixo. Antes ele lia `look?.titulo`, que durante o
+// carregamento é sempre `undefined` — então o cabeçalho nascia vazio e "pulava"
+// quando o look chegava. Com o nome fixo não há salto: o que entra depois são só
+// os cards, no lugar do placeholder.
+export const LoadingFallback = ({ titulo }: LoadingFallbackProps<Props>) => (
   <Section.Container>
-    <Section.Header title={look?.titulo ?? ""} />
+    <Section.Header title={titulo?.trim() || TITULO_PADRAO} />
     <Section.Placeholder height="480px" />
   </Section.Container>
 );

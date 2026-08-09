@@ -4690,7 +4690,13 @@
             ],
             "title": "O look",
             "nullable": true,
-            "description": "Resolve com `site/loaders/completeTheLook.ts`. Na PDP, deixe o handle vazio lá."
+            "description": "Resolve com `site/loaders/completeTheLook.ts`. Deixe o handle vazio para usar a peça da URL."
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true,
+            "title": "Título da section",
+            "description": "O nome que aparece na tela. Vazio usa \"Recomendações Com a sua cara\"."
           },
           "mostrarProcedencia": {
             "type": "boolean",
