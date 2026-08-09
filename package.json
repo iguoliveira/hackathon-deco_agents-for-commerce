@@ -11,6 +11,7 @@
     "db:list": "tsx scripts/migrate.ts --list",
     "db:reset": "tsx scripts/migrate.ts --reset",
     "db:query": "tsx scripts/query.ts",
+    "db:audit": "tsx scripts/db-audit.ts",
     "db:alerts": "tsx scripts/query.ts --file db/queries/waited-items.sql",
     "catalog:generate": "tsx scripts/generate-catalog-migration.ts",
     "catalog:apparel": "tsx scripts/generate-apparel-catalog.ts",
