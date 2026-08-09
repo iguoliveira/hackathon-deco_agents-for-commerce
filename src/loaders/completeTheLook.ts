@@ -64,6 +64,53 @@ const slugDaPagina = (pageUrlProp?: string): string | null => {
 };
 
 /**
+ * O caminho da página que a pessoa está vendo, ou `null` quando não dá para
+ * saber. Mesma precedência de `slugDaPagina`, e pelos mesmos motivos.
+ *
+ * Separado em vez de reaproveitado porque as duas perguntas são diferentes:
+ * aquela quer o ÚLTIMO segmento (a peça), esta quer o caminho INTEIRO.
+ */
+const caminhoDaPagina = (pageUrlProp?: string): string | null => {
+  const daUrl = (valor: string): string | null => {
+    try {
+      return new URL(valor, "http://localhost").pathname;
+    } catch {
+      return null;
+    }
+  };
+
+  try {
+    const header = RequestContext.request.headers.get(PAGE_URL_HEADER);
+    if (header) return daUrl(header);
+  } catch {
+    // RequestContext pode não existir em chamadas isoladas.
+  }
+
+  if (pageUrlProp) return daUrl(pageUrlProp);
+
+  // Sem header e sem prop, NÃO caímos em `RequestContext.request.url`. No
+  // caminho diferido aquela é a URL do `_serverFn`, não a da página — usá-la
+  // aqui faria o guarda decidir sobre o caminho errado, e ele reprovaria a home.
+  return null;
+};
+
+/**
+ * A vitrine do agente só existe na home. Este é o guarda que sustenta isso.
+ *
+ * O decofile já a coloca só lá, mas isso é o estado de hoje: a section continua
+ * registrada, e basta alguém adicioná-la a outra página pelo admin para ela
+ * reaparecer onde não deve. O guarda transforma configuração em regra.
+ *
+ * **Falha ABERTO de propósito.** Quando o caminho não pode ser determinado
+ * (`null`), a section renderiza. A alternativa — esconder na dúvida — troca um
+ * risco por um pior: a section sumiria da própria home sem erro nenhum, com a
+ * página em 200, que é a classe de falha silenciosa que já custou caro neste
+ * repositório. Como o decofile hoje só a monta na home, falhar aberto não abre
+ * buraco real; falhar fechado apagaria a feature.
+ */
+const ehHome = (caminho: string): boolean => caminho.replace(/\/+$/, "") === "";
+
+/**
  * O look que o agente compõe em volta da peça aberta.
  *
  * O handle vem da URL e não de uma prop porque a section vive na PDP, e o
@@ -84,6 +131,11 @@ export default async function completeTheLookLoader(
   { handle, __pageUrl }: Props = {},
   _req?: Request,
 ): Promise<LookPersonalizado | null> {
+  // O guarda vem ANTES de qualquer consulta: uma página que não é a home não
+  // deve nem tocar o banco por causa desta section.
+  const caminho = caminhoDaPagina(__pageUrl);
+  if (caminho !== null && !ehHome(caminho)) return null;
+
   const daUrl = !handle;
   const slug = handle ?? slugDaPagina(__pageUrl);
   if (!slug) return null;
