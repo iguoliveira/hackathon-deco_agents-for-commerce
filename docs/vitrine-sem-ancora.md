@@ -107,22 +107,57 @@ Fica registrado para não ser reinventado sob pressão.
 | `montarCandidatos(variantId, …)` | pool ancorado | vira `catalogoDisponivel()` |
 | `looks.anchor_id` | parte da chave | **sai da chave** |
 | `combinaComOGuardaRoupa` | tags que o candidato divide com o que a pessoa tem | **sobrevive e vira o sinal principal** |
-| `jaTemDesteTipo` | saturação por tipo | sobrevive — e é o que evita a vitrine virar oito camisetas |
+| `jaTemDesteTipo` | freio: "não repita o tipo" | sobrevive como **fato**, não como freio — ver §5 |
+| "não recomende peças parecidas" | 1ª linha do prompt | **morre** — proíbe o que agora se quer |
+| "não empilhe intercambiáveis" | máx. 2 camadas, uma calça só | **morre** — lógica de look pura |
 | `motivo` | relação com a âncora | relação com **a pessoa** |
 | `ocasiao` | função no look (calça, calçado, camada) | **morre** — lista única, ver §5 |
 | persona | entrada da composição | **entrada única** |
 
-### O caso do `combinaComOGuardaRoupa`
+### O caso do `combinaComOGuardaRoupa` — o passo 0
 
-Ele é calculado hoje contra as sementes e era o segundo sinal, atrás de
-`tagsEmComum`. Sem âncora, **ele passa a ser o primeiro** — é o único que
-relaciona candidato e pessoa.
+Ele e calculado contra as sementes e era o segundo sinal, atras de `tagsEmComum`.
+Sem ancora, **ele passa a ser o primeiro** — e o unico que relaciona candidato e
+pessoa.
 
-Mas ele carrega um defeito conhecido que precisa ser consertado **antes**, não
-depois: hoje trata as quatro origens como posse, então "favoritou" e "viu" viram
-"você já tem". Está documentado na #24 e vira PR própria. Numa vitrine sem
-âncora esse campo deixa de ser um sinal entre vários e passa a ser o eixo —
-entrar nele quebrado é diferente de entrar quebrado hoje.
+E ele esta quebrado. `comOGuardaRoupa` (`look.candidates.ts:237`) recebe
+`contexto.sementes` **inteiro** e trata as quatro origens como posse:
+
+| origem | o que e | e posse? |
+|---|---|---|
+| `purchased` | comprou | sim |
+| `wishlist` | favoritou | **nao** — quer |
+| `waited` | pediu avise-me | **nao** — espera |
+| `recent` | viu numa PDP | **nao** — olhou |
+
+O prompt promete o contrario, e nominalmente (`look.prompt.ts:117`):
+
+> *"`combinaComOGuardaRoupa` -> tags que esta peca divide com o que a pessoa **JA
+> TEM**. [...] **nao e "parece com o que ela olha"**, e "funciona com o que ela
+> possui"."*
+
+`recent` e literalmente "o que ela olha". O prompt antecipa o erro e o proibe; o
+codigo o comete.
+
+**Medido**, com uma pessoa que nao comprou nada — so viu um gorro e favoritou
+uma jaqueta:
+
+```
+Winter Hat  [Beanie]     jaTemDesteTipo: Ribbed Beanie
+Chambray Work Shirt      combinaComOGuardaRoupa: classic, layering
+Eco Raglan Hoodie        combinaComOGuardaRoupa: basic, layering, winter
+...10 candidatos marcados como "combina com o que ela ja tem"
+```
+
+Ela nao tem nada. O modelo recebe dez fatos falsos e e instruido a preferir os
+candidatos por causa deles.
+
+**Por que vira bloqueante aqui.** Hoje e um sinal entre varios, e `tagsEmComum`
+carrega a decisao. Na vitrine sem ancora, `tagsEmComum` nao existe —
+`combinaComOGuardaRoupa` e *o* eixo. Entrar com ele quebrado nao e herdar um
+defeito: e construir a feature inteira sobre um fato falso.
+
+Achado e documentado pelo @gustavobaltazar na #24.
 
 ---
 
@@ -157,12 +192,43 @@ de roupa. A regra continua valendo e continua demonstrada: `EixoDaPersona.eixo`
 é `string` pelo mesmo motivo e pelo mesmo argumento. O exemplo mudou de lugar,
 não sumiu.
 
-### Com lista única, `jaTemDesteTipo` vira o guarda principal
+### Variedade NAO e requisito — e o prompt de hoje proibe o contrario
 
-Sem prateleiras por tema, nada na estrutura impede a vitrine de sair com oito
-camisetas — e o catálogo tem 24 delas, contra 6 camisas. O único sinal que
-segura variedade passa a ser `jaTemDesteTipo` mais a instrução do prompt.
-É o que precisa de teste dedicado.
+Oito camisetas e resultado valido. Oito tenis tambem. A vitrine recomenda
+**produtos**, e se o que serve aquela pessoa sao oito camisetas, a vitrine sao
+oito camisetas.
+
+Isso separa esta feature da anterior, e o prompt atual diz o oposto **na primeira
+linha**:
+
+> *"Voce compoe. [...] montar a roupa inteira em volta dela: o que se veste
+> junto, formando um conjunto que funciona.*
+> *Voce nao recomenda pecas parecidas. **Outra camiseta nao completa uma
+> camiseta.**"*
+
+E uma secao inteira reforca:
+
+> *"## NAO EMPILHE PECAS INTERCAMBIAVEIS — Um look e feito de pecas com FUNCOES
+> diferentes [...] Escolha NO MAXIMO DOIS deles [...] O mesmo vale para baixo:
+> uma calca basta."*
+
+Essas duas passagens sao a definicao de "look" em texto. **Elas morrem**, nao sao
+adaptadas — reescrever "no maximo dois casacos" para "no maximo tres" seria
+manter a premissa e mexer no numero.
+
+### O que sobra de `jaTemDesteTipo`
+
+Ele **nao** vira guarda de variedade, porque variedade nao e objetivo. Sobra como
+**fato sobre a pessoa**, util por outro motivo: recomendar a quarta calca preta
+para quem ja tem tres e gastar a vaga com o que ela efetivamente ja tem.
+
+A diferenca e quem decide. O prompt de hoje manda evitar (*"quem ja tem duas
+calcas raramente precisa da terceira"*). O novo apenas informa — e se o retrato
+disser que a pessoa acumula camisetas, acumular mais uma e a recomendacao certa.
+
+**Consequencia:** some o unico freio estrutural contra monotonia, e isso e
+deliberado. O que resta contra uma vitrine ruim e a persona; nao ha regra de
+composicao para se apoiar.
 
 **A chave de cache perde a âncora e ganha nada:** `hashDosSinais` sozinho. É a
 mesma chave da persona, o que significa que persona e vitrine se invalidam
@@ -224,9 +290,11 @@ inteira**, não só o retrato. Se ele estiver frouxo, o defeito não aparece com
 persona ruim: aparece como vitrine aleatória com texto bonito, que é muito mais
 difícil de reconhecer.
 
-E com lista única some a restrição estrutural que as prateleiras davam: nada
-impede oito camisetas. `jaTemDesteTipo` e a instrução do prompt viram o único
-guarda de variedade.
+E nao ha rede de composicao embaixo. No `look`, um resultado ruim ainda era um
+conjunto vestivel, porque as regras de funcao (uma calca, no maximo duas camadas)
+impunham forma mesmo com escolha fraca. **Aqui nao existe forma imposta**: uma
+vitrine ruim e indistinguivel de uma boa em estrutura, so em conteudo. A persona
+e a unica coisa entre o catalogo e a tela.
 
 **O `look:eval` não serve como está.** Ele mede estabilidade de composição em
 volta de uma âncora. Sem âncora, as condições mudam de forma e a comparação com
