@@ -115,6 +115,34 @@
   }
 }
 
+/* Confirmação de "entrou na lista de desejos".
+ *
+ * Só no sentido de ENTRAR. Remover não ganha animação de propósito: comemorar
+ * uma remoção confunde, e o coração esvaziando já conta a história.
+ *
+ * O overshoot (1.35) existe para a mudança ser percebida com o polegar em cima
+ * do botão, que é onde ela acontece no celular — um crescimento suave até 1.1
+ * fica escondido embaixo do dedo. A volta é mais lenta que a ida para o
+ * movimento não parecer um piscar.
+ *
+ * `prefers-reduced-motion` já é coberto pelo bloco global no fim do arquivo,
+ * que zera `animation-duration` em tudo. */
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@utility heart-pop {
+  animation: heartPop var(--duration-base) var(--ease-out-soft);
+}
+
 /* Scroll-reveal primitive — paired with the useRevealOnScroll hook (adds
    data-revealed="true" via IntersectionObserver). Blur+fade+rise on entry. */
 @utility reveal {

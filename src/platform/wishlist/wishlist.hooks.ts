@@ -28,6 +28,15 @@ export function useWishlist() {
 export function useToggleWishlist() {
   const qc = useQueryClient();
   return useMutation({
+    // Serializa todas as alternâncias no mesmo escopo. O servidor devolve o
+    // estado INTEIRO da lista, e `onSuccess` o grava por cima do cache — então
+    // duas requisições em voo que voltassem fora de ordem fariam a resposta
+    // mais antiga apagar a mais nova, e o coração voltaria sozinho ao estado
+    // anterior segundos depois do clique.
+    //
+    // Mesmo padrão de `platform/cart/cart.hooks.ts`, e agora necessário aqui
+    // porque o botão deixou de ficar desabilitado durante a mutação.
+    scope: { id: "wishlist" },
     mutationFn: (input: ToggleWishlistInput): Promise<WishlistState> =>
       toggleWishlistItemServerFn({ data: input }),
     onMutate: async (input) => {
