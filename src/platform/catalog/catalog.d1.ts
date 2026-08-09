@@ -355,6 +355,54 @@ export const findCollectionHandles = async (): Promise<Set<string>> => {
   return collectionHandles;
 };
 
+/**
+ * Lê produtos cujas variantes têm os IDs informados — usado pela wishlist para
+ * carregar apenas os itens desejados, e não o catálogo inteiro.
+ *
+ * Preserva a ordem dos IDs pedidos, e inclui apenas produtos com ao menos uma
+ * variante (o card precisa de preço e URL). Produtos sem variante disponível
+ * são ignorados — o wishlist item some em vez de renderizar um card quebrado.
+ */
+export const findCatalogRecordsByVariantIds = async (
+  variantIds: string[],
+): Promise<CatalogRecord[]> => {
+  const db = getDb();
+  if (!db || variantIds.length === 0) return [];
+
+  const slots = placeholders(variantIds.length);
+  const { results } = await db
+    .prepare(
+      `SELECT p.* FROM products p
+       JOIN variants v ON v.product_group_id = p.product_group_id
+       WHERE v.variant_id IN (${slots})
+       ORDER BY p.position ASC, p.handle ASC`,
+    )
+    .bind(...variantIds)
+    .all<ProductRow>();
+
+  const records = await withChildren(db, results);
+
+  // Preserva a ordem dos IDs pedidos
+  const byVariantId = new Map<string, CatalogRecord>();
+  for (const record of records) {
+    for (const variant of record.variants) {
+      byVariantId.set(variant.variant_id, record);
+    }
+  }
+
+  const seen = new Set<string>();
+  const ordered: CatalogRecord[] = [];
+  for (const id of variantIds) {
+    const record = byVariantId.get(id);
+    if (record && !seen.has(record.product.product_group_id)) {
+      seen.add(record.product.product_group_id);
+      ordered.push(record);
+    }
+  }
+
+  return ordered;
+};
+
 /** Lê um produto pelo handle. `null` quando não existe. */
 export const findCatalogRecordByHandle = async (handle: string): Promise<CatalogRecord | null> => {
   const db = getDb();

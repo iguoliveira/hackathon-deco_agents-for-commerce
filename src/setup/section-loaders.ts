@@ -40,4 +40,11 @@ registerSectionLoaders({
     const mod: any = await import("~/sections/Product/SearchResult");
     return typeof mod.loader === "function" ? mod.loader(props, req) : props;
   },
+  // A wishlist depende da sessão/cookie da requisição. Sem este registro a
+  // section recebe apenas as props do CMS e nunca executa seu loader, deixando
+  // de consultar os itens salvos pelo usuário.
+  "site/sections/Product/Wishlist.tsx": async (props: any, req: Request) => {
+    const mod: any = await import("~/sections/Product/Wishlist");
+    return typeof mod.loader === "function" ? mod.loader(props, req) : props;
+  },
 });

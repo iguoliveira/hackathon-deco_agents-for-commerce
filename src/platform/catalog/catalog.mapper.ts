@@ -143,14 +143,20 @@ const toProduct = (
 
 /**
  * Converte um registro do catálogo no `Product` que representa o produto na
- * vitrine — a primeira variante, com todas as irmãs em `hasVariant`. É a mesma
- * escolha que `productByHandle` faz hoje com o Shopify
- * (src/loaders/productByHandle.ts:29: `variants.nodes[0]`).
+ * vitrine. Sem `variantId`, usa a primeira variante — a mesma escolha que
+ * `productByHandle` faz hoje com o Shopify
+ * (src/loaders/productByHandle.ts:29: `variants.nodes[0]`). Com `variantId`,
+ * preserva a variante selecionada, como na wishlist.
  */
-export const recordToProduct = (record: CatalogRecord, origin: string): Product | null => {
-  const first = record.variants[0];
-  if (!first) return null;
-  return toProduct(record, first, origin, true);
+export const recordToProduct = (
+  record: CatalogRecord,
+  origin: string,
+  variantId?: string,
+): Product | null => {
+  const variant =
+    record.variants.find((candidate) => candidate.variant_id === variantId) ?? record.variants[0];
+  if (!variant) return null;
+  return toProduct(record, variant, origin, true);
 };
 
 /**

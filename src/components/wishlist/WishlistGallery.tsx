@@ -2,7 +2,7 @@ import SearchResult, { Props as SearchResultProps } from "../search/SearchResult
 import { useWishlist } from "../../platform/wishlist";
 import { type SectionProps } from "~/types/deco";
 import type { ProductListingPage, PageInfo, Product } from "@decocms/apps-commerce/types";
-import { listProducts } from "../../platform/catalog/catalog.actions";
+import { getWishlistProducts } from "../../platform/catalog/catalog.actions";
 
 export type Props = SearchResultProps;
 
@@ -30,9 +30,8 @@ export const loader = async (): Promise<{ page: ProductListingPage | null }> => 
 
   const productIds = state.items.map((i) => i.productId);
 
-  // Fetch full product data for wishlist items
-  const products = productIds.length > 0 ? await listProducts({ limit: 50 }) : [];
-  const wishlistProducts = products.filter((p) => productIds.includes(p.productID));
+  // Fetch ONLY the products that are in the user's wishlist
+  const wishlistProducts = productIds.length > 0 ? await getWishlistProducts(productIds) : [];
 
   // Create a ProductListingPage from the wishlist products
   const pageInfo: PageInfo = {
@@ -43,23 +42,28 @@ export const loader = async (): Promise<{ page: ProductListingPage | null }> => 
     previousPage: undefined,
   };
 
-  const page: ProductListingPage | null = wishlistProducts.length > 0 ? {
-    "@type": "ProductListingPage",
-    products: wishlistProducts,
-    filters: [],
-    breadcrumb: {
-      "@type": "BreadcrumbList",
-      numberOfItems: 1,
-      itemListElement: [{ name: "Wishlist", item: "/wishlist", position: 1, "@type": "ListItem" }]
-    },
-    pageInfo,
-    sortOptions: [],
-    seo: {
-      title: "Wishlist",
-      description: "Your saved items",
-      canonical: "/wishlist"
-    }
-  } : null;
+  const page: ProductListingPage | null =
+    wishlistProducts.length > 0
+      ? {
+          "@type": "ProductListingPage",
+          products: wishlistProducts,
+          filters: [],
+          breadcrumb: {
+            "@type": "BreadcrumbList",
+            numberOfItems: 1,
+            itemListElement: [
+              { name: "Wishlist", item: "/wishlist", position: 1, "@type": "ListItem" },
+            ],
+          },
+          pageInfo,
+          sortOptions: [],
+          seo: {
+            title: "Wishlist",
+            description: "Your saved items",
+            canonical: "/wishlist",
+          },
+        }
+      : null;
 
   return { page };
 };

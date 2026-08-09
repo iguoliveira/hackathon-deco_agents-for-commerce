@@ -8,6 +8,7 @@ import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import {
   findCatalogRecordByHandle,
   findCatalogRecords,
+  findCatalogRecordsByVariantIds,
   findCollectionHandles,
   findOptionNames,
   searchCatalog,
@@ -228,4 +229,30 @@ export const getProductDetailsPage = async (slug: string): Promise<ProductDetail
   // O banco guarda o gid completo; o slug carrega só o sufixo numérico.
   const variant = record.variants.find((v) => v.variant_id.endsWith(`/${numericId}`));
   return recordToProductPage(record, origin, variant?.variant_id);
+};
+
+/**
+ * Busca produtos específicos para a wishlist — apenas os variant IDs informados.
+ * Usada exclusivamente pelo loader da página de wishlist.
+ */
+export const getWishlistProducts = async (variantIds: string[]): Promise<Product[]> => {
+  const records = await findCatalogRecordsByVariantIds(variantIds);
+  const origin = currentOrigin();
+
+  // A wishlist guarda o ID da variante. Um mesmo produto pode aparecer com
+  // variantes diferentes, portanto a ordem e a seleção vêm da wishlist, não
+  // da ordem do catálogo nem da primeira variante do produto.
+  const recordByVariantId = new Map<string, (typeof records)[number]>();
+  for (const record of records) {
+    for (const variant of record.variants) {
+      recordByVariantId.set(variant.variant_id, record);
+    }
+  }
+
+  return variantIds
+    .map((variantId) => {
+      const record = recordByVariantId.get(variantId);
+      return record ? recordToProduct(record, origin, variantId) : null;
+    })
+    .filter((product): product is Product => product !== null);
 };

@@ -41,6 +41,7 @@
               nodejs
               pnpm
               yarn
+              codex
               bun
               self.formatter.${system}
             ];
