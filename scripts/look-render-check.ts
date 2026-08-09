@@ -42,6 +42,21 @@ import type { Candidato, Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
 const falhas: string[] = [];
+let pulados = 0;
+
+/**
+ * Marca uma secao como nao executada, em vez de derrubar a suite.
+ *
+ * As secoes 3 e 4 dependem de um look AQUECIDO, e o resto do arquivo nao
+ * depende de nada. Antes, cache frio chamava `process.exit(1)` e levava junto
+ * tudo o que vinha depois — inclusive verificacoes puras que nao tocam banco.
+ * Com o provedor sem token, aquecer nem sempre e possivel, e uma suite que so
+ * roda em dia bom nao e suite.
+ */
+const pular = (secao: string, porque: string): void => {
+  pulados++;
+  console.log(`  [33m~[0m ${secao} PULADA — ${porque}`);
+};
 
 const ok = (nome: string, condicao: boolean, detalhe = ""): void => {
   if (condicao) {
@@ -178,91 +193,90 @@ const main = async (): Promise<void> => {
   // no cache. Este script roda do terminal, então o contexto é sempre
   // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
   if (pelaPagina === null) {
-    console.error(
-      `\n  Não há look gravado para \`${handle}\` no contexto deste terminal.\n` +
-        "  Isso NÃO é falha de renderização — desde que o fallback por SQL caiu, a\n" +
-        "  section só aparece com o cache quente. Aqueça e rode de novo:\n\n" +
-        `      npm run look:warm -- ${handle}\n`,
+    pular(
+      "3 e 4 (renderizacao da PDP)",
+      `sem look aquecido para \`${handle}\` neste contexto. Aqueca com \`npm run look:warm -- ${handle}\``,
     );
-    process.exit(1);
-  }
+  } else {
 
-  ok(
-    "PDP via __pageUrl devolve look",
-    pelaPagina !== null,
-    "o loader não recuperou o slug — voltou ao bug do `_serverFn`",
-  );
-  ok("o look tem blocos", (pelaPagina?.blocos.length ?? 0) > 0);
-  ok(
-    "o look tem pelo menos 4 peças",
-    (pelaPagina?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
-  );
-  ok(
-    "cada peça carrega um produto renderizável (url + preço)",
-    (pelaPagina?.blocos ?? []).every((bloco) =>
-      bloco.pecas.every((peca) => !!peca.product.url && !!peca.product.offers),
-    ),
-  );
-  ok(
-    "a procedência vem preenchida",
-    !!pelaPagina?.lugar && !!pelaPagina?.mes,
-    `lugar="${pelaPagina?.lugar}" mes="${pelaPagina?.mes}"`,
-  );
+    ok(
+      "PDP via __pageUrl devolve look",
+      pelaPagina !== null,
+      "o loader não recuperou o slug — voltou ao bug do `_serverFn`",
+    );
+    ok("o look tem blocos", (pelaPagina?.blocos.length ?? 0) > 0);
+    ok(
+      "o look tem pelo menos 4 peças",
+      (pelaPagina?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
+    );
+    ok(
+      "cada peça carrega um produto renderizável (url + preço)",
+      (pelaPagina?.blocos ?? []).every((bloco) =>
+        bloco.pecas.every((peca) => !!peca.product.url && !!peca.product.offers),
+      ),
+    );
+    ok(
+      "a procedência vem preenchida",
+      !!pelaPagina?.lugar && !!pelaPagina?.mes,
+      `lugar="${pelaPagina?.lugar}" mes="${pelaPagina?.mes}"`,
+    );
 
-  // Uma URL que NÃO é de produto não pode virar look.
-  ok(
-    "URL de PLP não vira look",
-    (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/s?q=tee" })) === null,
-  );
-  ok("sem __pageUrl e sem RequestContext devolve null", (await completeTheLookLoader({})) === null);
+    // Uma URL que NÃO é de produto não pode virar look.
+    ok(
+      "URL de PLP não vira look",
+      (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/s?q=tee" })) === null,
+    );
+    ok("sem __pageUrl e sem RequestContext devolve null", (await completeTheLookLoader({})) === null);
 
-  // A prop fixa continua servindo para fixar uma peça fora da PDP.
-  ok(
-    "prop `handle` explícita continua funcionando",
-    (await completeTheLookLoader({ handle })) !== null,
-  );
+    // A prop fixa continua servindo para fixar uma peça fora da PDP.
+    ok(
+      "prop `handle` explícita continua funcionando",
+      (await completeTheLookLoader({ handle })) !== null,
+    );
 
-  // ------------------------------------------------------------------
-  titulo("4. O que a section vai desenhar");
-  // ------------------------------------------------------------------
-  const look = pelaPagina!;
-  console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
-  console.log(`  procedência: ${look.lugar} em ${look.mes}`);
-  for (const bloco of look.blocos) {
-    console.log(`  ┌─ ${bloco.ocasiao}`);
-    for (const peca of bloco.pecas) {
-      // A MESMA precedência de `ProductCard.tsx:52` (`isVariantOf?.name ??
-      // product.name`). Imprimir `product.name` cru mostraria "XS" e "White",
-      // que são títulos de variante — o script diria que a tela está quebrada
-      // quando ela não está. Mesmo erro que o agrupamento do dry run cometia.
-      console.log(`  │  ${peca.product.isVariantOf?.name ?? peca.product.name}`);
-      if (peca.motivo) console.log(`  │    ${peca.motivo}`);
+    // ------------------------------------------------------------------
+    titulo("4. O que a section vai desenhar");
+    // ------------------------------------------------------------------
+    const look = pelaPagina!;
+    console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
+    console.log(`  procedência: ${look.lugar} em ${look.mes}`);
+    for (const bloco of look.blocos) {
+      console.log(`  ┌─ ${bloco.ocasiao}`);
+      for (const peca of bloco.pecas) {
+        // A MESMA precedência de `ProductCard.tsx:52` (`isVariantOf?.name ??
+        // product.name`). Imprimir `product.name` cru mostraria "XS" e "White",
+        // que são títulos de variante — o script diria que a tela está quebrada
+        // quando ela não está. Mesmo erro que o agrupamento do dry run cometia.
+        console.log(`  │  ${peca.product.isVariantOf?.name ?? peca.product.name}`);
+        if (peca.motivo) console.log(`  │    ${peca.motivo}`);
+      }
     }
-  }
 
-  ok(
-    "nenhum bloco vazio chega à tela",
-    look.blocos.every((bloco) => bloco.pecas.length > 0),
-  );
-  ok(
-    "as ocasiões não se repetem entre blocos",
-    new Set(look.blocos.map((b) => b.ocasiao)).size === look.blocos.length,
-    "duas entradas com o mesmo rótulo viram dois cabeçalhos iguais na tela",
-  );
-  ok(
-    "nenhuma peça duplicada no look inteiro",
-    (() => {
-      const ids = look.blocos.flatMap((b) => b.pecas.map((p) => p.product.productID));
-      return new Set(ids).size === ids.length;
-    })(),
-  );
-  // A invariante que substituiu o fallback: se chegou look, TODA peça tem
-  // motivo. Não há mais o estado "look sem texto" — ver look.types.ts → `Look`.
-  ok(
-    "toda peça na tela carrega um motivo",
-    look.blocos.every((bloco) => bloco.pecas.every((peca) => peca.motivo.trim().length > 0)),
-    "peça sem motivo é o carrossel genérico que esta feature existe para não ser",
-  );
+    ok(
+      "nenhum bloco vazio chega à tela",
+      look.blocos.every((bloco) => bloco.pecas.length > 0),
+    );
+    ok(
+      "as ocasiões não se repetem entre blocos",
+      new Set(look.blocos.map((b) => b.ocasiao)).size === look.blocos.length,
+      "duas entradas com o mesmo rótulo viram dois cabeçalhos iguais na tela",
+    );
+    ok(
+      "nenhuma peça duplicada no look inteiro",
+      (() => {
+        const ids = look.blocos.flatMap((b) => b.pecas.map((p) => p.product.productID));
+        return new Set(ids).size === ids.length;
+      })(),
+    );
+    // A invariante que substituiu o fallback: se chegou look, TODA peça tem
+    // motivo. Não há mais o estado "look sem texto" — ver look.types.ts → `Look`.
+    ok(
+      "toda peça na tela carrega um motivo",
+      look.blocos.every((bloco) => bloco.pecas.every((peca) => peca.motivo.trim().length > 0)),
+      "peça sem motivo é o carrossel genérico que esta feature existe para não ser",
+    );
+
+  }
 
   // ------------------------------------------------------------------
   titulo("5. O cookie de vistos guarda handle, não slug");
