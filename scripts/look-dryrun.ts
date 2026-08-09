@@ -7,6 +7,25 @@
  *   npm run look:dryrun -- vintage-wash-tee-black --candidatos
  *   npm run look:dryrun -- vintage-wash-tee-black --gravar
  *
+ * E, desde a persona (#26):
+ *
+ *   npm run look:dryrun -- <handle> --email ana.escura@demo.local
+ *   npm run look:dryrun -- <handle> --email ana.escura@demo.local --so-persona
+ *   npm run look:dryrun -- <handle> --email ana.escura@demo.local --persona
+ *
+ * `--email` troca as sementes forjadas por um armário DE VERDADE, lido do banco
+ * (`npm run look:armarios` semeia quatro). É a diferença entre "finja que essa
+ * pessoa comprou uma calça" e "leia o que esta pessoa tem".
+ *
+ * `--so-persona` imprime o prompt da síntese e PARA. **Custa zero** — nenhuma
+ * chamada ao modelo — e existe porque iterar num prompt que só dá para ler
+ * depois de pagar 40s por execução é caro demais para valer a pena. Mesmo
+ * argumento que criou este script.
+ *
+ * `--persona` deriva o retrato de verdade (1 chamada), imprime, e compõe a
+ * partir dele. É como se descobre se um motivo estranho veio do retrato ou da
+ * composição — sem ele, as duas etapas são indistinguíveis na saída.
+ *
  * O padrão é não gravar porque o uso comum é iterar no prompt, e cada execução
  * sobrescreveria o look bom da vez anterior por um pior enquanto se experimenta.
  * `--gravar` é o modo "pré-aquecer o roteiro da demo".
@@ -39,6 +58,9 @@ try {
 import { readFileSync } from "node:fs";
 import { comporLook, jaComprados } from "../src/platform/look/look.agent";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
+import { colherSementes } from "../src/platform/look/look.seeds";
+import { derivarPersona } from "../src/platform/look/persona.agent";
+import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
 import { acharAncora, gravarLook } from "../src/platform/look/look.d1";
 import { mesAtual } from "../src/platform/look/look.local";
 import type { Contexto, Local, Semente } from "../src/platform/look/look.types";
@@ -113,7 +135,7 @@ const lerSementes = async (handles: string[]): Promise<Semente[]> => {
 };
 
 /** Flags que consomem o argumento seguinte — o valor delas não é o handle. */
-const FLAGS_COM_VALOR = new Set(["--cidade", "--semente", "--mes"]);
+const FLAGS_COM_VALOR = new Set(["--cidade", "--semente", "--mes", "--email"]);
 
 /**
  * O primeiro argumento solto, ignorando valores de flag.
@@ -148,8 +170,16 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  // `--email` vence `--semente`, e não se somam: misturar armário real com peça
+  // forjada produziria uma medição que ninguém consegue reproduzir depois.
+  //
+  // `colherSementes` fora de um contexto de request contribui zero pelas duas
+  // fontes de cookie (favoritos e vistos) — ele trata `RequestContext.current`
+  // ausente. O que sobra é `orders` ∪ `stock_alerts`, que é exatamente o que o
+  // `look:armarios` semeia.
+  const email = valoresDe(args, "--email")[0];
   const contexto: Contexto = {
-    sementes: await lerSementes(valoresDe(args, "--semente")),
+    sementes: email ? await colherSementes(email) : await lerSementes(valoresDe(args, "--semente")),
     local: lerCidade(args),
     mes: valoresDe(args, "--mes")[0] ?? mesAtual(),
   };
@@ -163,10 +193,51 @@ const main = async (): Promise<void> => {
     `lugar: ${[contexto.local.cidade, contexto.local.regiao, contexto.local.pais].filter(Boolean).join(", ")}  ·  mês: ${contexto.mes}`,
   );
   if (contexto.sementes.length === 0) {
-    console.log("sementes: nenhuma (visitante sem histórico)");
+    console.log(
+      email
+        ? `sementes: NENHUMA para ${email} — rode \`npm run look:armarios\``
+        : "sementes: nenhuma (visitante sem histórico)",
+    );
   } else {
+    if (email) console.log(`armário de ${email}:`);
     for (const s of contexto.sementes) {
       console.log(`sementes: ${s.titulo} [${s.tipo}] — ${s.kinds.join(" e ")}`);
+    }
+  }
+
+  // --- a passada 1 --------------------------------------------------------
+  //
+  // `derivarPersona` e não `obterPersona`: o dry run **não toca no cache**. Ler
+  // um retrato gravado devolveria o de uma execução anterior, e quem está
+  // iterando no prompt veria a versão velha achando que é a nova — que é a pior
+  // falha possível numa ferramenta de iteração.
+  if (args.includes("--so-persona")) {
+    console.log(`
+=== O PROMPT DA SÍNTESE (nenhuma chamada ao modelo) ===
+`);
+    console.log(montarMensagemDaPersona(contexto.sementes));
+    console.log(`
+--- ${contexto.sementes.length} sinal(is) · fim do prompt ---`);
+    process.exit(0);
+  }
+
+  if (args.includes("--persona")) {
+    console.log(`
+=== A PERSONA ===`);
+    const { persona, porque } = await derivarPersona(contexto.sementes);
+
+    if (!persona) {
+      // Não é erro. Para o armário `diego.disperso` é o resultado ESPERADO, e é
+      // o que prova que o modelo sabe se recusar.
+      console.log(`sem retrato — ${porque}`);
+      console.log("a composição segue pelas sementes, como para quem não tem histórico.");
+    } else {
+      console.log(`confiança: ${persona.confianca}`);
+      for (const e of persona.eixos) {
+        console.log(`  ${e.eixo}: ${e.valor}`);
+        console.log(`      ← ${e.evidencia.join(" · ")}`);
+      }
+      contexto.persona = persona;
     }
   }
 
