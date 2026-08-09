@@ -188,9 +188,54 @@ PDP logado como ela. Um `--cidade` e um `--email` no `look:warm` fechariam isso
 num comando; enquanto não existem, o pré-aquecimento é manual e vai no checklist
 do dia.
 
-Falha **não grava**. Persistir um look de consolação ensinaria o cache a servir
-a falha; sem linha, o próximo carregamento tenta de novo, que é o certo quando a
-causa provável é saturação do provedor.
+Falha **grava um marcador, e não um look** — e a distinção é a correção da
+issue #19.
+
+A regra original era "falha não grava nada", com um argumento que parecia
+completo: persistir um look de consolação ensinaria o cache a servir a falha, e
+sem linha o próximo carregamento tenta de novo, que é o certo quando a causa
+provável é saturação do provedor. O que faltava é o caso em que a geração
+**nunca converge**. Aí "tenta de novo" deixa de ser resiliência e vira laço:
+cada pageview abre uma chamada de até 120s que falha e não deixa rastro, e o
+sistema responde a *"o provedor está saturado"* **gerando mais carga**. Com a
+section na home (`956b252`), isso passou a ser toda visita — bot, preview da
+Vercel e health check inclusive.
+
+O marcador preserva a intenção e corta o laço:
+
+- `origem = 'falha'`, `titulo` e `pecas` vazios, motivo em `motivo_do_fallback`
+  — as colunas que a `0014` já tinha e que ficaram ociosas quando o fallback por
+  SQL caiu. **Nenhuma migration.**
+- **A quarentena é por PEÇA, não pelo par `(peça, contexto)`.** Uma linha por
+  âncora, sob o `contexto_hash` reservado `__falha__` (que não colide com nada:
+  `hashDoContexto` só produz base36). A primeira versão usava o par e tinha um
+  furo que anulava quase todo o conserto: `marcarVisita` grava `deco_recent` em
+  toda PDP, `colherSementes` lê esse cookie e o hash inclui as sementes — então
+  quem navega gera um contexto novo a cada página, e um par novo nunca teve
+  marcador. A quarentena não errava; nunca era consultada. Para visitante
+  anônimo, que não tem sinal mais forte que `recent`, era o caso comum.
+  Por peça fecha, e pelo motivo certo: **"modelo indisponível" é propriedade do
+  provedor, não do contexto** — a peça é a chave mais fina que ainda faz sentido.
+  `lerLook` continua com a chave completa, então **nada disto muda o que alguém
+  vê**.
+- `lerLook` já ignora `origem <> 'agente'`, então o marcador **não pode virar
+  look na tela**. A regra do título desta seção continua intacta.
+- O retry continua existindo, só que **espaçado**: `TTL_FALHA_MINUTOS = 10` em
+  `look.actions.ts`. Dez minutos é o maior valor que ainda deixa a demo se
+  recuperar sozinha sem alguém rodar nada.
+- O `UPSERT` do marcador tem `WHERE looks.origem <> 'agente'`. Sem isso, um
+  `look:warm` rodado com o provedor fora **apagaria** os looks bons já gravados —
+  destruindo exatamente o cache que se queria proteger.
+
+Uma segunda camada cobre o que o marcador não alcança: o `Set` `emVoo`, em
+`look.actions.ts`, impede que a rajada de pageviews **durante** os 120s da
+primeira tentativa dispare N gerações da mesma coisa. Ele é por instância e o
+comentário no código diz isso — o marcador é quem cobre entre instâncias e entre
+visitas. Um lock de verdade seria um `INSERT` de reserva antes de chamar o
+modelo; vale se isto sair da demo.
+
+O sucesso limpa a quarentena sozinho: `gravarLook` sobrescreve a linha inteira,
+zerando `motivo_do_fallback` e devolvendo `origem = 'agente'`.
 
 ### A chave do cache
 
