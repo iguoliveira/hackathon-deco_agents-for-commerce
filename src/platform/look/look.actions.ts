@@ -23,6 +23,7 @@ import { donoDaVitrine } from "../shelf/shelf.identity";
 import { gerarLook, jaComprados, MIN_PECAS } from "./look.agent";
 import { montarCandidatos } from "./look.candidates";
 import { acharAncora, falhaRecente, lerLook } from "./look.d1";
+import { fnv1a } from "./look.hash";
 import { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
 import { colherSementes } from "./look.seeds";
 import type { Contexto, Look } from "./look.types";
@@ -62,38 +63,27 @@ export interface LookPersonalizado {
 }
 
 /**
- * Hash do contexto, em código, sem `node:crypto`.
+ * Hash do contexto. O primitivo e o porquê de não ser `node:crypto` moram em
+ * `look.hash.ts`, que a persona também usa.
  *
- * FNV-1a: rápido, estável entre processos e suficiente para uma chave de cache.
- * Colisão aqui serve um look ligeiramente errado a alguém, não abre falha de
- * segurança — se fosse assinatura de cookie, a escolha seria outra
- * (`shelf.cookie.ts` usa HMAC de propósito).
- *
- * **Não usar `node:crypto` é uma decisão, não conveniência.** O dynamic import
- * dos loaders em `setup.ts` arrasta este grafo para o bundle do cliente, e o
- * Rollup falha com `"createHash" is not exported by "__vite-browser-external"`.
- * Typecheck e dev não pegam — só o build do client. Já custou um stub em
- * `vite.config.ts` uma vez; ver docs/agente-vitrine.md → Armadilhas.
+ * **A persona NÃO entra aqui**, ainda que esteja no `Contexto`. Ela é derivada
+ * das sementes, que já estão no hash — somá-la poria a mesma informação duas
+ * vezes na chave, e faria uma síntese que falhou invalidar um cache de look
+ * perfeitamente bom.
  */
-const hashDoContexto = (contexto: Contexto): string => {
-  // As sementes entram ORDENADAS: a mesma pessoa com as mesmas peças precisa
-  // gerar a mesma chave, e a ordem que chega de `colherSementes` depende de
-  // recência, que muda a cada visita. Sem o sort, o cache nunca acertaria.
-  const material = [
-    ...contexto.sementes.map((s) => `${s.kind}:${s.productGroupId}`).sort(),
-    contexto.local.cidade,
-    contexto.local.regiao,
-    contexto.local.pais,
-    contexto.mes,
-  ].join("|");
-
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < material.length; i++) {
-    hash ^= material.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(36);
-};
+const hashDoContexto = (contexto: Contexto): string =>
+  fnv1a(
+    [
+      // As sementes entram ORDENADAS: a mesma pessoa com as mesmas peças precisa
+      // gerar a mesma chave, e a ordem que chega de `colherSementes` é a de
+      // recência, que muda a cada visita. Sem o sort, o cache nunca acertaria.
+      ...contexto.sementes.map((s) => `${[...s.kinds].sort().join(",")}:${s.productGroupId}`).sort(),
+      contexto.local.cidade,
+      contexto.local.regiao,
+      contexto.local.pais,
+      contexto.mes,
+    ].join("|"),
+  );
 
 /**
  * Quanto tempo um par (peça, contexto) que falhou fica em quarentena.

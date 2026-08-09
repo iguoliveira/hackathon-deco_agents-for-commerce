@@ -20,32 +20,24 @@ import { readWishlistCookie } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
 import { comprasDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
 import { lerVistos } from "./look.cookies";
-import type { Semente, SeedKind } from "./look.types";
+import type { Semente } from "./look.types";
 
 /**
- * Quantas sementes chegam ao prompt.
+ * Quantos "avise-me" o banco devolve. **Não é o teto do prompt** — é o limite da
+ * consulta, e ele existe porque `findWaitedItems` sempre pediu um.
  *
- * Não é economia de token à toa: acima disso o modelo começa a compor "para
- * todo mundo" — dez sinais de tipos diferentes descrevem um guarda-roupa, não
- * uma pessoa montando uma roupa. Melhor cortar por força e recência, em código,
- * do que deixar o modelo cortar por posição.
- */
-const MAX_SEMENTES = 6;
-
-/**
- * Peso de cada origem no desempate. Reflete o que cada sinal custou a quem o
- * emitiu, e essa é a única ordenação que o sistema faz sobre sementes.
+ * O teto do prompt caiu. Ele dizia:
  *
- * `purchased` na frente porque é o único que custou dinheiro. `recent` por
- * último porque olhar não é querer — entra para dar contexto quando não há
- * nada melhor, e sai do caminho assim que houver.
+ *   > "acima disso o modelo começa a compor 'para todo mundo' — dez sinais de
+ *   > tipos diferentes descrevem um guarda-roupa, não uma pessoa montando uma
+ *   > roupa"
+ *
+ * O diagnóstico estava certo e a conclusão era de composição. Descrever o
+ * guarda-roupa é exatamente o que a síntese da persona quer, então separar as
+ * duas tarefas tira a razão de cortar: a passada 1 recebe o armário inteiro, a
+ * passada 2 recebe um retrato compacto. Ver docs/persona-do-guarda-roupa.md §4.
  */
-const FORCA: Record<SeedKind, number> = {
-  purchased: 4,
-  waited: 3,
-  wishlist: 2,
-  recent: 1,
-};
+const LIMITE_DE_ESPERADOS = 12;
 
 /**
  * As sementes de quem está fazendo esta requisição.
@@ -74,7 +66,7 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
   // idas ao banco no caminho de uma PDP.
   const [comprados, esperados, favoritados, olhados] = await Promise.all([
     email ? comprasDe(email) : Promise.resolve([]),
-    email ? findWaitedItems(email, MAX_SEMENTES) : Promise.resolve([]),
+    email ? findWaitedItems(email, LIMITE_DE_ESPERADOS) : Promise.resolve([]),
     sementesPorVariante(favoritos, "wishlist", agora),
     sementesPorHandle(vistos, "recent", agora),
   ]);
@@ -89,7 +81,7 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     // ela ainda chega ao modelo com título e tipo, como antes. Compras e
     // favoritos, que são posse ou intenção declarada, trazem as tags.
     tags: [],
-    kind: "waited" as const,
+    kinds: ["waited" as const],
     em: item.waitedAt,
   }));
 
@@ -97,24 +89,40 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
 };
 
 /**
- * Deduplica por produto e ordena por força, depois por recência.
+ * Agrupa por produto, **unindo** as origens. Sem teto e sem pesos.
  *
- * **A mesma peça pode chegar por dois caminhos** — favoritar e depois comprar é
- * o percurso normal, não a exceção —, e nesse caso a origem mais forte é a que
- * fica. Sem isto o mesmo produto ocuparia duas das seis vagas e empurraria para
- * fora um sinal genuinamente diferente.
+ * A mesma peça chega por dois caminhos o tempo todo — favoritar e depois comprar
+ * é o percurso normal. A versão anterior escolhia a origem "mais forte" e
+ * descartava a outra, e escolher exigia a tabela de pesos que nunca foi medida.
+ * Unir dissolve a pergunta: *"comprou, e já tinha favoritado"* é mais informação
+ * que qualquer um dos dois, e o modelo decide o que fazer com ela.
+ *
+ * As tags também se unem, pelo mesmo motivo prático: um "avise-me" chega sem
+ * tags (`findWaitedItems` não as carrega) e a mesma peça vinda de uma compra
+ * chega com elas. Ficar com a lista vazia por ordem de chegada empobreceria
+ * `combinaComOGuardaRoupa` por acidente.
+ *
+ * A ordenação final é **cronológica, não hierárquica**: o mais recente primeiro,
+ * o que é fato sobre os sinais e não julgamento sobre eles.
  */
 export const consolidar = (todas: Semente[]): Semente[] => {
   const porProduto = new Map<string, Semente>();
 
   for (const semente of todas) {
     const atual = porProduto.get(semente.productGroupId);
-    if (!atual || FORCA[semente.kind] > FORCA[atual.kind]) {
-      porProduto.set(semente.productGroupId, semente);
+
+    if (!atual) {
+      porProduto.set(semente.productGroupId, { ...semente, kinds: [...semente.kinds] });
+      continue;
     }
+
+    for (const kind of semente.kinds) {
+      if (!atual.kinds.includes(kind)) atual.kinds.push(kind);
+    }
+    atual.tags = [...new Set([...atual.tags, ...semente.tags])];
+    // O `em` da semente é o sinal mais recente dela — é o que a ordenação usa.
+    if (semente.em > atual.em) atual.em = semente.em;
   }
 
-  return [...porProduto.values()]
-    .sort((a, b) => FORCA[b.kind] - FORCA[a.kind] || b.em.localeCompare(a.em))
-    .slice(0, MAX_SEMENTES);
+  return [...porProduto.values()].sort((a, b) => b.em.localeCompare(a.em));
 };
