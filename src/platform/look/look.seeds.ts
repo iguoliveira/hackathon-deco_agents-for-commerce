@@ -12,6 +12,11 @@
  * quem se identificou — e é essa a pessoa que a feature atende (ver o recorte no
  * topo de docs/agente-de-combinacoes.md).
  *
+ * As duas entram como a mesma origem, `wishlist`, e **nenhuma vale mais que a
+ * outra**: não há peso aqui, nem entre as fontes nem dentro delas. O que a do
+ * banco tem a mais é a data em que cada favorito foi feito, e é só nisso que ela
+ * é preferida — ver o filtro em `colherSementes`.
+ *
  * **Três das quatro já estavam persistidas e ninguém as lia como semente.** Era
  * o buraco que fazia o agente da vitrine depender de um único sinal — e o
  * diagnóstico "só entra quem clicou num produto esgotado" já estava escrito em
@@ -26,32 +31,39 @@ import { readWishlistCookie } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
 import { comprasDe, favoritosDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
 import { lerVistos } from "./look.cookies";
-import type { Semente, SeedKind } from "./look.types";
+import type { Semente } from "./look.types";
 
 /**
- * Quantas sementes chegam ao prompt.
+ * Quantos "avise-me" o banco devolve. **Não é o teto do prompt** — é o limite da
+ * consulta, e ele existe porque `findWaitedItems` sempre pediu um.
  *
- * Não é economia de token à toa: acima disso o modelo começa a compor "para
- * todo mundo" — dez sinais de tipos diferentes descrevem um guarda-roupa, não
- * uma pessoa montando uma roupa. Melhor cortar por força e recência, em código,
- * do que deixar o modelo cortar por posição.
+ * O teto do prompt caiu. Ele dizia:
+ *
+ *   > "acima disso o modelo começa a compor 'para todo mundo' — dez sinais de
+ *   > tipos diferentes descrevem um guarda-roupa, não uma pessoa montando uma
+ *   > roupa"
+ *
+ * O diagnóstico estava certo e a conclusão era de composição. Descrever o
+ * guarda-roupa é exatamente o que a síntese da persona quer, então separar as
+ * duas tarefas tira a razão de cortar: a passada 1 recebe o armário inteiro, a
+ * passada 2 recebe um retrato compacto. Ver docs/persona-do-guarda-roupa.md §4.
  */
-const MAX_SEMENTES = 6;
+const LIMITE_DE_ESPERADOS = 12;
 
 /**
- * Peso de cada origem no desempate. Reflete o que cada sinal custou a quem o
- * emitiu, e essa é a única ordenação que o sistema faz sobre sementes.
+ * Quantos favoritos o banco devolve. **Também não é teto de prompt** — pelo
+ * mesmo motivo que o de cima deixou de ser: a passada 1 quer o armário inteiro.
  *
- * `purchased` na frente porque é o único que custou dinheiro. `recent` por
- * último porque olhar não é querer — entra para dar contexto quando não há
- * nada melhor, e sai do caminho assim que houver.
+ * É um limite de consulta, e existe porque uma wishlist não tem tamanho máximo:
+ * sem `LIMIT`, uma pessoa com trezentos favoritos traria trezentas linhas com
+ * tags para dentro do caminho de uma PDP. Doze é o mesmo número dos esperados,
+ * e por nenhuma razão mais nobre que a de não inventar um segundo número sem
+ * medida para justificá-lo.
+ *
+ * O corte é pelos **mais recentes** (`ORDER BY created_at DESC` em
+ * `favoritosDe`), que é a única ordem que o dado permite sem julgar os sinais.
  */
-const FORCA: Record<SeedKind, number> = {
-  purchased: 4,
-  waited: 3,
-  wishlist: 2,
-  recent: 1,
-};
+const LIMITE_DE_FAVORITOS = 12;
 
 /**
  * As sementes de quem está fazendo esta requisição.
@@ -59,8 +71,8 @@ const FORCA: Record<SeedKind, number> = {
  * `email` é opcional porque **duas fontes não precisam de identidade**: o cookie
  * de favoritos e o de vistos. Um visitante deslogado que favoritou três peças
  * tem um look pessoal, e isso é o que faz o momento da demo funcionar sem login.
- * Com sessão, `wishlist_items` entra por cima e o favorito sobrevive à troca de
- * dispositivo.
+ * Com sessão, `wishlist_items` entra **ao lado** do cookie e o favorito
+ * sobrevive à troca de dispositivo.
  *
  * A identidade nunca vem por parâmetro de quem chama de fora — mesma regra de
  * `notifyMe/subscribe.ts` ("a sessão vence o e-mail do corpo"). Aqui ela vem de
@@ -84,15 +96,14 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
   // atende quem não está logado e sempre existiu; `wishlist_items` é onde o
   // favorito passa a morar quando há sessão. Ler só o cookie deixava de fora
   // justamente quem se identificou.
-  const [comprados, esperados, favoritadosNoBanco, favoritadosNoCookie, olhados] = await Promise.all(
-    [
+  const [comprados, esperados, favoritadosNoBanco, favoritadosNoCookie, olhados] =
+    await Promise.all([
       email ? comprasDe(email) : Promise.resolve([]),
-      email ? findWaitedItems(email, MAX_SEMENTES) : Promise.resolve([]),
-      email ? favoritosDe(email, MAX_SEMENTES) : Promise.resolve([]),
+      email ? findWaitedItems(email, LIMITE_DE_ESPERADOS) : Promise.resolve([]),
+      email ? favoritosDe(email, LIMITE_DE_FAVORITOS) : Promise.resolve([]),
       sementesPorVariante(favoritos, "wishlist", agora),
       sementesPorHandle(vistos, "recent", agora),
-    ],
-  );
+    ]);
 
   const esperadasComoSemente: Semente[] = esperados.map((item) => ({
     productGroupId: item.productGroupId,
@@ -104,44 +115,74 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     // ela ainda chega ao modelo com título e tipo, como antes. Compras e
     // favoritos, que são posse ou intenção declarada, trazem as tags.
     tags: [],
-    kind: "waited" as const,
+    kinds: ["waited" as const],
     em: item.waitedAt,
   }));
 
-  // **O banco vem antes do cookie, e a ordem é a decisão.** `consolidar` fica com
-  // a PRIMEIRA semente de cada produto quando as forças empatam — e as duas
-  // fontes de favorito produzem `kind: "wishlist"`, então empatam sempre. A do
-  // banco carrega o `created_at` verdadeiro; a do cookie carrega `agora` para
-  // tudo. Invertendo, a mesma peça favoritada nas duas casas entraria com data
-  // falsa e o desempate por recência viraria sorteio.
+  // **O cookie não repete o que o banco já sabe.**
+  //
+  // `consolidar` une as origens e fica com o `em` MAIS RECENTE. O cookie não
+  // guarda quando cada favorito foi feito, então `sementesPorVariante` carimba
+  // `agora` em todos — e para uma peça favoritada nas duas casas esse carimbo é
+  // sempre mais novo que o `created_at` verdadeiro. Ele venceria a comparação, e
+  // a peça subiria ao topo da ordem cronológica com uma data inventada,
+  // empurrando para baixo sinais que de fato aconteceram depois dela.
+  //
+  // Descartar a entrada do cookie não perde nada: é a mesma peça, com o mesmo
+  // `kinds: ["wishlist"]`, só que com data pior. O filtro é por
+  // `productGroupId` — a mesma chave por que `consolidar` agrupa —, então duas
+  // variantes da mesma peça também não escapam.
+  //
+  // Isto não restaura hierarquia entre as fontes: nenhuma vence a outra por ser
+  // mais "forte". O banco é preferido num ponto só, o da data, e por ser o único
+  // dos dois que a tem.
+  const jaVeioDoBanco = new Set(favoritadosNoBanco.map((s) => s.productGroupId));
+  const cookieSemRepetir = favoritadosNoCookie.filter((s) => !jaVeioDoBanco.has(s.productGroupId));
+
   return consolidar([
     ...comprados,
     ...esperadasComoSemente,
     ...favoritadosNoBanco,
-    ...favoritadosNoCookie,
+    ...cookieSemRepetir,
     ...olhados,
   ]);
 };
 
 /**
- * Deduplica por produto e ordena por força, depois por recência.
+ * Agrupa por produto, **unindo** as origens. Sem teto e sem pesos.
  *
- * **A mesma peça pode chegar por dois caminhos** — favoritar e depois comprar é
- * o percurso normal, não a exceção —, e nesse caso a origem mais forte é a que
- * fica. Sem isto o mesmo produto ocuparia duas das seis vagas e empurraria para
- * fora um sinal genuinamente diferente.
+ * A mesma peça chega por dois caminhos o tempo todo — favoritar e depois comprar
+ * é o percurso normal. A versão anterior escolhia a origem "mais forte" e
+ * descartava a outra, e escolher exigia a tabela de pesos que nunca foi medida.
+ * Unir dissolve a pergunta: *"comprou, e já tinha favoritado"* é mais informação
+ * que qualquer um dos dois, e o modelo decide o que fazer com ela.
+ *
+ * As tags também se unem, pelo mesmo motivo prático: um "avise-me" chega sem
+ * tags (`findWaitedItems` não as carrega) e a mesma peça vinda de uma compra
+ * chega com elas. Ficar com a lista vazia por ordem de chegada empobreceria
+ * `combinaComOGuardaRoupa` por acidente.
+ *
+ * A ordenação final é **cronológica, não hierárquica**: o mais recente primeiro,
+ * o que é fato sobre os sinais e não julgamento sobre eles.
  */
 export const consolidar = (todas: Semente[]): Semente[] => {
   const porProduto = new Map<string, Semente>();
 
   for (const semente of todas) {
     const atual = porProduto.get(semente.productGroupId);
-    if (!atual || FORCA[semente.kind] > FORCA[atual.kind]) {
-      porProduto.set(semente.productGroupId, semente);
+
+    if (!atual) {
+      porProduto.set(semente.productGroupId, { ...semente, kinds: [...semente.kinds] });
+      continue;
     }
+
+    for (const kind of semente.kinds) {
+      if (!atual.kinds.includes(kind)) atual.kinds.push(kind);
+    }
+    atual.tags = [...new Set([...atual.tags, ...semente.tags])];
+    // O `em` da semente é o sinal mais recente dela — é o que a ordenação usa.
+    if (semente.em > atual.em) atual.em = semente.em;
   }
 
-  return [...porProduto.values()]
-    .sort((a, b) => FORCA[b.kind] - FORCA[a.kind] || b.em.localeCompare(a.em))
-    .slice(0, MAX_SEMENTES);
+  return [...porProduto.values()].sort((a, b) => b.em.localeCompare(a.em));
 };

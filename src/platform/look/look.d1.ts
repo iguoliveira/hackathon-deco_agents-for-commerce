@@ -1,12 +1,21 @@
 /**
- * Único arquivo com SQL de `looks`, `orders` e da resolução de sementes.
+ * Único arquivo com SQL de `looks`, `personas`, `orders` e da resolução de
+ * sementes.
  *
  * Nada aqui lança: quem consome é uma section, e look vazio é resultado
  * aceitável — derrubar a PDP por causa dele não é.
  */
 
 import { getDb } from "../db";
-import type { Ancora, Look, PecaDoLook, Semente, SeedKind } from "./look.types";
+import type {
+  Ancora,
+  EixoDaPersona,
+  Look,
+  PecaDoLook,
+  Persona,
+  Semente,
+  SeedKind,
+} from "./look.types";
 
 // ---------------------------------------------------------------------------
 // Sementes
@@ -60,7 +69,7 @@ export const sementesPorVariante = async (
       titulo: linha.title,
       tipo: linha.product_type ?? "",
       tags: linha.tags ?? [],
-      kind,
+      kinds: [kind],
       em,
     }));
   } catch (erro) {
@@ -99,7 +108,7 @@ export const sementesPorHandle = async (
         titulo: linha.title,
         tipo: linha.product_type ?? "",
         tags: linha.tags ?? [],
-        kind,
+        kinds: [kind],
         em,
         _pos: posicaoNoCookie.get(linha.handle) ?? Number.MAX_SAFE_INTEGER,
       }))
@@ -154,7 +163,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
       titulo: linha.title,
       tipo: linha.product_type ?? "",
       tags: linha.tags ?? [],
-      kind: "purchased" as const,
+      kinds: ["purchased" as const],
       em: linha.created_at,
     }));
   } catch (erro) {
@@ -175,32 +184,40 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
  *
  * Quem une as duas é `colherSementes`; aqui só sai a metade do banco.
  *
- * **`created_at` real, não `now()`.** As seis vagas de semente são disputadas
- * por força e depois por recência, e o cookie não guarda quando cada favorito
- * foi feito — todos entram com o mesmo instante e o desempate vira sorteio. Com
- * a data verdadeira, quem tem doze favoritos vê os últimos chegarem ao prompt,
- * que é o que qualquer pessoa esperaria.
+ * **`created_at` real, não `now()`.** É a única coisa que esta fonte tem e a do
+ * cookie não: o cookie guarda uma lista de ids, sem quando. Depois que a
+ * pesagem de sementes caiu (ver `consolidar`), a ordem que chega ao modelo é
+ * cronológica — então a data deixou de ser critério de desempate e passou a ser
+ * a própria ordenação. Uma data inventada aqui não empataria nada; mentiria.
  *
- * **`wishlist_items` pode não existir.** A migration que a cria vive na branch
- * da PR #15 e ainda não está em `main`; num clone limpo esta consulta falha, o
- * `catch` devolve `[]`, e o agente segue com o cookie — que é o comportamento
- * de hoje. Nada quebra enquanto a #15 não entra.
+ * **`wishlist_items` pode não existir** num banco que não rodou a `0015`. A
+ * consulta falha, o `catch` devolve `[]`, e o agente segue com o cookie — que é
+ * o comportamento de quem não está logado. Nada quebra.
  */
 export const favoritosDe = async (email: string, limite: number): Promise<Semente[]> => {
   const db = getDb();
   if (!db) return [];
 
   try {
+    // Duas camadas, e a de fora não é enfeite. `DISTINCT ON` exige que o
+    // `ORDER BY` comece pela coluna distinta, então o de dentro ordena por
+    // produto — e um `LIMIT` ali cortaria por `product_group_id`, que é ordem
+    // alfabética de id. Quem tivesse trinta favoritos receberia doze
+    // arbitrários em vez dos doze últimos. A camada de fora reordena por data e
+    // só então corta.
     const { results } = await db
       .prepare(
-        `SELECT DISTINCT ON (p.product_group_id)
-                p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO},
-                to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
-           FROM wishlist_items w
-           JOIN variants v ON v.variant_id = w.product_id
-           JOIN products p ON p.product_group_id = v.product_group_id
-          WHERE w.user_id = ?
-          ORDER BY p.product_group_id, w.created_at DESC
+        `SELECT * FROM (
+           SELECT DISTINCT ON (p.product_group_id)
+                  p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO},
+                  to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+             FROM wishlist_items w
+             JOIN variants v ON v.variant_id = w.product_id
+             JOIN products p ON p.product_group_id = v.product_group_id
+            WHERE w.user_id = ?
+            ORDER BY p.product_group_id, w.created_at DESC
+         ) AS por_produto
+          ORDER BY created_at DESC
           LIMIT ?`,
       )
       .bind(email, limite)
@@ -211,11 +228,12 @@ export const favoritosDe = async (email: string, limite: number): Promise<Sement
       titulo: linha.title,
       tipo: linha.product_type ?? "",
       tags: linha.tags ?? [],
-      kind: "wishlist" as const,
+      // Lista, não valor único: a mesma peça pode chegar por outras origens, e
+      // `consolidar` une as listas em vez de escolher uma vencedora.
+      kinds: ["wishlist" as const],
       em: linha.created_at,
     }));
   } catch (erro) {
-    // Inclui "relation wishlist_items does not exist" enquanto a #15 não entra.
     console.error("[look] favoritosDe falhou", erro);
     return [];
   }
@@ -513,6 +531,167 @@ export const falhaRecente = async (anchorId: string, minutos: number): Promise<b
     return !!linha;
   } catch (erro) {
     console.error("[look] falhaRecente falhou", erro);
+    return false;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Personas — o retrato do guarda-roupa
+// ---------------------------------------------------------------------------
+//
+// Mora neste arquivo, e não num `persona.d1.ts`, pela mesma razão que `orders`
+// mora aqui: o cabeçalho promete "único arquivo com SQL", e a persona é lida
+// exatamente no mesmo caminho que o look. Dois arquivos de SQL para o mesmo
+// fluxo é onde uma segunda `getDb` começa a divergir da primeira.
+
+interface PersonaRow {
+  eixos: string;
+  confianca: number;
+  origem: string;
+}
+
+/**
+ * A persona daquele conjunto de sinais, ou `null`.
+ *
+ * **Linha com `origem <> 'agente'` é tratada como inexistente**, exatamente como
+ * em `lerLook`. É o que torna seguro o marcador de falha morar nesta mesma
+ * tabela: quem consome nunca vê um terceiro estado, só persona ou nada.
+ *
+ * `evidencia` volta do JSON sem revalidação contra os sinais. A validação
+ * aconteceu uma vez, em `validarPersona`, sobre os sinais que geraram esta
+ * linha — e como o hash dos sinais é a própria chave, sinal diferente é linha
+ * diferente. Revalidar aqui checaria a mesma coisa contra a mesma entrada.
+ */
+export const lerPersona = async (sinaisHash: string): Promise<Persona | null> => {
+  const db = getDb();
+  if (!db) return null;
+
+  try {
+    const linha = await db
+      .prepare(`SELECT eixos, confianca, origem FROM personas WHERE sinais_hash = ?`)
+      .bind(sinaisHash)
+      .first<PersonaRow>();
+
+    if (!linha || linha.origem !== "agente") return null;
+
+    const eixos = JSON.parse(linha.eixos) as EixoDaPersona[];
+    if (!Array.isArray(eixos) || eixos.length === 0) return null;
+
+    return { eixos, confianca: linha.confianca };
+  } catch (erro) {
+    console.error("[look] lerPersona falhou", erro);
+    return null;
+  }
+};
+
+/**
+ * Grava a persona daquele conjunto de sinais, substituindo a anterior.
+ *
+ * `UPSERT` pelo mesmo motivo de `gravarLook`: torna o pré-aquecimento e um
+ * refresh futuro idempotentes. Aqui ele quase nunca dispara de verdade — o hash
+ * dos sinais mudou significa chave nova —, mas duas requisições concorrentes da
+ * mesma pessoa chegam ao mesmo hash, e sem o `ON CONFLICT` a segunda estouraria.
+ */
+export const gravarPersona = async (sinaisHash: string, persona: Persona): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO personas (sinais_hash, eixos, confianca, origem, motivo, generated_at)
+              VALUES (?, ?, ?, 'agente', NULL,
+                      to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         ON CONFLICT (sinais_hash) DO UPDATE
+                 SET eixos = EXCLUDED.eixos,
+                     confianca = EXCLUDED.confianca,
+                     origem = EXCLUDED.origem,
+                     motivo = EXCLUDED.motivo,
+                     generated_at = EXCLUDED.generated_at`,
+      )
+      .bind(sinaisHash, JSON.stringify(persona.eixos), persona.confianca)
+      .run();
+
+    return true;
+  } catch (erro) {
+    console.error("[look] gravarPersona falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Registra que ESTES SINAIS foram tentados e não deram.
+ *
+ * A quarentena da #20 aplicada à síntese, e ela importa mais aqui do que em
+ * `looks`: uma síntese que não converge fica **a montante de todas as peças**,
+ * então sem marcador cada PDP de cada visita dispara uma chamada nova de até
+ * 120s pelo mesmo conjunto de sinais que já falhou.
+ *
+ * Não há chave reservada a inventar (o `HASH_DA_FALHA` de `looks` existe porque
+ * lá a chave é composta e o marcador é por peça): aqui o marcador ocupa a
+ * própria chave dos sinais, e `origem` sozinha o distingue.
+ *
+ * O `WHERE personas.origem <> 'agente'` impede que uma falha APAGUE uma persona
+ * boa já gravada — mesmo cinto de `gravarFalha`.
+ */
+export const gravarFalhaDaPersona = async (
+  sinaisHash: string,
+  motivo: string,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO personas (sinais_hash, eixos, confianca, origem, motivo, generated_at)
+              VALUES (?, '[]', 0, 'falha', ?,
+                      to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         ON CONFLICT (sinais_hash) DO UPDATE
+                 SET origem = 'falha',
+                     motivo = EXCLUDED.motivo,
+                     generated_at = EXCLUDED.generated_at
+               WHERE personas.origem <> 'agente'`,
+      )
+      .bind(sinaisHash, motivo.slice(0, 200))
+      .run();
+
+    return true;
+  } catch (erro) {
+    console.error("[look] gravarFalhaDaPersona falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Se estes sinais já falharam nos últimos `minutos`.
+ *
+ * Comparação de string, correta porque `generated_at` é ISO 8601 UTC de largura
+ * fixa — mesma justificativa de `falhaRecente`. Erro devolve `false`: na dúvida,
+ * tenta sintetizar; um banco intermitente não deve desligar a persona.
+ */
+export const personaFalhouRecentemente = async (
+  sinaisHash: string,
+  minutos: number,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    const linha = await db
+      .prepare(
+        `SELECT 1 AS existe
+           FROM personas
+          WHERE sinais_hash = ? AND origem = 'falha'
+            AND generated_at > to_char((now() - make_interval(mins => ?)) AT TIME ZONE 'UTC',
+                                       'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+      )
+      .bind(sinaisHash, minutos)
+      .first<{ existe: number }>();
+
+    return !!linha;
+  } catch (erro) {
+    console.error("[look] personaFalhouRecentemente falhou", erro);
     return false;
   }
 };

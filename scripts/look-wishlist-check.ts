@@ -30,22 +30,24 @@ const main = async () => {
   console.log(`\ne-mail: ${email}\n`);
 
   // 1. A consulta nova, sozinha.
-  const favoritos = await favoritosDe(email, 6);
+  const favoritos = await favoritosDe(email, 12);
   console.log(`favoritosDe → ${favoritos.length} semente(s)`);
   for (const s of favoritos) {
-    console.log(`  ${s.kind.padEnd(10)} ${s.titulo.padEnd(32)} ${s.em}  (${s.tags.length} tags)`);
+    console.log(
+      `  ${s.kinds.join("+").padEnd(10)} ${s.titulo.padEnd(32)} ${s.em}  (${s.tags.length} tags)`,
+    );
   }
 
   // 2. O que a feature promete, item por item.
   const semTags = favoritos.filter((s) => s.tags.length === 0);
   const semData = favoritos.filter((s) => !s.em);
-  const naoWishlist = favoritos.filter((s) => s.kind !== "wishlist");
+  const naoWishlist = favoritos.filter((s) => !s.kinds.includes("wishlist"));
   const ids = favoritos.map((s) => s.productGroupId);
   const duplicados = ids.length !== new Set(ids).size;
 
   console.log("");
   ok(favoritos.length > 0, "a wishlist do banco chega como semente");
-  ok(naoWishlist.length === 0, 'todas marcadas kind: "wishlist"');
+  ok(naoWishlist.length === 0, 'todas marcadas kinds: ["wishlist"]');
   ok(semTags.length === 0, "todas com tags (alimentam combinaComOGuardaRoupa)");
   ok(semData.length === 0, "todas com a data de quando favoritou, não now()");
   ok(!duplicados, "um produto por product_group_id");
@@ -57,7 +59,11 @@ const main = async () => {
     .bind(email)
     .all<{ ultimo: string }>();
   const ultimoNoBanco = new Date(results[0].ultimo).toISOString().slice(0, 16);
-  const maisRecente = favoritos.map((s) => s.em).sort().reverse()[0]?.slice(0, 16);
+  const maisRecente = favoritos
+    .map((s) => s.em)
+    .sort()
+    .reverse()[0]
+    ?.slice(0, 16);
   ok(ultimoNoBanco === maisRecente, `a data bate com a tabela (${ultimoNoBanco})`);
 
   // 4. Quem não tem favoritos, e quem não tem sessão.
@@ -65,20 +71,32 @@ const main = async () => {
   ok(vazio.length === 0, "e-mail sem favoritos devolve lista vazia");
 
   const semSessao = await colherSementes(null);
-  const wishlistSemSessao = semSessao.filter((s) => s.kind === "wishlist");
+  const wishlistSemSessao = semSessao.filter((s) => s.kinds.includes("wishlist"));
   ok(wishlistSemSessao.length === 0, "sem sessão, sem wishlist do banco");
 
   // 5. A consolidação: as duas casas viram uma lista só, sem repetir peça.
+  //
+  // Não há mais teto nem hierarquia entre origens: `consolidar` agrupa por
+  // produto e UNE os `kinds`. Uma peça favoritada e depois comprada sai como
+  // `purchased+wishlist` numa entrada só — o que se confere aqui é que ela
+  // aparece uma vez, e que a origem `wishlist` não foi descartada no caminho.
   const sementes = await colherSementes(email);
-  console.log(`\ncolherSementes → ${sementes.length} semente(s) (máx. 6)`);
+  console.log(`\ncolherSementes → ${sementes.length} semente(s)`);
   for (const s of sementes) {
-    console.log(`  ${s.kind.padEnd(10)} ${s.titulo}`);
+    console.log(`  ${s.kinds.join("+").padEnd(10)} ${s.titulo}`);
   }
   const idsFinal = sementes.map((s) => s.productGroupId);
-  ok(idsFinal.length === new Set(idsFinal).size, "nenhuma peça ocupa duas vagas");
+  ok(idsFinal.length === new Set(idsFinal).size, "cada peça aparece uma vez só");
+
+  const doBanco = new Set(favoritos.map((f) => f.productGroupId));
+  const sobreviveram = sementes.filter((s) => doBanco.has(s.productGroupId));
   ok(
-    sementes.some((s) => s.kind === "wishlist" || favoritos.some((f) => f.productGroupId === s.productGroupId)),
-    "o favorito do banco sobreviveu à consolidação (ou perdeu para um sinal mais forte)",
+    sobreviveram.length === doBanco.size,
+    `todo favorito do banco chegou à lista final (${sobreviveram.length}/${doBanco.size})`,
+  );
+  ok(
+    sobreviveram.every((s) => s.kinds.includes("wishlist")),
+    'e nenhum perdeu a origem "wishlist" ao ser unido com outra',
   );
 
   console.log("");

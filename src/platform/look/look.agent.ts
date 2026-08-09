@@ -21,6 +21,7 @@ import { perguntar } from "../shelf/shelf.decopilot";
 import { montarCandidatos } from "./look.candidates";
 import { acharAncora, gravarFalha, gravarLook, lerLook } from "./look.d1";
 import { montarMensagem, PISO_DE_CONFIANCA } from "./look.prompt";
+import { obterPersona } from "./persona.agent";
 import type { Ancora, Candidato, Contexto, Look, PecaDoLook, RespostaCrua } from "./look.types";
 
 /** Título usado quando o modelo compôs bem mas não soube nomear o conjunto. */
@@ -42,7 +43,7 @@ const MAX_PECAS = 10;
  * a cada visita para não produzir nada.
  */
 export const jaComprados = (contexto: Contexto): Set<string> =>
-  new Set(contexto.sementes.filter((s) => s.kind === "purchased").map((s) => s.productGroupId));
+  new Set(contexto.sementes.filter((s) => s.kinds.includes("purchased")).map((s) => s.productGroupId));
 
 /** Corta com reticência em vez de truncar seco — motivo cortado no meio soa quebrado. */
 const limitar = (texto: string, max: number): string =>
@@ -207,7 +208,23 @@ export const gerarLook = async (
     return null;
   }
 
-  const { look, porque } = await comporLook(alvo.ancora, contexto, candidatos);
+  // A passada 1. Roda AQUI, e não em `lookDaPeca`, porque este é o caminho de
+  // background — `lookDaPeca` devolve `null` na hora e nunca espera modelo.
+  //
+  // Sequencial de propósito, apesar de somar ~40s ao que já eram ~40s: a
+  // composição precisa da persona para montar o prompt, então não há o que
+  // paralelizar. O custo cai em quem não vê a tela, e a partir da segunda PDP a
+  // persona vem do cache e esta linha é uma leitura indexada.
+  //
+  // `null` é caminho normal — sem sinais, sem convergência ou em quarentena. O
+  // prompt volta a listar as sementes, que é o comportamento de sempre.
+  const persona = await obterPersona(contexto.sementes);
+
+  const { look, porque } = await comporLook(
+    alvo.ancora,
+    persona ? { ...contexto, persona } : contexto,
+    candidatos,
+  );
   if (!look) {
     await gravarFalha(alvo.ancora.productGroupId, porque ?? "motivo não registrado");
     return null;

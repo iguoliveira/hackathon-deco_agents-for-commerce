@@ -269,6 +269,43 @@ const ROTULO_DA_SEMENTE: Record<string, string> = {
  * Decopilot não suporta (ver docs/agente-vitrine.md), mas escrever ao contrário
  * agora custaria reescrever tudo depois.
  */
+/**
+ * A seção do guarda-roupa: **persona quando existe, sementes quando não**.
+ *
+ * Os dois formatos não se somam. Mandar persona *e* sementes empilharia a mesma
+ * informação duas vezes e tornaria a comparação do `look:eval` inconclusiva —
+ * qualquer diferença seria atribuível ao tamanho do prompt tanto quanto à
+ * síntese.
+ *
+ * Cair nas sementes não é degradação: é o comportamento de hoje, e ele continua
+ * correto para quem não tem persona (visitante novo) ou para quem teve a
+ * síntese recusada por confiança baixa.
+ *
+ * A `evidencia` vai junto porque é o que impede a persona de virar generalidade
+ * na tela. Sem os títulos, o modelo escreveria *"combina com o seu guarda-roupa
+ * escuro"*; com eles, escreve *"fecha com o cardigã que você comprou"* — que é a
+ * frase que a regra "FALE DO QUE ELA TEM" existe para produzir.
+ */
+const oGuardaRoupa = (contexto: Contexto, sementes: unknown[]): string => {
+  const { persona } = contexto;
+
+  if (persona && persona.eixos.length > 0) {
+    return [
+      "## O GUARDA-ROUPA DELA — observado, não suposto",
+      "",
+      "Cada eixo abaixo foi lido das peças que ela já tem ou pediu, e `evidencia`",
+      "lista quais. Cite ESSAS peças pelo nome no motivo; não generalize o eixo.",
+      JSON.stringify(persona.eixos, null, 1),
+    ].join("\n");
+  }
+
+  if (sementes.length > 0) {
+    return `## AS SEMENTES — o que essa pessoa já demonstrou querer\n${JSON.stringify(sementes, null, 1)}`;
+  }
+
+  return "## AS SEMENTES\nNenhuma. Esta pessoa não tem histórico na loja — componha pela peça e pelo clima.";
+};
+
 export const montarMensagem = (
   ancora: Ancora,
   contexto: Contexto,
@@ -285,7 +322,7 @@ export const montarMensagem = (
     // inferência que o dado permitia. Todo CANDIDATO já vinha com sinais
     // calculados; o guarda-roupa, não.
     tags: s.tags,
-    sinal: ROTULO_DA_SEMENTE[s.kind] ?? s.kind,
+    sinal: s.kinds.map((k) => ROTULO_DA_SEMENTE[k] ?? k).join(" e "),
   }));
 
   return [
@@ -303,9 +340,7 @@ export const montarMensagem = (
       1,
     ),
     "",
-    sementes.length > 0
-      ? `## AS SEMENTES — o que essa pessoa já demonstrou querer\n${JSON.stringify(sementes, null, 1)}`
-      : "## AS SEMENTES\nNenhuma. Esta pessoa não tem histórico na loja — componha pela peça e pelo clima.",
+    oGuardaRoupa(contexto, sementes),
     "",
     "## ONDE E QUANDO",
     JSON.stringify({ lugar: localEmTexto(contexto.local), mes: contexto.mes }, null, 1),

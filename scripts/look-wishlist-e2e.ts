@@ -120,7 +120,11 @@ const comporCom = async (
   contexto: Contexto,
   rotulo: string,
 ) => {
-  const candidatos = await montarCandidatos(alvo!.variantId, jaComprados(contexto), contexto.sementes);
+  const candidatos = await montarCandidatos(
+    alvo!.variantId,
+    jaComprados(contexto),
+    contexto.sementes,
+  );
   const inicio = Date.now();
   const { look, porque } = await comporLook(alvo!.ancora, contexto, candidatos);
   const s = ((Date.now() - inicio) / 1000).toFixed(1);
@@ -133,7 +137,7 @@ const comporCom = async (
   console.log(`  "${look.titulo}"  confiança ${look.confianca}`);
   const nome = new Map(candidatos.map((c) => [c.handle, c.titulo]));
   for (const p of look.pecas) {
-    console.log(`    ${(nome.get(p.handle) ?? p.handle).padEnd(30)} ${p.porque ?? ""}`);
+    console.log(`    ${(nome.get(p.handle) ?? p.handle).padEnd(30)} ${p.motivo ?? ""}`);
   }
   return { look, candidatos };
 };
@@ -166,13 +170,14 @@ const main = async (): Promise<void> => {
     // ---- 3. O agente lê o que foi semeado ---------------------------------
     const depois = await colherSementes(E2E);
     console.log(`\ncolherSementes(${E2E}) → ${depois.length}`);
-    for (const s of depois) console.log(`  ${s.kind.padEnd(10)} ${s.titulo.padEnd(28)} ${s.em}`);
+    for (const s of depois)
+      console.log(`  ${s.kinds.join("+").padEnd(10)} ${s.titulo.padEnd(28)} ${s.em}`);
 
     console.log("");
     ok(depois.length === pecas.length, "toda peça semeada chegou como semente");
     ok(
-      depois.every((s) => s.kind === "wishlist"),
-      'todas marcadas kind: "wishlist"',
+      depois.every((s) => s.kinds.includes("wishlist")),
+      'todas marcadas kinds: ["wishlist"]',
     );
     ok(
       depois.every((s) => s.tags.length > 0),
@@ -203,8 +208,16 @@ const main = async (): Promise<void> => {
     const comWishlist: Contexto = { sementes: depois, local: LOCAL, mes };
     const semWishlist: Contexto = { sementes: [], local: LOCAL, mes };
 
-    const candA = await montarCandidatos(alvo.variantId, jaComprados(comWishlist), comWishlist.sementes);
-    const candB = await montarCandidatos(alvo.variantId, jaComprados(semWishlist), semWishlist.sementes);
+    const candA = await montarCandidatos(
+      alvo.variantId,
+      jaComprados(comWishlist),
+      comWishlist.sementes,
+    );
+    const candB = await montarCandidatos(
+      alvo.variantId,
+      jaComprados(semWishlist),
+      semWishlist.sementes,
+    );
 
     const comAfinidade = candA.filter((c) => (c.combinaComOGuardaRoupa?.length ?? 0) > 0);
     const comSaturacao = candA.filter((c) => (c.jaTemDesteTipo?.length ?? 0) > 0);
