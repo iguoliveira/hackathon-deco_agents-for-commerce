@@ -112,8 +112,18 @@ Semente de favorito lida no servidor · cookie de vistos · tabela de pedidos ·
               │      visita                      │
               │                                  ▼
               │                        ┌──────────────────┐
-              │                        │ UMA chamada ao   │  ~35-60s
-              │                        │ Decopilot        │
+              │                        │ passada 1        │  ~22-41s
+              │                        │ TODOS os sinais  │  (cache por
+              │                        │ → PERSONA        │   hash dos sinais)
+              │                        └────────┬─────────┘
+              │                                 ▼
+              │                        valida a evidencia contra
+              │                        os sinais (sem modelo)
+              │                                 ▼
+              │                        ┌──────────────────┐
+              │                        │ passada 2        │  ~35-60s
+              │                        │ persona + ancora │
+              │                        │ + pool → LOOK    │
               │                        └────────┬─────────┘
               │                                 ▼
               │                        resolve handles contra
@@ -127,6 +137,22 @@ Semente de favorito lida no servidor · cookie de vistos · tabela de pedidos ·
                           ▼
         blocos por `ocasiao`, cada peça com o seu motivo
 ```
+
+### Duas passadas, desde a #26
+
+A primeira sintetiza o guarda-roupa; a segunda compõe. Elas rodam **em
+sequência dentro de `gerarLook`**, que já era background — a PDP continua sem
+esperar modelo nenhum.
+
+O que a separação comprou: o teto de seis sementes existia porque muitos sinais
+faziam o modelo compor *"para todo mundo"*. Esse é um problema **de composição**;
+para sintetizar, descrever o armário inteiro é o objetivo. Separadas, cada tarefa
+recebe o que precisa — e a tabela de pesos que escolhia as seis vagas saiu do
+código.
+
+O custo não dobra na prática: a persona é por **pessoa**, não por peça aberta, e
+fica em cache pelo hash dos sinais. Quem abre cinco PDPs sintetiza uma vez. Ver
+[`persona-do-guarda-roupa.md`](persona-do-guarda-roupa.md).
 
 ### A decisão que define esta feature
 
@@ -245,9 +271,15 @@ prova personalização — não o número de produtos mudando.
 
 ---
 
-## 5. Modelo de dados — uma migration
+## 5. Modelo de dados — duas migrations
 
 `db/migrations/0014_looks_and_orders.sql`. **0012 e 0013 estão ocupadas.**
+
+A `0019_personas.sql` entrou com a #26 e é descrita em
+[`persona-do-guarda-roupa.md`](persona-do-guarda-roupa.md) §6. Ela segue as
+mesmas decisões desta: JSON em `TEXT` porque é blob opaco, sem `FOREIGN KEY` para
+`products`, e marcador de falha com quarentena na própria tabela — `lerPersona`
+ignora tudo que não seja `origem = 'agente'`, exatamente como `lerLook`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS looks (
@@ -309,6 +341,17 @@ leitura, pelo `JOIN`.
 > Antes o modelo recebia só título e tipo, e dizia "o tênis branco que você
 > comprou" lendo a cor da string do título.
 
+> **Continua verdade, com uma emenda (#26).** As quatro sementes seguem sem
+> tabela própria. O que ganhou tabela foi a **síntese** delas — `personas` guarda
+> o retrato para não reprocessá-lo a cada PDP.
+>
+> E a semente mudou de forma: `kind: SeedKind` virou `kinds: SeedKind[]`. A mesma
+> peça chega por dois caminhos o tempo todo (favoritar e depois comprar é o
+> percurso normal), e a versão anterior escolhia a origem "mais forte" e
+> descartava a outra. Guardar as duas fechou um bug real: uma compra **sombreada
+> por um `recent` mais novo** sumia de `jaComprados`, e a peça voltava a ser
+> recomendada — desfazendo o que a §7b listou como o primeiro defeito corrigido.
+
 **Não há pagamento**, e isso continua indo dito no slide. Fingir pipeline de
 compra é o tipo de coisa que um jurado de e-commerce reconhece na hora.
 
@@ -318,14 +361,18 @@ compra é o tipo de coisa que um jurado de e-commerce reconhece na hora.
 
 ```
 src/platform/look/
-  look.types.ts        Semente, SeedKind, Local, Contexto, PecaDoLook, Look
+  look.types.ts        Semente, SeedKind, Local, Contexto, PecaDoLook, Look,
+                       Persona, EixoDaPersona
   look.cookies.ts      deco_recent (vistos) e deco_local (seletor)
   look.local.ts        headers da Vercel + cookie → Local
+  look.hash.ts         fnv1a + hashDosSinais — sem node:crypto (agente-vitrine.md)
   look.seeds.ts        wishlist ∪ alerts ∪ recent ∪ orders → Semente[]
   look.candidates.ts   etapa 1: pools ancorados na peça aberta
-  look.prompt.ts       a instrução do agente
+  persona.prompt.ts    a instrução da SÍNTESE (passada 1)
+  persona.agent.ts     derivarPersona · validarPersona · obterPersona
+  look.prompt.ts       a instrução da COMPOSIÇÃO (passada 2)
   look.agent.ts        etapas 2 e 3, validação (falhou = `null`, sem fallback)
-  look.d1.ts           único arquivo com SQL de `looks` e `orders`
+  look.d1.ts           único arquivo com SQL de `looks`, `personas` e `orders`
   look.actions.ts      o que o loader consome
   index.ts
 ```
@@ -374,6 +421,18 @@ vez.
     requisito, não é medido e não decide desenho — ver o recorte no topo. Um
     achado cujo único cenário seja "visitante sem histórico" está fora de
     escopo por definição, e não vira tarefa.
+11. **Nenhuma tabela de pesos.** Critério não se pondera em código com número
+    escolhido a olho. Os sinais vão inteiros ao modelo com o que cada um
+    significa dito em português, e é ele que decide quanto pesam. A `FORCA`
+    caiu na #26 e não volta por conveniência.
+12. **A persona descreve, nunca supõe.** *"cor dominante: escuros"* com as peças
+    que provam, jamais *"prefere neutros"*. É a mesma regra de
+    `look.prompt.ts:183`, e ela vale ainda mais na síntese: um retrato é
+    exatamente o formato em que a suposição se disfarça de conhecimento.
+13. **Eixo sem evidência não existe.** `validarPersona` descarta o eixo inteiro
+    quando um título citado não está entre os sinais — descarta, nunca conserta,
+    e nunca casa por proximidade. Evidência inventada é alucinação com aparência
+    de fundamento, e ela fica **a montante** de todos os looks daquela pessoa.
 
 ---
 
@@ -426,6 +485,31 @@ origem `agente`, 22–41s.
 
 ---
 
+## 7c. O que a passada 1 NÃO tem (2026-08-09)
+
+A §7b acima mediu o agente contra o Decopilot real. **A persona não tem nada
+disso**, e a distinção importa porque as duas seções ficam lado a lado: o
+provedor está sem token, então nenhuma síntese real rodou.
+
+O que foi provado sem modelo — e é o contrato, não a qualidade:
+
+| | |
+|---|---|
+| `look:check` | 45/45, com 9 asserções novas sobre `validarPersona` e o hash |
+| Round-trip da `0019` | contra o Postgres: evidência sobrevive ao JSON, UPSERT idempotente, falha nunca vira persona na tela, falha não apaga persona boa |
+| Caminho de falha | ponta a ponta: sem retrato → compõe pelas sementes; e a **2ª execução nem tenta**, entra na quarentena |
+
+O último foi presente do provedor caído, e não seria fácil montar de propósito:
+o modo de falha mais caro desta feature é *"o provedor está fora e o sistema
+responde gerando mais carga"*.
+
+**Segue sem resposta:** o retrato é melhor que a pesagem? Só
+`npm run look:eval -- --rotulo persona --n 3 --persona` responde, e o número que
+decide é a **estabilidade**, não "mudou". E há um que só o olho dá: os motivos
+continuam citando peças reais, ou a persona os transformou em generalidade?
+
+---
+
 ## 8. Plano de execução
 
 | # | Passo | Prova de que funcionou | ~h |
@@ -461,6 +545,7 @@ aprendida de novo.
 | Documento | Estado |
 |---|---|
 | `agente-vitrine.md` | **em vigor** — descreve o agente construído, que esta feature reusa |
+| `persona-do-guarda-roupa.md` | **em vigor** — a passada 1, que substituiu a tabela de pesos. Implementada e verificada estruturalmente; **sem medida de qualidade** até o `look:eval -- --persona` rodar |
 | `pedidos-e-compra-simulada.md` | **em vigor** — a quarta semente (`comprou`), que a §5 daqui listava como falta |
 | `feature-back-in-stock-shelf.md` | **em vigor** — o sinal de "avise-me", que aqui vira uma das quatro sementes |
 | `catalog-population.md` | **em vigor** — o catálogo de 136, que é o que torna a composição possível |
