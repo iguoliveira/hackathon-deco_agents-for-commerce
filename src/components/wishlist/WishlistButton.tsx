@@ -1,8 +1,6 @@
 import type { AnalyticsItem } from "@decocms/apps-commerce/types";
-import { useNavigate } from "@tanstack/react-router";
 import { useSendEvent } from "../../sdk/useSendEvent";
 import { useToggleWishlist, useWishlist } from "../../platform/wishlist";
-import { useUser } from "../../platform/user";
 import IconButton from "../ui/IconButton";
 import Button from "../ui/Button";
 
@@ -17,8 +15,6 @@ function WishlistButton({ item, variant = "full" }: Props) {
 
   const { isInWishlist } = useWishlist();
   const toggle = useToggleWishlist();
-  const { isAuthenticated } = useUser();
-  const navigate = useNavigate();
 
   const inWishlist = isInWishlist(productId);
   const pending = toggle.isPending && toggle.variables?.productId === productId;

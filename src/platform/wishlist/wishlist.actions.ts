@@ -1,8 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
-import { getWishlist, addWishlistItem, removeWishlistItem, toggleWishlistItem, mergeCookieWishlist } from "./wishlist.pg";
+import {
+  getWishlist,
+  addWishlistItem,
+  removeWishlistItem,
+  toggleWishlistItem,
+  mergeCookieWishlist,
+} from "./wishlist.pg";
 import { readWishlistCookie, serializeWishlistCookie } from "../../loaders/_cookie";
-import { EMPTY_WISHLIST, type WishlistState, type WishlistItem, type ToggleWishlistInput } from "./wishlist.types";
+import {
+  EMPTY_WISHLIST,
+  type WishlistState,
+  type WishlistItem,
+  type ToggleWishlistInput,
+} from "./wishlist.types";
 
 /** Obtém email do usuário autenticado via Shopify (reusa lógica de user.actions.ts) */
 async function getAuthenticatedUserEmail(request: Request | undefined): Promise<string | null> {
@@ -41,7 +52,7 @@ export const toggleWishlistItemServerFn = createServerFn({ method: "POST" })
 
     if (email) {
       // Usuário logado: banco - usa toggle atômico
-      const result = await toggleWishlistItem(email, productId, productGroupId);
+      await toggleWishlistItem(email, productId, productGroupId);
 
       // Retorna estado atualizado
       const updated = await getWishlist(email);
@@ -76,7 +87,10 @@ export const mergeWishlistOnLoginServerFn = createServerFn({ method: "POST" }).h
     const cookieState = readWishlistCookie(request);
     if (cookieState.items.length === 0) return;
 
-    await mergeCookieWishlist(email, cookieState.items.map((i) => i.productId));
+    await mergeCookieWishlist(
+      email,
+      cookieState.items.map((i) => i.productId),
+    );
 
     // Limpa cookie após merge bem-sucedido
     const response = await getResponse();

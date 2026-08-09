@@ -49,10 +49,7 @@ export async function addWishlistItem(
 /**
  * Remove item da wishlist.
  */
-export async function removeWishlistItem(
-  userId: string,
-  productId: string,
-): Promise<void> {
+export async function removeWishlistItem(userId: string, productId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
 
@@ -77,27 +74,30 @@ export async function toggleWishlistItem(
   const db = getDb();
   if (!db) return { added: false };
 
-  // Usa batch para garantir atomicidade (transação)
-  const statements = [
-    db.prepare(
-      `DELETE FROM wishlist_items
-       WHERE user_id = ? AND product_id = ?`,
-    ).bind(userId, productId),
-    db.prepare(
-      `INSERT INTO wishlist_items (user_id, product_id, product_group_id)
-       VALUES (?, ?, ?)
-       ON CONFLICT (user_id, product_id) DO NOTHING`,
-    ).bind(userId, productId, productGroupId),
-  ];
+  // DELETE e INSERT precisam ser condicionais. O batch anterior sempre
+  // executava os dois statements: removia o item e o recriava em seguida.
+  // O CTE executa uma única operação atômica: se removeu, não insere; se não
+  // havia item, insere. O RETURNING também funciona tanto no Postgres quanto
+  // na camada D1-like usada pelo projeto.
+  const result = await db
+    .prepare(
+      `WITH removed AS (
+         DELETE FROM wishlist_items
+         WHERE user_id = ? AND product_id = ?
+         RETURNING product_id
+       ), added AS (
+         INSERT INTO wishlist_items (user_id, product_id, product_group_id)
+         SELECT ?, ?, ?
+         WHERE NOT EXISTS (SELECT 1 FROM removed)
+         ON CONFLICT (user_id, product_id) DO NOTHING
+         RETURNING product_id
+       )
+       SELECT EXISTS (SELECT 1 FROM added) AS added`,
+    )
+    .bind(userId, productId, userId, productId, productGroupId)
+    .first<{ added: boolean }>();
 
-  const results = await db.batch(statements);
-  const deleted = results[0].results as unknown as { changes: number }[];
-
-  if (deleted.length > 0 && deleted[0].changes > 0) {
-    return { added: false }; // foi removido
-  }
-
-  return { added: true }; // foi adicionado
+  return { added: result?.added ?? false };
 }
 
 /**
