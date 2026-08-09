@@ -1,15 +1,25 @@
 # As migrations descrevem o banco que temos?
 
-> **Não. Falta uma.** Medido em 2026-08-09 contra o Supabase de produção, com
-> `main` em `ca3d8f3`.
+> **Faltava uma. Esta branch a traz.** Medido em 2026-08-09 contra o Supabase de
+> produção, com `main` em `ca3d8f3`.
 >
 > A pergunta veio de uma decisão concreta: vamos criar um projeto novo do
 > Supabase, e precisamos saber se `npm run db:migrate` nele reproduz o banco de
-> hoje. A resposta curta é que reproduz **12 das 13 tabelas**.
+> hoje. Antes desta branch, reproduzia **12 das 13 tabelas**.
+>
+> ```
+> antes   19 arquivo(s) em disco · 20 registrada(s) no banco
+>         ✗ APLICADA MAS AUSENTE DO REPO: 0015_wishlist.sql
+>         ✗ tabela órfã: wishlist_items
+>
+> depois  20 arquivo(s) em disco · 20 registrada(s) no banco
+>         ✓ as duas listas são idênticas
+>         ✓ nenhum — todo objeto do schema é nomeado por alguma migration
+> ```
 
 ---
 
-## 1. O achado
+## 1. O achado (corrigido nesta branch)
 
 ```
 1. schema_migrations × db/migrations/
@@ -57,18 +67,38 @@ com "tabela não existe", que é o erro certo aparecendo tarde demais.
 
 ---
 
-## 2. O que fazer antes de criar o projeto novo
+## 2. A correção: o arquivo entra, com o nome que o banco já registra
 
-Três saídas, em ordem de preferência:
+`db/migrations/0015_wishlist.sql` foi trazida **byte a byte** da #24
+(`md5 607bfa471335d76a91d4252598652b3f`, conferido contra a origem). A versão
+da #24 e a da #15 são idênticas, então não houve o que escolher.
 
-| | O que fazer | Consequência |
-|---|---|---|
-| **A** | Mergear a **#15** antes de criar o projeto | A migration entra em `main`, o projeto novo nasce igual. É a única que resolve a causa. |
-| **B** | Copiar `0015_wishlist.sql` para `main` renumerada (`0020_wishlist.sql`) | Resolve o schema sem esperar a #15, mas cria duas migrations com o mesmo conteúdo em branches diferentes — e a #15 vai conflitar. |
-| **C** | Não fazer nada | O projeto novo não tem `wishlist_items`. Aceitável **só** se a #24 não for entrar. |
+### Por que NÃO renumerei para `0020_wishlist.sql`
 
-Se for **B**, renumere: a `0015` já está ocupada em `main` por
-`0015_fix_duplicate_images.sql`. Ver a §3.
+Era a saída óbvia, já que a `0015` está ocupada em `main` por
+`0015_fix_duplicate_images.sql`. Mas ela produz um banco *menos* fiel, não mais.
+
+`schema_migrations` **já registra exatamente `0015_wishlist.sql`** — foi esse o
+nome aplicado em 08/08. Mantê-lo faz três coisas de uma vez:
+
+- **Produção não é tocada.** O runner pula o que já está no ledger. Conferido:
+  `npm run db:migrate` respondeu *"Nada a aplicar — banco em dia"*. **Zero
+  escrita**, e é a razão de este PR poder trazer uma migration sem risco.
+- **O ledger do projeto novo fica igual ao de produção** — mesmos 20 nomes.
+  Renumerar deixaria os schemas iguais e os ledgers diferentes, que é a forma de
+  divergência mais chata de rastrear depois, porque não aparece no schema.
+- **Não conflita com a #24 nem com a #15.** Mesmo caminho, mesmo conteúdo: o git
+  resolve sozinho. Um `0020_` criaria duas migrations com o mesmo SQL, e a
+  primeira a mergear deixaria a outra órfã.
+
+Pelo mesmo motivo o arquivo entrou **sem comentário meu no topo**, contra o
+costume do repositório: qualquer linha a mais reintroduz o conflito com as duas
+PRs abertas. O porquê mora aqui.
+
+### O que isso NÃO resolve
+
+A #24 continua precisando entrar para o agente **ler** a tabela. Esta branch só
+garante que a tabela **existe** num banco criado do zero — que era a pergunta.
 
 ---
 
@@ -116,7 +146,7 @@ serve para **acusar, não para absolver**.
 
 Ela acha objeto **a mais** no banco. Não vê tipo trocado, `NOT NULL` que virou
 nulo, default diferente nem índice ausente — porque não tem com o que comparar:
-derivar o schema esperado parseando 19 arquivos de SQL seria construir meio
+derivar o schema esperado parseando 20 arquivos de SQL seria construir meio
 Postgres para responder a uma pergunta que o Postgres responde de graça.
 
 ---
@@ -147,8 +177,10 @@ migrations de seed inserem, e comparar contagem de linhas acusaria diferença em
 toda tabela que a operação escreveu — pedidos, alertas, looks. O que precisa
 bater é o schema.
 
-**Esperado hoje**, com `main` como está: uma diferença, `tabela só em A:
-wishlist_items`. Se aparecer qualquer outra, é achado novo.
+**Esperado com esta branch: nenhuma diferença.** Se aparecer qualquer uma, é
+achado novo — e o `--comparar` sai com código 1, então dá para pôr no CI.
+
+(Sem esta branch o esperado seria `tabela só em A: wishlist_items`.)
 
 ### Que o comparador de fato morde
 
@@ -186,7 +218,7 @@ que não seja este.
 | `order_items` | 5 | 2 | `0017` |
 | `personas` | 6 | 2 | `0019` |
 | `schema_migrations` | 2 | 1 | o runner, não um arquivo |
-| **`wishlist_items`** | **5** | **4** | **`0015_wishlist.sql` — fora do repo** |
+| `wishlist_items` | 5 | 4 | `0015_wishlist.sql` — **trazida nesta branch** |
 
 Extensões: `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`,
 `uuid-ossp`, `vector`.
