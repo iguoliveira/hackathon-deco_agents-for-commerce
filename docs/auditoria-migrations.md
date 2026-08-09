@@ -102,6 +102,126 @@ garante que a tabela **existe** num banco criado do zero — que era a pergunta.
 
 ---
 
+## 2b. Os dados do agente: por que NÃO viraram uma migration
+
+As migrations recriam o **catálogo**. Não recriam o que o agente produziu — e é
+justamente o que a demo mostra:
+
+| | Linhas | Recriável por migration? |
+|---|---|---|
+| Catálogo | 135 produtos, 700 variantes, … | **sim** |
+| `looks` | 49 do agente | não |
+| `shelves` | 4 | não |
+| `orders` / `stock_alerts` / `wishlist_items` | 22 / 10 / 6 | não |
+
+Num banco novo a section "Complete o look" não apareceria **em lugar nenhum** —
+e com o provedor sem token, não haveria como regerar.
+
+### A migration de INSERT quebra, e quebra em silêncio
+
+Foi a primeira ideia. Ela falha por um detalhe: **a chave do cache embute o
+mês**. `hashDoContexto` monta `[…sementes, cidade, regiao, pais, mes]` e roda
+FNV-1a (`look.actions.ts:74`).
+
+```
+São Paulo, agosto    -> 1voeehx     ← a chave dos 29 looks da home hoje
+São Paulo, setembro  -> 10yg6mx
+```
+
+Um `INSERT` de SQL gravaria `1voeehx`. Em setembro a PDP procuraria `10yg6mx` e
+não acharia: o banco "tem" a demo e a tela mostra nada. Pior classe de bug —
+silenciosa, com aparência de dado presente.
+
+Reproduzir o hash em SQL exigiria FNV-1a em PL/pgSQL **e** os nomes dos meses em
+português: duas cópias de lógica que já existe, que é exatamente o que
+`look.hash.ts` foi criado para evitar.
+
+### O que foi feito: snapshot que guarda o CONTEXTO, não a chave
+
+```bash
+npm run db:snapshot   # banco → db/seeds/snapshot.json  (commitado)
+npm run db:restore    # snapshot.json → banco, recalculando o hash para HOJE
+npm run db:setup      # migrate + restore — a máquina nova, em um comando
+```
+
+O snapshot guarda `{ ancora, cidade, regiao, pais, titulo, confianca, pecas }`.
+O `--restore` resolve a âncora **pelo handle** (o `product_group_id` pode mudar
+entre bancos; o handle é o contrato) e recalcula o hash com o mês corrente.
+Sobrevive à virada do mês, que é o que a migration não faz.
+
+**35 dos 49 looks entram.** Os outros 14 são de contexto com sementes — o
+histórico de navegação de alguém —, e o hash deles depende de um conjunto de
+sementes que nenhum visitante novo vai reproduzir. Restaurá-los seria escrever
+chave que nunca é lida. Os 35 que entram são exatamente a rota da demo:
+
+```
+29  São Paulo/BR        4  Porto Alegre/BR
+ 1  Recife/BR           1  Lisboa/PT
+```
+
+Marcador de falha (`origem = 'falha'`) fica de fora por definição: é quarentena,
+não conteúdo.
+
+### O repositório é público — e o snapshot carregava e-mail pessoal
+
+`snapshot.json` é commitado, e as quatro tabelas por pessoa (`shelves`,
+`stock_alerts`, `orders`, `wishlist_items`) guardam o e-mail de quem usou o
+site. Dois deles eram Gmail de gente de verdade. Commitar isso publica endereço
+pessoal num lugar que o GitHub indexa, e `git rm` não desfaz: fica no histórico.
+
+O snapshot **pseudonimiza na escrita**, derivando o apelido do próprio e-mail —
+a mesma pessoa continua sendo a mesma pessoa entre as quatro tabelas, e uma
+vitrine continua ligada ao alerta que a gerou. `@demo.local` passa direto, que é
+o que `look:armarios` semeia. O `name` de `stock_alerts` também sai.
+
+Conferido no arquivo inteiro por regex: **nenhum e-mail fora de `@demo.local`**.
+
+Não custa nada à demo: os 35 looks são de contexto sem sementes, então não
+dependem de identidade. O que é por e-mail só aparece para quem logar com aquele
+e-mail.
+
+### O restore é para banco NOVO, e há um guarda
+
+Consequência direta do mascaramento: num banco que já tem os e-mails originais,
+os pseudônimos não colidem — as linhas por pessoa entrariam **ao lado** das
+reais, dobrando vitrines e pedidos em vez de sobrescrevê-los.
+
+E o que esconderia o estrago é que só os `looks` sobreviveriam intactos (chave é
+âncora + hash, sem identidade): a demo continuaria certa enquanto a tela de
+pedidos duplicava.
+
+Então `db:restore` **recusa** rodar se já houver look ou vitrine, e pede
+`--force`. Conferido contra produção:
+
+```
+Este banco já tem dados: 84 look(s), 4 vitrine(s).
+O restore foi feito para um banco NOVO. […]
+Se é isso mesmo que você quer, repita com --force.
+```
+
+### Verificado
+
+- **Idempotente.** Dois `db:restore` seguidos contra produção (antes de o
+  mascaramento entrar, quando os e-mails ainda batiam), contagens inalteradas nas
+  seis tabelas: `looks=84 shelves=4 stock_alerts=10 orders=22 order_items=22
+  wishlist_items=6` antes e depois de cada um.
+- **A resolução da âncora funciona**: 35 handles resolvidos, 0 sem produto.
+- **A identificação do contexto confere**: `fnv1a("São Paulo|SP|BR|agosto")`
+  devolve `1voeehx`, que é a chave dos 29 looks da home no banco de hoje.
+- **Referência morta é pulada, nunca inserida quebrada.** Alerta, pedido e
+  favorito apontam para `variant_id`; se o catálogo do destino não tiver aquela
+  variante, a linha é pulada e contada. Um pedido apontando para variante
+  inexistente sumiria no `INNER JOIN` de `comprasDe` e viraria sinal fantasma.
+- Pedido que perdeu todos os itens não entra: pedido vazio aparece na tela de
+  pedidos como uma compra que não comprou nada.
+
+**O que ainda não foi exercitado:** o restore contra um banco de fato vazio. O
+caminho de INSERT está provado (as duas rodadas acima) e a resolução de âncora
+também, mas a corrida completa só acontece quando o projeto novo existir. Se
+algo falhar lá, vai falhar alto — toda referência morta é contada, não engolida.
+
+---
+
 ## 3. Duas colisões de numeração, e por que importam
 
 O runner (`scripts/migrate.ts`) ordena por **nome de arquivo**, não pelo número.
