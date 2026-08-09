@@ -132,8 +132,8 @@ entrar nele quebrado é diferente de entrar quebrado hoje.
 interface Vitrine {
   titulo: string;
   confianca: number;
-  /** Agrupadas por tema — vocabulário do modelo, como `ocasiao` sempre foi. */
-  prateleiras: { tema: string; pecas: PecaRecomendada[] }[];
+  /** Lista única, na ordem em que o agente acredita nelas. Sem agrupamento. */
+  pecas: PecaRecomendada[];
 }
 
 interface PecaRecomendada {
@@ -143,6 +143,26 @@ interface PecaRecomendada {
   position: number;
 }
 ```
+
+### `ocasiao` morre, e a regra que ela demonstrava não
+
+Decidido: **lista única**. O agrupamento por `ocasiao` existia porque um look tem
+partes — calça, calçado, camada. Sem look, ele seria cerimônia herdada, e é mais
+uma coisa que o modelo pode errar sem ganho.
+
+Vale registrar o que se perde junto, para não parecer descuido: `ocasiao` era o
+exemplo de referência da **regra da genericidade** — vocabulário do modelo, nunca
+união de literais, o que mantém o sistema portátil para um catálogo que não seja
+de roupa. A regra continua valendo e continua demonstrada: `EixoDaPersona.eixo`
+é `string` pelo mesmo motivo e pelo mesmo argumento. O exemplo mudou de lugar,
+não sumiu.
+
+### Com lista única, `jaTemDesteTipo` vira o guarda principal
+
+Sem prateleiras por tema, nada na estrutura impede a vitrine de sair com oito
+camisetas — e o catálogo tem 24 delas, contra 6 camisas. O único sinal que
+segura variedade passa a ser `jaTemDesteTipo` mais a instrução do prompt.
+É o que precisa de teste dedicado.
 
 **A chave de cache perde a âncora e ganha nada:** `hashDosSinais` sozinho. É a
 mesma chave da persona, o que significa que persona e vitrine se invalidam
@@ -154,37 +174,39 @@ cada hash é um `SELECT` e um laço, sem precisar saber quem é ninguém.
 
 ---
 
-## 6. O que precisa de decisão sua
+## 6. As três decisões, tomadas
 
-Três, e nenhuma é técnica.
+### a) Este SUBSTITUI o `look`
 
-### a) Três agentes de vitrine, ou este absorve os outros?
+Nenhum look é montado para ninguém. O produto é **recomendação de compra**, não
+composição de roupa. `CompleteTheLook` e todo o eixo de "o que se veste junto"
+saem do caminho.
 
-Ficariam: `shelf` (ancorado no esgotado), `look` (ancorado na PDP) e este. Os
-três montam vitrine por IA e os três gravam tabela própria.
+O `shelf` fica: ele responde algo genuinamente diferente — *"o que comprar no
+lugar do que faltou"* — e continua ancorado no desejo esgotado, que é a âncora
+certa para aquela pergunta.
 
-Minha leitura: **este substitui o `look`** — mesma pergunta, resposta melhor — e
-**convive com o `shelf`**, que responde algo genuinamente diferente ("o que
-comprar no lugar do que faltou"). Mas isso é decisão de produto e de tempo de
-hackathon, não minha.
+### b) Sem persona confiável, sem section
 
-### b) Quem não tem sinal nenhum vê o quê?
+O contrato duro do `look` continua, e agora com um motivo melhor: **esta não é a
+section principal do site.** É uma recomendação extra na home. Um buraco onde
+ela estaria não quebra nada; uma vitrine genérica, sim — ela ocuparia o lugar da
+prova de personalização com algo que qualquer loja tem.
 
-Hoje o contrato é duro: *"ou o look é do agente, ou a section não aparece"*. Faz
-sentido para "complete o look" — sem histórico não há o que completar.
+Isso torna a persona o **portão da feature inteira**, não uma etapa dela:
 
-Para uma vitrine de loja, "não aparece" é mais estranho: um visitante novo vê um
-buraco onde deveria haver recomendação. As saídas são vitrine genérica (e aí ela
-deixa de ser do agente), ou continuar sumindo. **Eu manteria sumindo** — a
-feature existe para provar personalização, e uma vitrine igual para todo mundo
-não prova nada — mas quero isso dito, não assumido.
+```
+sem sinais  →  sem persona  →  sem vitrine  →  a section não aparece
+```
 
-### c) Tema, ou lista única?
+E tem uma consequência boa que não é óbvia: quando não há persona, **nem a
+segunda chamada acontece**. O piso de confiança deixa de ser só qualidade e vira
+economia — o caso "não dá para personalizar" custa uma leitura indexada, não uma
+composição.
 
-`ocasiao` agrupava por função no look. Sem look, agrupar ainda pode informar
-("para o frio que vem", "as peças escuras") ou pode virar cerimônia. Eu
-manteria, porque é o que diferencia da grade de "recomendados" de qualquer loja
-— mas com liberdade para o modelo devolver uma prateleira só.
+### c) Lista única
+
+Decidido acima, na §5.
 
 ---
 
@@ -196,9 +218,15 @@ a escolher entre 127 sem nada que o obrigue a se relacionar com coisa alguma. A
 validação da etapa 3 continua impedindo handle inventado, mas não impede escolha
 arbitrária — e "arbitrário" é indistinguível de "personalizado" na tela.
 
-Mitigação: a persona é a restrição. Se ela estiver fraca, a vitrine é aleatória
-com texto bonito. **O piso de confiança da persona passa a proteger a vitrine
-inteira**, não só o retrato.
+Mitigação: a persona é a restrição, e pela decisão (b) ela é também o portão —
+sem retrato não há vitrine. **O piso de confiança passa a proteger a feature
+inteira**, não só o retrato. Se ele estiver frouxo, o defeito não aparece como
+persona ruim: aparece como vitrine aleatória com texto bonito, que é muito mais
+difícil de reconhecer.
+
+E com lista única some a restrição estrutural que as prateleiras davam: nada
+impede oito camisetas. `jaTemDesteTipo` e a instrução do prompt viram o único
+guarda de variedade.
 
 **O `look:eval` não serve como está.** Ele mede estabilidade de composição em
 volta de uma âncora. Sem âncora, as condições mudam de forma e a comparação com
