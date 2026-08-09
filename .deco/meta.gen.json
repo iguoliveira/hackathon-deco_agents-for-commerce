@@ -398,7 +398,7 @@
             "type": "string",
             "nullable": true,
             "title": "Handle da peça",
-            "description": "Deixe vazio na PDP: o handle é lido da URL. Preencher só serve para fixar uma peça numa página que não é de produto."
+            "description": "OBRIGATÓRIO. A section só existe na home, e ali não há peça na URL para deduzir — deixar vazio faz a section sumir sem erro."
           }
         }
       },
@@ -4690,7 +4690,7 @@
             ],
             "title": "O look",
             "nullable": true,
-            "description": "Resolve com `site/loaders/completeTheLook.ts`. Deixe o handle vazio para usar a peça da URL."
+            "description": "Resolve com `site/loaders/completeTheLook.ts`. O `handle` lá é OBRIGATÓRIO — a section só vive na home, e sem ele ela some sem erro."
           },
           "titulo": {
             "type": "string",

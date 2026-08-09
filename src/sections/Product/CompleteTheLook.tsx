@@ -12,7 +12,7 @@ export const TITULO_PADRAO = "Recomendações Com a sua cara";
 export interface Props {
   /**
    * @title O look
-   * @description Resolve com `site/loaders/completeTheLook.ts`. Deixe o handle vazio para usar a peça da URL.
+   * @description Resolve com `site/loaders/completeTheLook.ts`. O `handle` lá é OBRIGATÓRIO — a section só vive na home, e sem ele ela some sem erro.
    */
   look: LookPersonalizado | null;
   /**
@@ -131,13 +131,26 @@ export default function CompleteTheLook({
   );
 }
 
-// O fallback usa o MESMO nome fixo. Antes ele lia `look?.titulo`, que durante o
-// carregamento é sempre `undefined` — então o cabeçalho nascia vazio e "pulava"
-// quando o look chegava. Com o nome fixo não há salto: o que entra depois são só
-// os cards, no lugar do placeholder.
-export const LoadingFallback = ({ titulo }: LoadingFallbackProps<Props>) => (
+/**
+ * O esqueleto, com o nome fixo **e sem ler prop nenhuma**.
+ *
+ * Antes lia `look?.titulo`, que durante o carregamento é sempre `undefined` — o
+ * cabeçalho nascia vazio e pulava quando o look chegava.
+ *
+ * E não lê `titulo` tampouco, apesar de a prop existir: o framework passa um
+ * objeto VAZIO para o fallback de propósito (`DecoPageRenderer.tsx:431` —
+ * *"rawProps are no longer serialized to the client"*). Ler a prop aqui
+ * funcionaria hoje por coincidência, resolvendo sempre no padrão, e quebraria no
+ * dia em que alguém preenchesse `titulo` no admin: o cabeçalho nasceria
+ * "Recomendações Com a sua cara" e TROCARIA para o valor configurado — de volta
+ * o salto de texto que esta section acabou de remover.
+ *
+ * Se um dia o fallback precisar do valor configurado, o caminho é o framework
+ * voltar a serializar props, não um `??` aqui.
+ */
+export const LoadingFallback = (_props: LoadingFallbackProps<Props>) => (
   <Section.Container>
-    <Section.Header title={titulo?.trim() || TITULO_PADRAO} />
+    <Section.Header title={TITULO_PADRAO} />
     <Section.Placeholder height="480px" />
   </Section.Container>
 );
