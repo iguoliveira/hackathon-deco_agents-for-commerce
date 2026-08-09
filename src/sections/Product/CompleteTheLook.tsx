@@ -62,8 +62,7 @@ export default function CompleteTheLook({ look, mostrarProcedencia = true }: Pro
           // histórico entraram na decisão. Na demo é o que se aponta ao trocar
           // de cidade e recarregar.
           <span className="text-sm text-ink-soft">
-            {look.origem === "agente" ? "Montado pelo agente para " : "Ordenado para "}
-            {look.lugar} em {look.mes}
+            Montado pelo agente para {look.lugar} em {look.mes}
             {look.sementes > 0
               ? `, a partir de ${look.sementes} ${look.sementes === 1 ? "sinal seu" : "sinais seus"}`
               : ", sem histórico seu ainda"}
@@ -92,13 +91,15 @@ export default function CompleteTheLook({ look, mostrarProcedencia = true }: Pro
                     product={peca.product}
                     itemListName={`${look.titulo} — ${bloco.ocasiao}`}
                   />
-                  {/* min-h fixo: sem ele, um motivo de uma linha ao lado de um
+                  {/* Sem guarda de motivo vazio: `validar` descarta peça sem
+                      motivo e não existe mais look sem texto, então um card mudo
+                      aqui seria bug a ser visto, não caso a ser tolerado.
+
+                      min-h fixo: sem ele, um motivo de uma linha ao lado de um
                       de duas desalinha a régua inteira da grade. */}
-                  {peca.motivo ? (
-                    <p className="min-h-[2.5rem] px-1 text-sm leading-snug text-base-content/70">
-                      {peca.motivo}
-                    </p>
-                  ) : null}
+                  <p className="min-h-[2.5rem] px-1 text-sm leading-snug text-base-content/70">
+                    {peca.motivo}
+                  </p>
                 </div>
               ))}
             </div>

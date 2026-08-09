@@ -18,6 +18,14 @@ export const siteLoaders: Record<string, (props: any, request?: Request) => Prom
     const mod = await import("../src/actions/address/submit");
     return (mod.default as any)(props, request);
   },
+  "site/actions/look/setLocal": async (props: any, request?: Request) => {
+    const mod = await import("../src/actions/look/setLocal");
+    return (mod.default as any)(props, request);
+  },
+  "site/actions/look/setLocal.ts": async (props: any, request?: Request) => {
+    const mod = await import("../src/actions/look/setLocal");
+    return (mod.default as any)(props, request);
+  },
   "site/actions/newsletter/subscribe": async (props: any, request?: Request) => {
     const mod = await import("../src/actions/newsletter/subscribe");
     return (mod.default as any)(props, request);
@@ -60,6 +68,10 @@ export const siteLoaders: Record<string, (props: any, request?: Request) => Prom
   "site/loaders/catalogProductList.ts": createLoaderEntry("site/loaders/catalogProductList", () => import("../src/loaders/catalogProductList")),
   "site/loaders/catalogProductListingPage": createLoaderEntry("site/loaders/catalogProductListingPage", () => import("../src/loaders/catalogProductListingPage")),
   "site/loaders/catalogProductListingPage.ts": createLoaderEntry("site/loaders/catalogProductListingPage", () => import("../src/loaders/catalogProductListingPage")),
+  "site/loaders/completeTheLook": createLoaderEntry("site/loaders/completeTheLook", () => import("../src/loaders/completeTheLook")),
+  "site/loaders/completeTheLook.ts": createLoaderEntry("site/loaders/completeTheLook", () => import("../src/loaders/completeTheLook")),
+  "site/loaders/lookLocal": createLoaderEntry("site/loaders/lookLocal", () => import("../src/loaders/lookLocal")),
+  "site/loaders/lookLocal.ts": createLoaderEntry("site/loaders/lookLocal", () => import("../src/loaders/lookLocal")),
   "site/loaders/personalShelf": createLoaderEntry("site/loaders/personalShelf", () => import("../src/loaders/personalShelf")),
   "site/loaders/personalShelf.ts": createLoaderEntry("site/loaders/personalShelf", () => import("../src/loaders/personalShelf")),
   "site/loaders/productByHandle": createLoaderEntry("site/loaders/productByHandle", () => import("../src/loaders/productByHandle")),

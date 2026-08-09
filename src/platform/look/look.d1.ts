@@ -152,51 +152,78 @@ interface AncoraRow {
   tags: string[] | null;
 }
 
+/** Uma tentativa de casar o handle exato. `null` quando não existe. */
+const buscarAncora = async (
+  handle: string,
+): Promise<{ ancora: Ancora; variantId: string } | null> => {
+  const db = getDb();
+  if (!db) return null;
+
+  const linha = await db
+    .prepare(
+      `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.description,
+              COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                         WHERE pp.product_group_id = p.product_group_id
+                           AND pp.name = 'TAG'), '{}') AS tags,
+              (SELECT v.variant_id FROM variants v
+                WHERE v.product_group_id = p.product_group_id
+                ORDER BY v.available DESC, v.variant_id ASC LIMIT 1) AS variant_id
+         FROM products p
+        WHERE p.handle = ?`,
+    )
+    .bind(handle)
+    .first<AncoraRow & { variant_id: string | null }>();
+
+  if (!linha?.variant_id) return null;
+
+  return {
+    variantId: linha.variant_id,
+    ancora: {
+      productGroupId: linha.product_group_id,
+      handle: linha.handle,
+      titulo: linha.title,
+      tipo: linha.product_type ?? "",
+      // 240 caracteres: o bastante para o modelo entender a peça que ancora o
+      // look, longe do bastante para a descrição (média de 866) competir com
+      // os candidatos pelo espaço do prompt.
+      descricao: (linha.description ?? "").slice(0, 240),
+      tags: linha.tags ?? [],
+    },
+  };
+};
+
 /**
  * A peça aberta, com o que o agente precisa para compor em volta dela.
  *
  * Devolve o `variant_id` de uma variante qualquer junto porque os dois pools
  * (`findSimilarAvailable`, `findComplementsAvailable`) recebem variante, não
  * produto — eles nasceram servindo o sinal de "avise-me", que é por variante.
+ *
+ * **Recebe o SLUG da PDP, não o handle**, e a diferença não é cosmética: todo
+ * link do site sai de `catalog.mapper.ts:productPath`, que anexa o id numérico
+ * da variante (`/products/vintage-wash-tee-black-45123456`). Casar só handle
+ * exato faria a section sumir em todo clique vindo de PLP, prateleira ou do
+ * próprio look — sem erro, com a página em 200.
+ *
+ * A precedência é a mesma de `getProductDetailsPage` e existe pelo mesmo
+ * motivo: **o slug inteiro é tentado como handle primeiro**. Handles legítimos
+ * terminam em número (`high-top-canvas-shoes-1` é o Women's Slides, não uma
+ * variante do High Top), e inverter a ordem resolveria para o produto errado
+ * sem erro nenhum.
  */
 export const acharAncora = async (
-  handle: string,
+  slug: string,
 ): Promise<{ ancora: Ancora; variantId: string } | null> => {
-  const db = getDb();
-  if (!db) return null;
+  if (!slug) return null;
 
   try {
-    const linha = await db
-      .prepare(
-        `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.description,
-                COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
-                           WHERE pp.product_group_id = p.product_group_id
-                             AND pp.name = 'TAG'), '{}') AS tags,
-                (SELECT v.variant_id FROM variants v
-                  WHERE v.product_group_id = p.product_group_id
-                  ORDER BY v.available DESC, v.variant_id ASC LIMIT 1) AS variant_id
-           FROM products p
-          WHERE p.handle = ?`,
-      )
-      .bind(handle)
-      .first<AncoraRow & { variant_id: string | null }>();
+    const exato = await buscarAncora(slug);
+    if (exato) return exato;
 
-    if (!linha?.variant_id) return null;
+    const comVariante = slug.match(/^(.*)-(\d+)$/);
+    if (!comVariante?.[1]) return null;
 
-    return {
-      variantId: linha.variant_id,
-      ancora: {
-        productGroupId: linha.product_group_id,
-        handle: linha.handle,
-        titulo: linha.title,
-        tipo: linha.product_type ?? "",
-        // 240 caracteres: o bastante para o modelo entender a peça que ancora o
-        // look, longe do bastante para a descrição (média de 866) competir com
-        // os candidatos pelo espaço do prompt.
-        descricao: (linha.description ?? "").slice(0, 240),
-        tags: linha.tags ?? [],
-      },
-    };
+    return await buscarAncora(comVariante[1]);
   } catch (erro) {
     console.error("[look] acharAncora falhou", erro);
     return null;
@@ -212,9 +239,19 @@ interface LookRow {
   confianca: number;
   pecas: string;
   origem: string;
-  motivo_do_fallback: string | null;
 }
 
+/**
+ * O look gravado daquele par, ou `null`.
+ *
+ * **Linha com `origem <> 'agente'` é tratada como inexistente.** As colunas
+ * `origem` e `motivo_do_fallback` continuam na tabela porque a `0014` já foi
+ * aplicada e apagá-las custaria uma migration para não comprar nada — mas nada
+ * escreve `'sql'` desde que o fallback caiu. O filtro existe para as linhas
+ * antigas: servir uma delas hoje poria na tela um look sem motivo nenhum, que é
+ * exatamente o que se decidiu não mostrar. Sendo ignoradas, elas são
+ * regeneradas na primeira visita e somem sozinhas.
+ */
 export const lerLook = async (anchorId: string, contextoHash: string): Promise<Look | null> => {
   const db = getDb();
   if (!db) return null;
@@ -222,13 +259,13 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
   try {
     const linha = await db
       .prepare(
-        `SELECT titulo, confianca, pecas, origem, motivo_do_fallback
+        `SELECT titulo, confianca, pecas, origem
            FROM looks WHERE anchor_id = ? AND contexto_hash = ?`,
       )
       .bind(anchorId, contextoHash)
       .first<LookRow>();
 
-    if (!linha) return null;
+    if (!linha || linha.origem !== "agente") return null;
 
     const pecas = JSON.parse(linha.pecas) as PecaDoLook[];
     if (!Array.isArray(pecas)) return null;
@@ -237,8 +274,6 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
       titulo: linha.titulo,
       confianca: linha.confianca,
       pecas,
-      origem: linha.origem === "agente" ? "agente" : "sql",
-      motivoDoFallback: linha.motivo_do_fallback ?? undefined,
     };
   } catch (erro) {
     console.error("[look] lerLook falhou", erro);
@@ -252,10 +287,9 @@ export const lerLook = async (anchorId: string, contextoHash: string): Promise<L
  * O `UPSERT` é o que torna o pré-aquecimento e um refresh futuro idempotentes:
  * rodar duas vezes reescreve, nunca duplica nem falha por chave.
  *
- * Grava inclusive o look do SQL. Ele não é só modo de falha — é estado
- * intermediário válido, que a próxima passada substitui por um do agente. Não
- * gravar deixaria a PDP recalculando os pools a cada render sempre que o
- * provedor estivesse saturado. Mesma decisão de `gravarVitrine`.
+ * **Só chega aqui look do agente** — `gerarLook` retorna antes quando a
+ * composição falha. Daí `origem` ser literal: a coluna sobrevive para as linhas
+ * antigas e para o `lerLook` poder ignorá-las, não porque haja o que decidir.
  */
 export const gravarLook = async (
   anchorId: string,
@@ -270,7 +304,7 @@ export const gravarLook = async (
       .prepare(
         `INSERT INTO looks (anchor_id, contexto_hash, titulo, confianca, pecas, origem,
                             motivo_do_fallback, generated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?,
+              VALUES (?, ?, ?, ?, ?, 'agente', NULL,
                       to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
          ON CONFLICT (anchor_id, contexto_hash) DO UPDATE
                  SET titulo = EXCLUDED.titulo,
@@ -280,15 +314,7 @@ export const gravarLook = async (
                      motivo_do_fallback = EXCLUDED.motivo_do_fallback,
                      generated_at = EXCLUDED.generated_at`,
       )
-      .bind(
-        anchorId,
-        contextoHash,
-        look.titulo,
-        look.confianca,
-        JSON.stringify(look.pecas),
-        look.origem,
-        look.motivoDoFallback ?? null,
-      )
+      .bind(anchorId, contextoHash, look.titulo, look.confianca, JSON.stringify(look.pecas))
       .run();
 
     return true;
