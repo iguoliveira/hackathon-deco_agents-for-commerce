@@ -123,6 +123,10 @@ const TTL_FALHA_MINUTOS = 10;
  * corta a rajada dentro de uma instância quente, o marcador corta a repetição
  * entre visitas e entre instâncias. Um lock de verdade seria um `INSERT` de
  * reserva antes de chamar o modelo; vale se um dia isto sair da demo.
+ *
+ * **A reserva tem de ser síncrona.** Ver o `try/finally` em `lookDaPeca`: um
+ * `await` entre perguntar e reservar reabre exatamente a rajada que este
+ * conjunto existe para fechar.
  */
 const emVoo = new Set<string>();
 
@@ -215,52 +219,69 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   const cacheado = await lerLook(alvo.ancora.productGroupId, hash);
   if (cacheado) return montar(cacheado, contexto);
 
-  // MISS. Duas perguntas antes de gastar um minuto de modelo, e nesta ordem
-  // porque a primeira é de graça: alguém já está gerando isto agora, e este par
-  // acabou de falhar? As duas juntas são o que impede um pageview de virar uma
-  // chamada nova — ver `emVoo` e `TTL_FALHA_MINUTOS`.
+  // MISS. A reserva vem ANTES de qualquer `await`, e essa ordem é a correção
+  // inteira: `has` e `add` separados por I/O não são um guarda.
+  //
+  // O JavaScript não tem corrida de memória aqui, mas tem ponto de suspensão.
+  // Com o teste no topo e o `add` junto do disparo, duas requisições da home
+  // chegando juntas passavam as duas pelo `has` — enquanto a primeira esperava
+  // `falhaRecente`, a segunda rodava do começo e ainda via o conjunto vazio.
+  // Cada `await` entre a pergunta e a reserva é uma janela por onde cabe uma
+  // requisição inteira, e o pico simultâneo é precisamente o que este `Set`
+  // existe para conter.
   const chave = `${alvo.ancora.productGroupId}:${hash}`;
   if (emVoo.has(chave)) return null;
-  if (await falhaRecente(alvo.ancora.productGroupId, hash, TTL_FALHA_MINUTOS)) return null;
-
-  // Antes de gastar um minuto de modelo, confere se há com o que compor —
-  // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
-  // faria a PDP disparar o agente para um pool que ele recusaria por pequeno,
-  // repetindo o gasto a cada visita sem nunca produzir look.
-  //
-  // O terceiro argumento é o guarda-roupa. Ele não filtra nada — só acrescenta
-  // `combinaComOGuardaRoupa` e `jaTemDesteTipo` a cada candidato. Passá-lo aqui
-  // e em `gerarLook` é obrigatório pelo mesmo motivo que `jaComprados`: os dois
-  // caminhos precisam produzir o MESMO pool, senão o que a PDP mede para decidir
-  // se vale chamar o modelo não é o que o modelo recebe.
-  const candidatos = await montarCandidatos(
-    alvo.variantId,
-    jaComprados(contexto),
-    contexto.sementes,
-  );
-  if (candidatos.length < MIN_PECAS) return null;
-
-  // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem
-  // `waitUntil` a Vercel pode congelar a invocação assim que a resposta sai.
-  // Não é problema porque o próximo carregamento tenta de novo — e para a demo
-  // os produtos do roteiro são pré-aquecidos. `@vercel/functions` tornaria isto
-  // garantido; vale medir antes de trazer dependência.
-  //
-  // O `finally` é o que faz o `emVoo` ser um guarda e não um vazamento: se a
-  // chave só saísse no sucesso, uma geração que estourasse o timeout deixaria o
-  // par bloqueado para sempre nesta instância — trocando o laço por uma feature
-  // permanentemente desligada, que é pior porque não faz barulho. Nota: se a
-  // invocação for congelada pela Vercel, nem isto roda; quem cobre esse caso é o
-  // marcador no banco.
   emVoo.add(chave);
-  void gerarLook(handle, contexto, hash)
-    .catch((erro) => console.error(`[look] geração em background falhou para ${handle}`, erro))
-    .finally(() => emVoo.delete(chave));
 
-  // A section some nesta visita. É o custo aceito ao remover o fallback: sem
-  // motivos não há o que mostrar, e mostrar a lista crua seria mostrar o
-  // carrossel que qualquer loja tem no lugar da prova de que houve composição.
-  return null;
+  // A reserva é solta em um de dois lugares, nunca nos dois: no `finally` de
+  // baixo quando desistimos antes de chamar o modelo, ou no `finally` da
+  // promessa quando chegamos a disparar. `disparou` é quem decide qual.
+  let disparou = false;
+
+  try {
+    if (await falhaRecente(alvo.ancora.productGroupId, hash, TTL_FALHA_MINUTOS)) return null;
+
+    // Antes de gastar um minuto de modelo, confere se há com o que compor —
+    // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
+    // faria a PDP disparar o agente para um pool que ele recusaria por pequeno,
+    // repetindo o gasto a cada visita sem nunca produzir look.
+    //
+    // O terceiro argumento é o guarda-roupa. Ele não filtra nada — só acrescenta
+    // `combinaComOGuardaRoupa` e `jaTemDesteTipo` a cada candidato. Passá-lo aqui
+    // e em `gerarLook` é obrigatório pelo mesmo motivo que `jaComprados`: os dois
+    // caminhos precisam produzir o MESMO pool, senão o que a PDP mede para decidir
+    // se vale chamar o modelo não é o que o modelo recebe.
+    const candidatos = await montarCandidatos(
+      alvo.variantId,
+      jaComprados(contexto),
+      contexto.sementes,
+    );
+    if (candidatos.length < MIN_PECAS) return null;
+
+    // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem
+    // `waitUntil` a Vercel pode congelar a invocação assim que a resposta sai.
+    // Não é problema porque o próximo carregamento tenta de novo — e para a demo
+    // os produtos do roteiro são pré-aquecidos. `@vercel/functions` tornaria isto
+    // garantido; vale medir antes de trazer dependência.
+    //
+    // O `finally` da promessa é o que faz o `emVoo` ser um guarda e não um
+    // vazamento: se a chave só saísse no sucesso, uma geração que estourasse o
+    // timeout deixaria o par bloqueado para sempre nesta instância — trocando o
+    // laço por uma feature permanentemente desligada, que é pior porque não faz
+    // barulho. Se a invocação for congelada pela Vercel nem isto roda; quem cobre
+    // esse caso é o marcador no banco.
+    disparou = true;
+    void gerarLook(handle, contexto, hash)
+      .catch((erro) => console.error(`[look] geração em background falhou para ${handle}`, erro))
+      .finally(() => emVoo.delete(chave));
+
+    // A section some nesta visita. É o custo aceito ao remover o fallback: sem
+    // motivos não há o que mostrar, e mostrar a lista crua seria mostrar o
+    // carrossel que qualquer loja tem no lugar da prova de que houve composição.
+    return null;
+  } finally {
+    if (!disparou) emVoo.delete(chave);
+  }
 };
 
 /**
