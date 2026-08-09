@@ -213,8 +213,49 @@ servidor e primeira renderização do cliente sempre veem `null`, o estado real
 entra depois da montagem. Custa um quadro com o rótulo de deslogado.
 
 > **Regra que fica:** use `useUser()` para lógica; use `useUserAfterHydration()`
-> para qualquer coisa que vire markup. `WishlistButton` usa `isAuthenticated`
-> dentro do `onClick` — isso é seguro.
+> para qualquer coisa que vire markup.
+
+#### 6.1b O mesmo defeito apareceu quatro vezes — a regra generalizada
+
+Depois do `SignIn`, o mesmo padrão derrubou a tela mais três vezes. Não é
+coincidência: é uma **armadilha de forma**, e quem escrever o quinto componente
+cai nela também se ela não estiver escrita.
+
+| componente | o que virava markup |
+|---|---|
+| `SignIn` | `href` e rótulo do botão de conta |
+| `meus-pedidos` / minicart | tela de pedidos × tela de login; "Finalizar" × "Entrar" |
+| `WishlistButton` | `aria-label`, `aria-pressed` e o `fill` do coração |
+| `Bag` / `Minicart` | badge da contagem, `EmptyState` × lista, `disabled` do finalizar |
+
+> ### A regra
+>
+> **`useQuery` com `placeholderData` NÃO decide markup.**
+>
+> No servidor a query resolve; na primeira renderização do cliente ela devolve o
+> placeholder. Os dois HTMLs divergem, e o React **não conserta** — ele descarta
+> a árvore inteira. O sintoma é página em branco, e ele **não aparece
+> deslogado**, porque aí os dois lados concordam no vazio.
+>
+> Para renderizar, use o hook com guarda de hidratação; para lógica em
+> `onClick`, `useMutation` ou efeito, a query crua serve.
+>
+> | crua (lógica) | com guarda (markup) |
+> |---|---|
+> | `useUser()` | `useUserAfterHydration()` |
+> | `useWishlist()` | `useIsInWishlistAfterHydration()` |
+> | `useCart()` | `useCartAfterHydration()` |
+
+Os três guardas são a mesma função de cinco linhas: `useState(false)` +
+`useEffect(() => setHidratado(true), [])`, devolvendo o valor neutro até montar.
+Não foram extraídos para um utilitário genérico de propósito — cada um devolve
+uma forma diferente (`Person | null`, um predicado, `CartState`), e um
+`useAfterHydration<T>(valor, neutro)` obrigaria quem chama a inventar o neutro,
+que é justamente a parte fácil de errar.
+
+**Como reconhecer sem ler o hook:** se o valor decide `className`, um atributo
+`aria-*`, um texto, um `disabled`, ou qual de dois elementos renderizar — é
+markup. O `disabled` e o `aria-pressed` são os que mais enganam.
 
 ### 6.2 A home levava 6,5 segundos
 

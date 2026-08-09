@@ -41,15 +41,24 @@ function Footer({
   return (
     <footer className="mt-10 bg-gray-50 px-8">
       <div className="flex flex-col gap-8 py-10 sm:gap-10 sm:py-14">
+        {/* As chaves levam o índice porque `href` NÃO é único aqui: o
+            `Footer.json` tem 31 links com `href: "#"` — placeholders que nunca
+            ganharam destino. Com `key={href}`, dezenas de irmãos dividiam a
+            chave `#`, e o React avisava que "may cause children to be
+            duplicated and/or omitted".
+
+            Índice é seguro nestas listas por serem configuração do CMS: elas
+            não reordenam nem filtram em runtime, que é o caso em que índice
+            como chave quebra. */}
         <ul className="grid grid-flow-row gap-6 sm:grid-flow-col">
-          {links.map(({ title, href, children }) => (
-            <li key={href} className="flex flex-col gap-4">
+          {links.map(({ title, href, children }, i) => (
+            <li key={`${href}-${i}`} className="flex flex-col gap-4">
               <a className="text-sm font-medium text-ink-soft" href={href}>
                 {title}
               </a>
               <ul className="flex flex-col gap-2">
-                {children.map(({ title, href }) => (
-                  <li key={href}>
+                {children.map(({ title, href }, j) => (
+                  <li key={`${href}-${j}`}>
                     <a className="text-sm text-muted" href={href}>
                       {title}
                     </a>
@@ -62,8 +71,8 @@ function Footer({
 
         <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center sm:gap-12">
           <ul className="flex gap-4">
-            {social.map(({ image, href, alt }) => (
-              <li key={href}>
+            {social.map(({ image, href, alt }, i) => (
+              <li key={`${href}-${i}`}>
                 <a href={href}>
                   <Image src={image} alt={alt} loading="lazy" width={20} height={20} />
                 </a>
@@ -83,8 +92,8 @@ function Footer({
 
         <div className="grid grid-flow-row gap-8 sm:grid-flow-col">
           <ul className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-            {policies.map(({ title, href }) => (
-              <li key={href}>
+            {policies.map(({ title, href }, i) => (
+              <li key={`${href}-${i}`}>
                 <a className="text-xs text-muted" href={href}>
                   {title}
                 </a>
