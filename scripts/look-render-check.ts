@@ -504,7 +504,12 @@ const main = async (): Promise<void> => {
 
   // ------------------------------------------------------------------
   console.log(
-    `\n\x1b[1m${passaram} asserção(ões) passaram${falhas.length ? `, ${falhas.length} falharam\x1b[0m` : "\x1b[0m"}`,
+    // O contador de pulos entra no total de propósito: sem ele, "47 passaram"
+    // esconde "e duas seções não rodaram", que é a diferença entre verde e
+    // verde-por-omissão.
+    `\n\x1b[1m${passaram} asserção(ões) passaram` +
+      `${falhas.length ? `, ${falhas.length} falharam` : ""}` +
+      `${pulados ? `, ${pulados} seção(ões) pulada(s)` : ""}\x1b[0m`,
   );
   if (falhas.length) {
     for (const falha of falhas) console.log(`  \x1b[31m✗\x1b[0m ${falha}`);
