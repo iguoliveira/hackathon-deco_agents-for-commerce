@@ -15,10 +15,11 @@
  * Sai 0 se tudo passar, 1 no primeiro erro real. Precisa de `DATABASE_URL`;
  * **não** precisa das `STUDIO_*`, porque não fala com o Decopilot.
  *
- * **Precisa do cache quente.** Desde que o fallback por SQL caiu, um par
- * (peça, contexto) sem look gravado não renderiza — então rode
- * `npm run look:warm -- <handle>` antes da primeira vez. O script detecta o caso
- * e diz isso, em vez de acusar o slug de um erro que não cometeu.
+ * **Precisa do cache quente, e o cache é diário.** Desde que o fallback por SQL
+ * caiu, uma peça sem look gravado não renderiza — e desde que a chave passou a
+ * ser (peça, pessoa, lugar, dia), o que estava quente ontem não está hoje. Rode
+ * `npm run look:refresh -- <handle>` antes da primeira vez do dia. O script
+ * detecta o caso e diz isso, em vez de acusar o slug de um erro que não cometeu.
  */
 
 try {
@@ -28,7 +29,7 @@ try {
 }
 
 import completeTheLookLoader from "../src/loaders/completeTheLook";
-import { lookDaPeca } from "../src/platform/look/look.actions";
+import { chaveDoDia, diaDeHoje, lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
 import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
@@ -38,7 +39,7 @@ import { validar } from "../src/platform/look/look.agent";
 import { validarPersona } from "../src/platform/look/persona.agent";
 import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
 import { hashDosSinais } from "../src/platform/look/look.hash";
-import type { Candidato, Semente } from "../src/platform/look/look.types";
+import type { Candidato, Local, Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
 const falhas: string[] = [];
@@ -130,10 +131,11 @@ const main = async (): Promise<void> => {
   // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
   if (pelaPagina === null) {
     console.error(
-      `\n  Não há look gravado para \`${handle}\` no contexto deste terminal.\n` +
+      `\n  Não há look gravado para \`${handle}\` no dia de hoje (${diaDeHoje()}).\n` +
         "  Isso NÃO é falha de renderização — desde que o fallback por SQL caiu, a\n" +
-        "  section só aparece com o cache quente. Aqueça e rode de novo:\n\n" +
-        `      npm run look:warm -- ${handle}\n`,
+        "  section só aparece com o cache quente, e a chave inclui o dia. Aqueça e\n" +
+        "  rode de novo:\n\n" +
+        `      npm run look:refresh -- ${handle}\n`,
     );
     process.exit(1);
   }
@@ -362,6 +364,57 @@ const main = async (): Promise<void> => {
   // Favorito que só existe no cookie não tem data melhor — segue com `agora`.
   const soNoCookie = herdarDataReal(doCookie, []);
   ok("favorito só do cookie mantém o instante da requisição", soNoCookie[0]?.em === agora);
+
+  // ------------------------------------------------------------------
+  titulo("7b. A chave do cache é (pessoa, lugar, dia) — não muda ao navegar");
+  // ------------------------------------------------------------------
+  //
+  // Este bloco existe por causa de um defeito que a suíte não pegava: enquanto
+  // as sementes entravam na chave, `marcarVisita` gravava a peça aberta em
+  // `deco_recent` DEPOIS de compor, e o segundo acesso à mesma PDP errava o
+  // cache sempre. Navegar por N peças produzia da ordem de N² gerações de ~80s.
+  //
+  // Nada disso lançava, e o `typecheck` não tinha o que dizer — só aparecia na
+  // conta do provedor e na latência de quem atualizava a página.
+  const sp: Local = { cidade: "São Paulo", regiao: "SP", pais: "BR", origem: "padrao" };
+  const poa: Local = { cidade: "Porto Alegre", regiao: "RS", pais: "BR", origem: "seletor" };
+  const hoje = diaDeHoje();
+
+  ok(
+    "duas chamadas seguidas dão a mesma chave",
+    chaveDoDia("ana@x.com", sp, hoje) === chaveDoDia("ana@x.com", sp, hoje),
+  );
+  ok(
+    "e depende dos VALORES, não da identidade do objeto de lugar",
+    // Duas visitas da mesma pessoa constroem `Local` novos a cada requisição.
+    // Se a chave dependesse da referência, cada pageview seria um miss — que é
+    // a forma que o bug antigo tomaria se voltasse por outro caminho.
+    chaveDoDia("ana@x.com", { ...sp }, hoje) === chaveDoDia("ana@x.com", { ...sp }, hoje),
+  );
+  ok(
+    "e a origem do lugar não entra na chave",
+    // `origem` distingue "geo adivinhou" de "a pessoa escolheu no seletor". É
+    // procedência para a tela, não parte de onde ela está — se entrasse, abrir o
+    // seletor e reescolher a MESMA cidade recomporia o look.
+    chaveDoDia("ana@x.com", sp, hoje) ===
+      chaveDoDia("ana@x.com", { ...sp, origem: "seletor" }, hoje),
+  );
+  ok(
+    "pessoas diferentes não dividem look",
+    chaveDoDia("ana@x.com", sp, hoje) !== chaveDoDia("bruno@x.com", sp, hoje),
+  );
+  ok(
+    "cidades diferentes não dividem look",
+    chaveDoDia("ana@x.com", sp, hoje) !== chaveDoDia("ana@x.com", poa, hoje),
+  );
+  ok(
+    "amanhã é outra chave — é o que faz o look ser diário",
+    chaveDoDia("ana@x.com", sp, "2026-08-09") !== chaveDoDia("ana@x.com", sp, "2026-08-10"),
+  );
+  ok(
+    "sem sessão todo mundo cai na mesma chave",
+    chaveDoDia(null, sp, hoje) === chaveDoDia(null, sp, hoje),
+  );
 
   // ------------------------------------------------------------------
   titulo("8. A persona não pode afirmar mais do que observou");

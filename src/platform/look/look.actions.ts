@@ -26,7 +26,7 @@ import { acharAncora, falhaRecente, lerLook } from "./look.d1";
 import { fnv1a } from "./look.hash";
 import { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
 import { colherSementes } from "./look.seeds";
-import type { Contexto, Look } from "./look.types";
+import type { Contexto, Local, Look } from "./look.types";
 
 /**
  * Uma peça pronta para a tela: o produto e a linha que o justifica.
@@ -62,28 +62,37 @@ export interface LookPersonalizado {
   sementes: number;
 }
 
+/** O dia corrente em UTC, `YYYY-MM-DD`. É o que dá o "uma vez por dia". */
+export const diaDeHoje = (): string => new Date().toISOString().slice(0, 10);
+
 /**
- * Hash do contexto. O primitivo e o porquê de não ser `node:crypto` moram em
- * `look.hash.ts`, que a persona também usa.
+ * A chave do cache: **uma pessoa, um lugar, um dia.**
  *
- * **A persona NÃO entra aqui**, ainda que esteja no `Contexto`. Ela é derivada
- * das sementes, que já estão no hash — somá-la poria a mesma informação duas
- * vezes na chave, e faria uma síntese que falhou invalidar um cache de look
- * perfeitamente bom.
+ * As sementes NÃO entram, e essa é a mudança inteira. Enquanto entravam, o
+ * contexto mudava sozinho a cada pageview: `marcarVisita` grava `deco_recent` em
+ * toda PDP, `colherSementes` lê esse cookie, e a chave saía diferente. O segundo
+ * acesso à mesma peça errava o cache **sempre** — porque a primeira visita
+ * alterou o contexto depois de compor —, e navegar por N peças produzia da ordem
+ * de N² gerações de ~80s. O diagnóstico já estava escrito em `look.d1.ts:451`,
+ * como furo que a quarentena por peça contornava sem resolver.
+ *
+ * O dia é o que substitui as sementes como sinal de "isto envelheceu". Uma peça
+ * gera **uma vez por dia por pessoa**, e o resultado serve refresh, navegação e
+ * volta à mesma PDP. À meia-noite UTC a chave vira sozinha, sem cron, sem TTL em
+ * coluna e sem job de limpeza — o registro velho simplesmente deixa de ser
+ * procurado.
+ *
+ * **O look continua personalizado.** As sementes seguem indo ao prompt e à
+ * persona: o que mudou é só *quando* ele é recomposto, não com o quê. O que se
+ * perde é a atualização dentro do mesmo dia — favoritar algo às 14h não muda o
+ * look até amanhã, salvo `look:refresh`.
+ *
+ * `mes` sai porque o dia já o contém. O e-mail entra para que duas pessoas no
+ * mesmo lugar não dividam o mesmo look; sem sessão, `anon` agrupa todo mundo, o
+ * que é o comportamento certo para quem está fora do recorte da feature.
  */
-const hashDoContexto = (contexto: Contexto): string =>
-  fnv1a(
-    [
-      // As sementes entram ORDENADAS: a mesma pessoa com as mesmas peças precisa
-      // gerar a mesma chave, e a ordem que chega de `colherSementes` é a de
-      // recência, que muda a cada visita. Sem o sort, o cache nunca acertaria.
-      ...contexto.sementes.map((s) => `${[...s.kinds].sort().join(",")}:${s.productGroupId}`).sort(),
-      contexto.local.cidade,
-      contexto.local.regiao,
-      contexto.local.pais,
-      contexto.mes,
-    ].join("|"),
-  );
+export const chaveDoDia = (email: string | null, local: Local, dia = diaDeHoje()): string =>
+  fnv1a([email ?? "anon", dia, local.cidade, local.regiao, local.pais].join("|"));
 
 /**
  * Quanto tempo um par (peça, contexto) que falhou fica em quarentena.
@@ -210,7 +219,7 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
     local: localDaRequisicao(),
     mes: mesAtual(),
   };
-  const hash = hashDoContexto(contexto);
+  const hash = chaveDoDia(email, contexto.local);
 
   // HIT: o caminho quente, uma leitura indexada e nada mais. `lerLook` só
   // devolve linha do agente — o marcador de falha que `gerarLook` grava tem
@@ -292,28 +301,40 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
  * os produtos do roteiro é o que garante que exista feature no palco.
  *
  * A diferença para o `--gravar` do dry run é a única que importa: aquele grava
- * sob `contexto_hash = 'dryrun'`, que a PDP **nunca lê**. Aqui o contexto e o
- * hash são os mesmos que `lookDaPeca` calcularia — é por isso que isto vive
- * aqui, ao lado de `hashDoContexto`, e não no script.
+ * sob `contexto_hash = 'dryrun'`, que a PDP **nunca lê**. Aqui a chave é a mesma
+ * que `lookDaPeca` calcularia — é por isso que isto vive aqui, ao lado de
+ * `chaveDoDia`, e não no script.
  *
- * O contexto é o de quem chama. Rodado do terminal, é "visitante sem histórico
- * em São Paulo"; rodado dentro de uma request, é o de quem está pedindo. Para
- * pré-aquecer a persona da demo, abrir a PDP como ela continua sendo o caminho.
+ * **`email` e `local` são explícitos, e isso passou a ser possível agora.**
+ * Enquanto a chave incluía as sementes, aquecer para outra pessoa exigiria
+ * reproduzir o armário dela inteiro — e do terminal `donoDaVitrine()` devolve
+ * `null`, então o que se aquecia era o par (peça, visitante anônimo), que não é
+ * caso de uso desta feature. O script dizia isso de si mesmo e imprimia `✓`
+ * assim mesmo. Com a chave sendo (pessoa, lugar, dia), basta nomear a pessoa.
+ *
+ * Omitidos, caem no comportamento antigo: identidade e lugar da requisição
+ * corrente, ou anônimo em São Paulo fora de uma.
  *
  * **Não use no caminho de uma request que alguém esteja esperando** — leva os
- * mesmos 22-41s do agente.
+ * mesmos 22-41s do agente, e ~80s com a passada da persona.
  */
-export const aquecerLook = async (handle: string): Promise<Look | null> => {
+export const aquecerLook = async (
+  handle: string,
+  opcoes: { email?: string | null; local?: Local } = {},
+): Promise<Look | null> => {
   const alvo = await acharAncora(handle);
   if (!alvo) return null;
 
+  const email = opcoes.email !== undefined ? opcoes.email : await donoDaVitrine();
+  const local = opcoes.local ?? localDaRequisicao();
+
   const contexto: Contexto = {
-    sementes: await colherSementes(await donoDaVitrine()),
-    local: localDaRequisicao(),
+    sementes: await colherSementes(email),
+    local,
     mes: mesAtual(),
   };
 
-  return gerarLook(alvo.ancora.handle, contexto, hashDoContexto(contexto));
+  return gerarLook(alvo.ancora.handle, contexto, chaveDoDia(email, local));
 };
 
 const montar = async (look: Look, contexto: Contexto): Promise<LookPersonalizado | null> => {
