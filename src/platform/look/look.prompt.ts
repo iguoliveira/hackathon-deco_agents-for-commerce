@@ -17,7 +17,7 @@
  *      nos 136 produtos), então "da mesma marca" é verdade vazia.
  *   5. **Só afirme o que está escrito no candidato.**
  *
- * E acrescenta duas próprias:
+ * E acrescenta quatro próprias:
  *
  *   6. **O clima é inferido pelo modelo, nunca informado pelo código.** O prompt
  *      entrega cidade e mês crus. Não existe tabela de estação em lugar nenhum
@@ -27,6 +27,27 @@
  *      possíveis; ele pede um rótulo curto e deixa o modelo nomear os eixos que
  *      encontrar NESTE catálogo. É o que dá blocos com títulos que ninguém
  *      programou.
+ *   8. **Cor e clima são eixos separados.** "Cor fria" e "clima frio" não são a
+ *      mesma coisa, e sem regra explícita o modelo deriva uma da outra — "está
+ *      quente, use claro". Isso inventa preferência a partir do eixo errado e
+ *      some com a pessoa que deveria estar sendo ouvida. Proibido nas duas
+ *      direções.
+ *   9. **Fale do que ela TEM, não do que ela prefere.** Comprar três peças
+ *      pretas não prova gostar de preto — pode ser básico, presente, ou a única
+ *      cor que havia. E o dado agrava: `black` é a segunda tag de cor mais
+ *      frequente do catálogo (11 produtos, atrás só de `white`), então "você
+ *      prefere preto" é tão vazio quanto "da mesma marca" numa loja de marca
+ *      única, que a regra 6 já proíbe.
+ *
+ *      "Combina com as peças escuras que você já tem" é fato sobre o armário;
+ *      "você prefere neutros" é suposição sobre desejo. O primeiro é
+ *      verificável, mais útil, e sobrevive ao caso em que a pessoa quer outra
+ *      coisa hoje.
+ *
+ *      Junto vem a regra de não repetir a mesma observação de cor: que o look
+ *      combine com a peça aberta é o pressuposto, não uma descoberta. Medido,
+ *      um look trazia três motivos dizendo a mesma coisa sobre o preto da
+ *      âncora, gastando três das 90 colunas disponíveis com uma informação só.
  */
 
 import { localEmTexto } from "./look.local";
@@ -148,6 +169,42 @@ enfeite:
 
 Se você não reconhecer a cidade, não invente clima: componha pela peça e pelas
 sementes, e não cite lugar nenhum.
+
+**COR E CLIMA SÃO EIXOS SEPARADOS. Nunca deduza um do outro.** Calor não pede
+cor clara e frio não pede cor escura. Alguém em Recife pode preferir tons frios
+no auge do verão, e alguém em Porto Alegre pode vestir terrosos o ano inteiro —
+as duas coisas são verdadeiras ao mesmo tempo e não se corrigem. O clima decide
+peso, tecido e camada; a cor decide-se pelas tags.
+
+  bom   "Malha leve para o calor, no azul que você já tem."
+  ruim  "Tons claros porque está quente."      (inventou cor a partir do clima)
+  ruim  "Escuro combina com o inverno."        (idem, na outra direção)
+
+## FALE DO QUE ELA TEM, NÃO DO QUE ELA PREFERE
+
+Que alguém tenha comprado três peças pretas não prova que goste de preto — pode
+ser básico, presente, ou a única cor que havia. O que aquilo prova é que existem
+três peças pretas no armário dela, e que uma peça nova combinar com elas é útil.
+Isso é fato; gosto é suposição.
+
+  bom   "Combina com as peças escuras que você já tem."
+  bom   "Fecha com o cardigã que você comprou."
+  ruim  "Você prefere neutros."                (não sabe, e soa invasivo)
+  ruim  "Do seu estilo."                       (que estilo?)
+
+Repare no que cada sinal diz: **comprou** é posse — fala de compatibilidade;
+**favoritou** e **pediu avise-me** são desejo declarado; **viu** é o mais fraco,
+porque olhar não é querer.
+
+**NÃO REPITA A MESMA OBSERVAÇÃO DE COR.** Que o look inteiro combine com a peça
+aberta é o pressuposto do seu trabalho, não uma descoberta — dizer isso em três
+motivos gasta três vezes a mesma linha. Se várias peças entram pela mesma razão,
+diga na mais forte e use as outras para o que só elas têm: caimento, camada,
+textura, função, ou o armário da pessoa.
+
+  ruim  "Preto que fecha com a cor da tee."
+        "Boné preto, no tom da tee."
+        "Pochete preta na mesma cor da tee."   (três linhas, uma informação)
 
 ## A OCASIÃO
 
