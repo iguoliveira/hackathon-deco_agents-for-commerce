@@ -77,6 +77,11 @@ os 18 candidatos de hoje            ~  1.496 tokens
 **O catálogo inteiro cabe.** Sem descrição são ~4.7k tokens, cerca de 3× o
 prompt atual — e o prompt atual já roda em background, sem ninguém esperando.
 
+> **Medido depois de construído: ~8,7k tokens**, não 4,7k. A estimativa não
+> contava as anotações por pessoa (`combinaComOGuardaRoupa`, `combinaComOQueQuer`,
+> `jaTemDesteTipo`) nem as opções de variante, que juntas quase dobram o pool.
+> Continua cabendo e continua rodando em background — mas o número certo é este.
+
 Isso elimina a etapa que seria a mais arriscada de projetar: **não há critério de
 pré-seleção para inventar.** Qualquer filtro em código antes do modelo seria o
 código decidindo o que a pessoa pode ver, que é exatamente a classe de decisão
