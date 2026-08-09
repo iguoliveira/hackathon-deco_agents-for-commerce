@@ -16,13 +16,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, getResponse } from "@tanstack/react-start/server";
 import { readShopperIdentity } from "../alerts";
-import { lerCarrinho, limparCarrinho } from "../cart/cart.cookie";
+import { lerCarrinho, limparCarrinho, serializarCarrinho } from "../cart/cart.cookie";
 import { findCartLines } from "../catalog/catalog.d1";
 import { criarPedido, pedidosDe } from "./orders.d1";
 import type { Pedido } from "./orders.types";
 
 export type ResultadoDaCompra =
-  | { ok: true; pedidoId: string }
+  | {
+      ok: true;
+      pedidoId: string;
+      /**
+       * Variantes que estavam no carrinho e **não** entraram no pedido —
+       * esgotaram ou sumiram do catálogo entre a renderização e o clique.
+       *
+       * Elas continuam na sacola; isto existe para a tela poder dizer que
+       * aconteceu, em vez de a pessoa descobrir contando os itens do recibo.
+       */
+      removidos: string[];
+    }
   | { ok: false; motivo: "sem-sessao" | "carrinho-vazio" | "indisponivel" | "falhou" };
 
 /**
@@ -53,6 +64,22 @@ export const checkoutServerFn = createServerFn({ method: "POST" }).handler(
     const disponiveis = registros.filter((r) => r.available);
     if (disponiveis.length === 0) return { ok: false, motivo: "indisponivel" };
 
+    // O que NÃO entra no pedido. Duas causas, e as duas somem do mesmo jeito se
+    // ninguém olhar: a variante esgotou, ou ela sumiu do catálogo (um seed a
+    // apagou) e nem voltou de `findCartLines`.
+    //
+    // Antes daqui, essas linhas eram descartadas em silêncio: o pedido nascia
+    // com dois itens de três, devolvia `ok: true`, e o carrinho — único registro
+    // do que a pessoa tinha escolhido — era zerado logo depois. Ela não tinha
+    // como descobrir o que sumiu.
+    //
+    // O botão do minicart já desabilita com item esgotado, então o caso só é
+    // alcançável quando a peça esgota ENTRE a renderização e o clique. É a
+    // corrida que esta reconferência existe para pegar — e perder o registro
+    // dela justamente aqui seria perder o único caso que ela cobre.
+    const compradosAgora = new Set(disponiveis.map((r) => r.variantId));
+    const naoEntraram = linhas.filter((l) => !compradosAgora.has(l.variantId));
+
     const pedidoId = await criarPedido(
       identidade.email,
       disponiveis.map((registro) => ({
@@ -68,11 +95,25 @@ export const checkoutServerFn = createServerFn({ method: "POST" }).handler(
 
     if (!pedidoId) return { ok: false, motivo: "falhou" };
 
-    // Só limpa depois de gravar. Limpar antes perderia o carrinho se o INSERT
+    // Só mexe no cookie depois de gravar. Antes perderia o carrinho se o INSERT
     // falhasse, e a pessoa não teria como tentar de novo.
-    getResponse()?.headers.append("Set-Cookie", limparCarrinho());
+    //
+    // E **preserva** o que não entrou, em vez de limpar tudo: assim a peça que
+    // esgotou continua na sacola, marcada em vermelho pelo `available === false`
+    // que o `Minicart` já trata. A pessoa vê o que ficou de fora sem precisar de
+    // tela nova, e pode remover ou esperar voltar.
+    getResponse()?.headers.append(
+      "Set-Cookie",
+      naoEntraram.length > 0 ? serializarCarrinho(naoEntraram) : limparCarrinho(),
+    );
 
-    return { ok: true, pedidoId };
+    return {
+      ok: true,
+      pedidoId,
+      // Os handles ficam de fora de propósito: quem chama é a sacola, que já
+      // tem os itens em mãos. Devolver ids basta para ela decidir se avisa.
+      removidos: naoEntraram.map((l) => l.variantId),
+    };
   },
 );
 

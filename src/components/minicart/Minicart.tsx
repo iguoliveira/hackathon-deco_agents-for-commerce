@@ -147,6 +147,15 @@ function Footer({ cart }: { cart: CartState }) {
     mutationFn: () => checkoutServerFn(),
     onSuccess: (resultado) => {
       if (!resultado.ok) return;
+
+      // Com item removido, NÃO navega: a pessoa precisa ver a sacola com o que
+      // ficou de fora. Mandá-la para os pedidos aqui é o mesmo sumiço de antes,
+      // só que com um pedido certo na tela para distrair.
+      if (resultado.removidos.length > 0) {
+        qc.invalidateQueries({ queryKey: CART_QUERY_KEY });
+        return;
+      }
+
       qc.setQueryData(CART_QUERY_KEY, EMPTY_CART);
       navigate({ to: "/meus-pedidos" });
     },
@@ -180,6 +189,17 @@ function Footer({ cart }: { cart: CartState }) {
           >
             {finalizar.isPending ? "Finalizando…" : "Finalizar compra"}
           </button>
+        )}
+
+        {resultado?.ok && resultado.removidos.length > 0 && (
+          <p className="text-xs text-warning text-center">
+            {resultado.removidos.length === 1
+              ? "Um item esgotou e ficou de fora do pedido — ele continua na sacola."
+              : `${resultado.removidos.length} itens esgotaram e ficaram de fora — continuam na sacola.`}{" "}
+            <Link to="/meus-pedidos" className="underline">
+              Ver o pedido
+            </Link>
+          </p>
         )}
 
         {resultado && !resultado.ok && (
