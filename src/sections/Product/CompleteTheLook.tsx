@@ -110,9 +110,45 @@ export default function CompleteTheLook({ look, mostrarProcedencia = true }: Pro
   );
 }
 
-export const LoadingFallback = ({ look }: LoadingFallbackProps<Props>) => (
-  <Section.Container>
-    <Section.Header title={look?.titulo ?? ""} />
-    <Section.Placeholder height="480px" />
-  </Section.Container>
+/**
+ * **Nada na tela enquanto não houver look.** Não é um esqueleto discreto: é a
+ * ausência dele, de propósito.
+ *
+ * A versão anterior desenhava `Section.Placeholder height="480px"` sob um
+ * `Section.Header` de título **sempre vazio** — o wrapper do framework passa
+ * `rawProps` vazio ao fallback de propósito ("LoadingFallback components should
+ * be pure layout skeletons"), então não há título para mostrar. Medido: 592px
+ * de cinza sem uma palavra.
+ *
+ * Isso desenha uma section que promete conteúdo antes de existir conteúdo, e o
+ * caso em que ela não vai existir é o COMUM, não a exceção: `lookDaPeca`
+ * devolve `null` em cinco situações previstas — sem candidatos, contexto ainda
+ * não composto, peça em quarentena, tudo esgotado, peça inexistente — e todas
+ * são estado normal, não erro. O contrato já estava em `look.types.ts`: **ou o
+ * look é do agente, ou a section não aparece.** O esqueleto era a única parte
+ * do sistema que discordava dele.
+ *
+ * Medido depois da troca, no navegador, com rolagem de verdade:
+ *
+ *   São Paulo (look em cache)   data-deferred sai · 2010px · 21 links
+ *   Reykjavik (nunca composto)  data-deferred sai · 0px    · nada
+ *
+ * O segundo é o ponto: o carregamento acontece, e o que ele devolve é vazio.
+ * Antes, esse mesmo caminho pintava meia tela de cinza no meio da home.
+ *
+ * Há ainda um caminho em que o esqueleto ficaria para **sempre**, e ele é da
+ * hospedagem, não nosso: `loadDeferredSection` devolve `null` quando o
+ * `rawProps` não está no cache do servidor (o próprio framework avisa que isso
+ * acontece por cache miss entre isolates), e o wrapper não tem estado de
+ * "carregou e veio vazio" — sem resposta, ele mantém o fallback na tela. Não dá
+ * para consertar daqui; dá para fazer o sintoma ser invisível, que é isto.
+ *
+ * O `<div>` de 1px não é sobra: quem dispara o carregamento é um
+ * `IntersectionObserver` no elemento que envolve este retorno, e alvo de altura
+ * zero é caso de borda entre navegadores. Um pixel transparente custa nada e
+ * tira a dúvida — sem ele, o conserto do sintoma poderia virar "a section nunca
+ * mais carrega", que é pior porque não faz barulho.
+ */
+export const LoadingFallback = (_: LoadingFallbackProps<Props>) => (
+  <div aria-hidden="true" className="h-px" />
 );
