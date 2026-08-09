@@ -1,9 +1,6 @@
 import { useMutationState } from "@tanstack/react-query";
 import { MINICART_DRAWER_ID } from "../../constants";
-// `useCartAfterHydration` e nao `useCart`: o badge da contagem e markup, e a
-// query responde diferente no servidor e na primeira renderizacao do cliente.
-// Ver o hook.
-import { useCartAfterHydration } from "../../platform/cart";
+import { useCart } from "../../platform/cart";
 import { clx } from "~/sdk/clx";
 import Icon from "../ui/Icon";
 
@@ -13,7 +10,7 @@ import Icon from "../ui/Icon";
  * button (matching the menu/search icons) with the count as a small badge.
  */
 export default function Bag({ size = "md" }: { size?: "sm" | "md" }) {
-  const { cart } = useCartAfterHydration();
+  const { cart } = useCart();
   const count = cart.items.length;
   // Global "cart busy" indicator: any in-flight cart mutation (add/update/
   // remove) from anywhere in the tree, read via useMutationState by the

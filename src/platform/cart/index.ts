@@ -3,7 +3,6 @@ export { EMPTY_CART } from "./cart.types";
 export {
   CART_QUERY_KEY,
   useAddToCart,
-  useCartAfterHydration,
   useCart,
   useRemoveCartItem,
   useUpdateCartItem,
