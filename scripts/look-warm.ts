@@ -12,9 +12,25 @@
  * o que fica no cache é lido pela PDP de verdade. O `--gravar` do dry run não
  * serve para isso: ele usa `contexto_hash = 'dryrun'`, que a PDP nunca lê.
  *
- * **O contexto é o de quem roda** — do terminal, "visitante sem histórico em
- * São Paulo". É o contexto de quem chega pelo link do pitch sem ter navegado
- * antes, que é o caso que precisa estar quente.
+ * **O contexto é o de quem roda, e do terminal ele é o errado.** `aquecerLook`
+ * lê identidade e local da requisição corrente; fora de uma, `donoDaVitrine()`
+ * devolve `null` e `localDaRequisicao()` cai em São Paulo. O que este comando
+ * aquece, portanto, é o par (peça, conta sem histórico) — que **não é caso de
+ * uso desta feature**: ela pressupõe usuário logado, e visitante anônimo está
+ * fora do escopo (docs/agente-de-combinacoes.md, recorte no topo e regra 10).
+ *
+ * O par que precisa estar quente é **(peça do roteiro, persona logada)**, e hoje
+ * o único caminho para produzi-lo é abrir a PDP logado como ela e esperar a
+ * geração em background. Mesma coisa para outra cidade: o `deco_local` é cookie,
+ * e não há como informá-lo por aqui.
+ *
+ * **Cuidado com o falso positivo:** este script imprime `✓ … aquecida` sempre
+ * que o agente compõe, inclusive quando compôs para o contexto que ninguém vai
+ * usar. Sucesso aqui não é sinal de que a demo está pronta.
+ *
+ * Fechar isso é acrescentar `--email` e `--cidade`, montando o `Contexto` na mão
+ * em vez de herdá-lo da requisição. É a melhoria de maior retorno que ficou
+ * pendente neste script.
  */
 
 try {

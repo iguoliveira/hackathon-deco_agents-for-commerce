@@ -11,6 +11,22 @@ com uma linha dizendo por que ela entrou.
 
 Não é "quem viu isto também viu". É **composição**, e ela é assinada.
 
+> ### Quem é o público: usuário logado
+>
+> **Esta feature pressupõe identidade, e visitante anônimo não é caso a
+> considerar.** A composição parte do **armário da pessoa** — o que ela comprou,
+> favoritou, pediu "avise-me" e viu. Sem identidade não há armário, e sem armário
+> o agente não faz o que se propõe: vira um carrossel de relacionados com texto
+> bonito, que é exatamente aquilo que esta feature existe para contradizer.
+>
+> Isso não é uma limitação a ser corrigida depois. É o **recorte**: um caminho
+> anônimo não está previsto, não é medido e não decide desenho nenhum aqui. Onde
+> este documento diz "a pessoa", leia "a pessoa logada".
+>
+> A premissa viveu implícita até a revisão da PR #14 apontar decisões que só
+> fazem sentido sob ela — e uma premissa que só existe na cabeça de quem escreveu
+> reaparece como achado a cada revisão. Está escrita agora.
+
 ---
 
 ## 1. Por que esta feature e não a do `personal-shopping-agent-proposta.md`
@@ -164,6 +180,14 @@ ser otimização e virou pré-requisito. Os produtos da demo — e as cidades qu
 pretende demonstrar — são pré-aquecidos antes do pitch. Vale dizer no slide que
 uma loja de verdade faria isso num job; o que não vale é descobrir ao vivo.
 
+**Pré-aqueça no contexto da persona logada, não no do terminal.** `aquecerLook`
+usa o contexto de quem chama, e do terminal isso é uma conta sem histórico —
+que, pelo recorte do topo, não é o caso de uso. O par que precisa estar quente é
+`(peça do roteiro, persona da demo)`, e hoje o caminho para produzi-lo é abrir a
+PDP logado como ela. Um `--cidade` e um `--email` no `look:warm` fechariam isso
+num comando; enquanto não existem, o pré-aquecimento é manual e vai no checklist
+do dia.
+
 Falha **não grava**. Persistir um look de consolação ensinaria o cache a servir
 a falha; sem linha, o próximo carregamento tenta de novo, que é o certo quando a
 causa provável é saturação do provedor.
@@ -293,6 +317,10 @@ vez.
    sumindo — nunca um erro na tela, nunca um look de consolação.
 9. **Ou é do agente, ou não aparece.** Nenhuma peça chega à tela sem motivo. A
    ordenação por SQL não é fallback; ela não existe mais.
+10. **O público é o usuário logado.** Comportamento com visitante anônimo não é
+    requisito, não é medido e não decide desenho — ver o recorte no topo. Um
+    achado cujo único cenário seja "visitante sem histórico" está fora de
+    escopo por definição, e não vira tarefa.
 
 ---
 
@@ -385,7 +413,7 @@ aprendida de novo.
 | `deploy-vercel-supabase.md` | **em vigor** — infra |
 | `tese-agente-vendas-ia.md` r6 | **normativa e parcialmente ociosa**: o agente de busca que ela especifica está fora do fim de semana. As `explicit_exclusions` continuam valendo |
 | `personal-shopping-agent-proposta.md` | **parcialmente superado** — §§1-2 e 12 valem; §3, §4, §5, §7 e §11 foram substituídos por este arquivo |
-| `personal-shopping-agent-mudancas.md` | **parcialmente superado** — §1 (genérico) e §10 (o que não muda) valem; §§3-4 e 8 substituídos |
+| `personal-shopping-agent-mudancas.md` | **parcialmente superado** — §1 (genérico) e §10 (o que não muda) valem; §§3-4 e 8 substituídos. **§2 não vale aqui**: ela argumenta pela continuidade do histórico do visitante anônimo, e esta feature não atende anônimo — ver o recorte no topo |
 | `tese-admin-agentes.md` | **fora do escopo do fim de semana** — nenhuma tela de admin é construída |
 | `personal-shopping-agent-mvp.md` | revogado |
 | `personal-shopping-agent-optimization.md` | revogado |
