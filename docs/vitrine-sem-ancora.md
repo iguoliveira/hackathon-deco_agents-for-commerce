@@ -109,7 +109,7 @@ Fica registrado para não ser reinventado sob pressão.
 | `combinaComOGuardaRoupa` | tags que o candidato divide com o que a pessoa tem | **sobrevive e vira o sinal principal** |
 | `jaTemDesteTipo` | saturação por tipo | sobrevive — e é o que evita a vitrine virar oito camisetas |
 | `motivo` | relação com a âncora | relação com **a pessoa** |
-| `ocasiao` | função no look (calça, calçado, camada) | vira **tema** da prateleira |
+| `ocasiao` | função no look (calça, calçado, camada) | **morre** — lista única, ver §5 |
 | persona | entrada da composição | **entrada única** |
 
 ### O caso do `combinaComOGuardaRoupa`
@@ -234,3 +234,38 @@ as medições antigas deixa de valer — inclusive a de `medicao-baseline-cor.md
 
 **Nada disto foi medido com modelo.** O provedor está sem token desde ontem. O
 desenho é derivado do que já roda, não de observação nova.
+
+---
+
+## 8. Ordem de construção
+
+Determinístico primeiro, modelo depois, tela por último — a mesma ordem que a
+persona seguiu, e pelo mesmo motivo: cada peça é verificável sozinha, e a que
+depende de token fica por último para não bloquear o resto.
+
+| # | Peça | Onde | Depende de |
+|---|---|---|---|
+| 0 | **Consertar `comOGuardaRoupa`**: separar posse de desejo | `look.candidates.ts` | — |
+| 1 | `Vitrine`, `PecaRecomendada` | `vitrine.types.ts` | — |
+| 2 | `catalogoDisponivel()` — o pool sem âncora, sem descrição | `vitrine.candidates.ts` | — |
+| 3 | Prompt da recomendação | `vitrine.prompt.ts` | 1, 2 |
+| 4 | `recomendar(persona, candidatos)` + validação | `vitrine.agent.ts` | 3 |
+| 5 | Tabela `vitrines` + leitura/escrita/quarentena | migration + `vitrine.d1.ts` | 1 |
+| 6 | `vitrineDaPessoa()` — o portão da persona | `vitrine.actions.ts` | 4, 5 |
+| 7 | Section de lista única + loader | `sections/`, `loaders/` | 6 |
+| 8 | Aposentar o `look` | remover section, loader, bloco | 7 |
+
+O **passo 0 vem antes de tudo** e não é opcional: `combinaComOGuardaRoupa` passa
+de segundo sinal a eixo da feature, e ele hoje conta "favoritou" e "viu" como
+posse. Entrar com ele quebrado é construir a vitrine inteira sobre um fato falso.
+
+O **passo 8 fica por último** de propósito. Enquanto os dois convivem, dá para
+comparar as saídas lado a lado com os mesmos sinais — que é a única forma de
+saber se a troca melhorou alguma coisa antes de não haver mais volta.
+
+### O que o cron precisa de nós
+
+O dev do cron não precisa esperar nada disto: a interface que ele consome é
+`SELECT sinais_hash FROM personas WHERE origem = 'agente'` e uma função que
+recebe esse hash. Nenhum dos passos acima muda esse contrato — vale registrar
+para que os dois trabalhos não se travem.
