@@ -70,7 +70,7 @@ Levantado lendo o código, não os docs.
 | Transporte até o modelo | `shelf.decopilot.ts` `perguntar()` | thread nova por execução, SSE, verificado |
 | Parsing tolerante | `shelf.agent.ts:44` `extrairJson` | o Decopilot não garante saída estruturada |
 | Validação contra os candidatos | `shelf.agent.ts:90` `validar` | descarta, nunca conserta |
-| Favoritos | cookie `deco_wishlist` — `_cookie.ts:6` | semente, **hoje ninguém lê como tal** |
+| Favoritos | cookie `deco_wishlist` — `_cookie.ts:6` | semente (desde 09/08, também de `wishlist_items`) |
 | Avise-me | `stock_alerts` — `alerts.d1.ts` `findWaitedItems` | semente |
 | Reconferir estoque no render | `catalog.d1.ts:390` | preserva a ordem pedida |
 
@@ -327,10 +327,44 @@ leitura, pelo `JOIN`.
 
 | Semente | Onde já está | Falta |
 |---|---|---|
-| Favoritos | cookie `deco_wishlist`, TTL 1 ano | ler no servidor |
+| Favoritos | `wishlist_items` (logado) ∪ cookie `deco_wishlist` (todos) | **nada** — ver a nota abaixo |
 | Avise-me | `stock_alerts` | nada |
 | Vistos | — | cookie `deco_recent`, ~30 min |
 | Comprou | `orders` + `order_items` | **nada** — ver [`pedidos-e-compra-simulada.md`](pedidos-e-compra-simulada.md) |
+
+> **09/08 — a wishlist tem duas casas, e as duas contam.** O cookie sempre
+> existiu e é o que dá look pessoal a quem não entrou. Quando a PR #15 levou o
+> favorito para `wishlist_items`, o agente passaria a **não enxergar justamente
+> quem se identificou** — que é o público desta feature pelo recorte do topo.
+> `favoritosDe()` fecha isso, e `colherSementes` une as duas fontes.
+>
+> **Nenhuma das duas casas vale mais que a outra**, e isso deixou de ser uma
+> escolha desta feature quando a pesagem de sementes caiu: `consolidar` agrupa
+> por produto e **une** os `kinds`, sem eleger vencedora. As duas emitem
+> `wishlist`, e uma peça que esteja nas duas sai com uma entrada só.
+>
+> **A do banco é preferida num ponto, e só nele: a data.** O cookie guarda uma
+> lista de ids, sem quando — `sementesPorVariante` carimba o instante da
+> requisição em todos. Como a ordem final agora é cronológica, esse carimbo é
+> sempre mais novo que o `created_at` verdadeiro e venceria a comparação de
+> `consolidar`, empurrando a peça ao topo com uma data inventada. Por isso
+> `herdarDataReal` troca esse carimbo pela data verdadeira quando **qualquer**
+> fonte datada conhece a peça — compra, avise-me ou o favorito do banco.
+>
+> **Herda, não descarta**, e a diferença é o `kinds`: filtrar a entrada do cookie
+> resolveria a ordem, mas a peça perderia a origem `wishlist` e *"comprou e
+> favoritou"* viraria só *"comprou"* — a informação que a #26 ganhou ao parar de
+> eleger vencedora. Não é hierarquia entre fontes: o cookie cede no ponto da
+> data, e só por ser o único que não a tem. Favorito que existe apenas no cookie
+> segue com o instante da requisição, que é a melhor aproximação disponível.
+>
+> **A migration `0015_wishlist.sql` está em `main` desde a #29** — esta branch a
+> trouxe da #15 antes disso, byte a byte idêntica, e o merge resolve sozinho.
+>
+> **Não existe mais UI de favoritar.** Sem ela, `wishlist_items` só tem o que for
+> semeado — e é assim que a wishlist entra na demo. Vale o mesmo aviso que
+> `orders` já carrega: **isso vai dito no slide**. Um jurado de e-commerce
+> reconhece dado semeado apresentado como comportamento.
 
 > **08/08:** a linha "Comprou" deixou de ser pendência. Existe carrinho, botão de
 > finalizar e tela de pedidos, e a compra é gravada de verdade — o que a torna
@@ -440,6 +474,34 @@ vez.
 
 Contra o Supabase e o Decopilot reais, não em teste sintético. Âncora:
 `vintage-wash-tee` (*Vintage Wash Tee - Black*), 18 candidatos, 15 tipos.
+
+> **09/08 — a wishlist do banco chegando como semente.** Onze asserções contra o
+> banco real (`npm run look:wishlist`), num eixo que discrimina: sem cookie na
+> requisição, a metade do banco fica isolada e é exatamente o que se quer medir.
+>
+> `favoritosDe` devolveu 3 sementes com **tags** (5, 6 e 4 — logo alimentam
+> `combinaComOGuardaRoupa`) e com a data de **quando** cada uma foi favoritada,
+> não o instante da consulta. E-mail sem favoritos devolve vazio; sem sessão, não
+> há wishlist do banco.
+>
+> O trecho mais informativo da saída, com dados de verdade:
+>
+> ```
+> purchased+wishlist Ctrl+Shift+Tote Bag   ← favoritou E comprou: as duas origens
+> wishlist           Essential Cotton Tee
+> wishlist           Code Wizard Hat
+> ```
+>
+> É o `consolidar` fazendo o que deve **depois que a pesagem caiu**: a mesma peça
+> chegando por duas origens ocupa uma entrada só, e leva as duas. A versão
+> anterior desta nota dizia *"com a origem mais forte"* — não há mais forte, e
+> `purchased+wishlist` diz mais que qualquer um dos dois sozinho.
+>
+> **`npm run look:wishlist:e2e`** fecha o outro lado: semeia `wishlist_items`,
+> confere que o dado chega ao prompt e apaga o e-mail de teste no fim. O eixo ali
+> **não** é o conjunto de candidatos — a semente não filtra o pool, os dois lados
+> veem os mesmos 18. Ela entra por `comOGuardaRoupa`: 14 candidatos marcados por
+> afinidade e 2 por saturação com a wishlist, **zero** sem ela.
 
 **O clima é inferido, e isso muda a escolha — não só o texto.** Mesma peça,
 mesmo pool, mesmo código, só a string da cidade mudando:

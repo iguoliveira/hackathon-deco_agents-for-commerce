@@ -1,10 +1,21 @@
 /**
  * As sementes: tudo o que a pessoa já declarou querer, numa lista só.
  *
- *   comprou    orders            (semeada para as personas — dito no slide)
+ *   comprou    orders + order_items
  *   avise-me   stock_alerts      o sinal mais forte que a loja recebe de graça
- *   favoritou  cookie deco_wishlist
+ *   favoritou  wishlist_items (logado) ∪ cookie deco_wishlist (todos)
  *   viu        cookie deco_recent
+ *
+ * **A wishlist tem duas casas, e as duas contam.** O cookie sempre existiu e é o
+ * que dá look pessoal a quem não entrou; `wishlist_items` é onde o favorito
+ * passa a morar quando há sessão. Ler só o cookie deixava de fora exatamente
+ * quem se identificou — e é essa a pessoa que a feature atende (ver o recorte no
+ * topo de docs/agente-de-combinacoes.md).
+ *
+ * As duas entram como a mesma origem, `wishlist`, e **nenhuma vale mais que a
+ * outra**: não há peso aqui, nem entre as fontes nem dentro delas. O que a do
+ * banco tem a mais é a data em que cada favorito foi feito, e é só nisso que ela
+ * é preferida — ver o filtro em `colherSementes`.
  *
  * **Três das quatro já estavam persistidas e ninguém as lia como semente.** Era
  * o buraco que fazia o agente da vitrine depender de um único sinal — e o
@@ -18,7 +29,7 @@
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { readWishlistCookie } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
-import { comprasDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
+import { comprasDe, favoritosDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
 import { lerVistos } from "./look.cookies";
 import type { Semente } from "./look.types";
 
@@ -40,12 +51,28 @@ import type { Semente } from "./look.types";
 const LIMITE_DE_ESPERADOS = 12;
 
 /**
+ * Quantos favoritos o banco devolve. **Também não é teto de prompt** — pelo
+ * mesmo motivo que o de cima deixou de ser: a passada 1 quer o armário inteiro.
+ *
+ * É um limite de consulta, e existe porque uma wishlist não tem tamanho máximo:
+ * sem `LIMIT`, uma pessoa com trezentos favoritos traria trezentas linhas com
+ * tags para dentro do caminho de uma PDP. Doze é o mesmo número dos esperados,
+ * e por nenhuma razão mais nobre que a de não inventar um segundo número sem
+ * medida para justificá-lo.
+ *
+ * O corte é pelos **mais recentes** (`ORDER BY created_at DESC` em
+ * `favoritosDe`), que é a única ordem que o dado permite sem julgar os sinais.
+ */
+const LIMITE_DE_FAVORITOS = 12;
+
+/**
  * As sementes de quem está fazendo esta requisição.
  *
- * `email` é opcional porque **duas das quatro fontes não precisam de
- * identidade**: favoritos e vistos são cookies de primeira parte. Um visitante
- * deslogado que favoritou três peças tem um look pessoal, e isso é o que faz o
- * momento da demo funcionar sem login.
+ * `email` é opcional porque **duas fontes não precisam de identidade**: o cookie
+ * de favoritos e o de vistos. Um visitante deslogado que favoritou três peças
+ * tem um look pessoal, e isso é o que faz o momento da demo funcionar sem login.
+ * Com sessão, `wishlist_items` entra **ao lado** do cookie e o favorito
+ * sobrevive à troca de dispositivo.
  *
  * A identidade nunca vem por parâmetro de quem chama de fora — mesma regra de
  * `notifyMe/subscribe.ts` ("a sessão vence o e-mail do corpo"). Aqui ela vem de
@@ -62,14 +89,21 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
   const favoritos = request ? readWishlistCookie(request).productIDs : [];
   const vistos = lerVistos(request);
 
-  // As quatro em paralelo: são independentes, e serializá-las somaria quatro
-  // idas ao banco no caminho de uma PDP.
-  const [comprados, esperados, favoritados, olhados] = await Promise.all([
-    email ? comprasDe(email) : Promise.resolve([]),
-    email ? findWaitedItems(email, LIMITE_DE_ESPERADOS) : Promise.resolve([]),
-    sementesPorVariante(favoritos, "wishlist", agora),
-    sementesPorHandle(vistos, "recent", agora),
-  ]);
+  // As cinco em paralelo: são independentes, e serializá-las somaria cinco idas
+  // ao banco no caminho de uma PDP.
+  //
+  // A wishlist aparece duas vezes de propósito — ela tem duas casas. O cookie
+  // atende quem não está logado e sempre existiu; `wishlist_items` é onde o
+  // favorito passa a morar quando há sessão. Ler só o cookie deixava de fora
+  // justamente quem se identificou.
+  const [comprados, esperados, favoritadosNoBanco, favoritadosNoCookie, olhados] =
+    await Promise.all([
+      email ? comprasDe(email) : Promise.resolve([]),
+      email ? findWaitedItems(email, LIMITE_DE_ESPERADOS) : Promise.resolve([]),
+      email ? favoritosDe(email, LIMITE_DE_FAVORITOS) : Promise.resolve([]),
+      sementesPorVariante(favoritos, "wishlist", agora),
+      sementesPorHandle(vistos, "recent", agora),
+    ]);
 
   const esperadasComoSemente: Semente[] = esperados.map((item) => ({
     productGroupId: item.productGroupId,
@@ -85,7 +119,76 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     em: item.waitedAt,
   }));
 
-  return consolidar([...comprados, ...esperadasComoSemente, ...favoritados, ...olhados]);
+  // **O cookie não carimba data em peça que já tem data de verdade.**
+  //
+  // `consolidar` une as origens e fica com o `em` MAIS RECENTE. O cookie não
+  // guarda quando cada favorito foi feito — `sementesPorVariante` carimba
+  // `agora` em todos —, e `agora` vence qualquer data real por construção. A
+  // peça subiria ao topo da ordem cronológica com uma data inventada,
+  // empurrando para baixo sinais que de fato aconteceram depois dela.
+  //
+  // **As três fontes com data real entram no cruzamento, não só a do banco.**
+  // A primeira versão disto olhava apenas `favoritadosNoBanco`, e cobria uma
+  // das três colisões possíveis: uma compra de maio favoritada no cookie
+  // chegava ao prompt como o sinal mais recente da pessoa, na frente de uma
+  // compra de agosto. `comprados` e `esperadasComoSemente` também trazem data,
+  // e também eram atropeladas.
+  //
+  // **A entrada do cookie herda a data real em vez de ser descartada.** Filtrar
+  // resolveria a ordem, mas ao custo do `kinds`: a peça perderia a origem
+  // `wishlist`, e "comprou e favoritou" viraria só "comprou" — exatamente a
+  // informação que a #26 ganhou ao parar de eleger vencedora entre origens.
+  // Herdando, as duas coisas sobrevivem: `consolidar` funde os `kinds` e o `em`
+  // continua sendo o que aconteceu de verdade.
+  //
+  // Isto não restaura hierarquia entre fontes: nenhuma vence outra por ser mais
+  // "forte". O cookie cede num ponto só, o da data, e por ser o único que não a
+  // tem. Um favorito que exista **apenas** no cookie segue com `agora`, que é a
+  // melhor aproximação disponível para ele.
+  const cookieSemDataInventada = herdarDataReal(favoritadosNoCookie, [
+    ...comprados,
+    ...esperadasComoSemente,
+    ...favoritadosNoBanco,
+  ]);
+
+  return consolidar([
+    ...comprados,
+    ...esperadasComoSemente,
+    ...favoritadosNoBanco,
+    ...cookieSemDataInventada,
+    ...olhados,
+  ]);
+};
+
+/**
+ * Troca o `agora` das sementes de cookie pela data verdadeira da mesma peça,
+ * quando alguma fonte com data a conhece.
+ *
+ * Exportada para ser testável: a lógica vive no meio de `colherSementes`, que
+ * precisa de request e de banco, e o defeito que ela conserta é silencioso —
+ * ordem errada não lança, não aparece em `typecheck` e só se manifesta num
+ * prompt que ninguém lê.
+ *
+ * `datadas` deve conter **todas** as fontes que trazem `em` real. Passar só uma
+ * delas foi o bug original: cobria `wishlist ∩ cookie` e deixava
+ * `purchased ∩ cookie` e `waited ∩ cookie` intactas.
+ */
+export const herdarDataReal = (
+  doCookie: readonly Semente[],
+  datadas: readonly Semente[],
+): Semente[] => {
+  if (doCookie.length === 0) return [];
+
+  const maisRecentePorProduto = new Map<string, string>();
+  for (const semente of datadas) {
+    const atual = maisRecentePorProduto.get(semente.productGroupId);
+    if (!atual || semente.em > atual) maisRecentePorProduto.set(semente.productGroupId, semente.em);
+  }
+
+  return doCookie.map((semente) => {
+    const real = maisRecentePorProduto.get(semente.productGroupId);
+    return real ? { ...semente, em: real } : semente;
+  });
 };
 
 /**

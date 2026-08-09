@@ -39,6 +39,8 @@
     "shelf:dryrun": "tsx scripts/shelf-dryrun.ts",
     "look:dryrun": "tsx scripts/look-dryrun.ts",
     "look:check": "tsx scripts/look-render-check.ts",
+    "look:wishlist": "tsx scripts/look-wishlist-check.ts",
+    "look:wishlist:e2e": "tsx scripts/look-wishlist-e2e.ts",
     "look:eval": "tsx scripts/look-eval.ts",
     "look:warm": "tsx scripts/look-warm.ts",
     "look:armarios": "tsx scripts/look-armarios.ts"

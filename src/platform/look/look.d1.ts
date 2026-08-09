@@ -172,6 +172,73 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
   }
 };
 
+/**
+ * O que a pessoa favoritou **estando logada**.
+ *
+ * A wishlist tem duas casas, e o agente precisa das duas. O cookie
+ * `deco_wishlist` sempre existiu e é o que faz um visitante deslogado ter look
+ * pessoal; a tabela `wishlist_items` é onde o favorito passa a morar quando há
+ * sessão. Ler só o cookie deixaria de fora exatamente quem se identificou — e
+ * quem se identificou é o público desta feature (ver o recorte no topo de
+ * docs/agente-de-combinacoes.md).
+ *
+ * Quem une as duas é `colherSementes`; aqui só sai a metade do banco.
+ *
+ * **`created_at` real, não `now()`.** É a única coisa que esta fonte tem e a do
+ * cookie não: o cookie guarda uma lista de ids, sem quando. Depois que a
+ * pesagem de sementes caiu (ver `consolidar`), a ordem que chega ao modelo é
+ * cronológica — então a data deixou de ser critério de desempate e passou a ser
+ * a própria ordenação. Uma data inventada aqui não empataria nada; mentiria.
+ *
+ * **`wishlist_items` pode não existir** num banco que não rodou a `0015`. A
+ * consulta falha, o `catch` devolve `[]`, e o agente segue com o cookie — que é
+ * o comportamento de quem não está logado. Nada quebra.
+ */
+export const favoritosDe = async (email: string, limite: number): Promise<Semente[]> => {
+  const db = getDb();
+  if (!db) return [];
+
+  try {
+    // Duas camadas, e a de fora não é enfeite. `DISTINCT ON` exige que o
+    // `ORDER BY` comece pela coluna distinta, então o de dentro ordena por
+    // produto — e um `LIMIT` ali cortaria por `product_group_id`, que é ordem
+    // alfabética de id. Quem tivesse trinta favoritos receberia doze
+    // arbitrários em vez dos doze últimos. A camada de fora reordena por data e
+    // só então corta.
+    const { results } = await db
+      .prepare(
+        `SELECT * FROM (
+           SELECT DISTINCT ON (p.product_group_id)
+                  p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO},
+                  to_char(w.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
+             FROM wishlist_items w
+             JOIN variants v ON v.variant_id = w.product_id
+             JOIN products p ON p.product_group_id = v.product_group_id
+            WHERE w.user_id = ?
+            ORDER BY p.product_group_id, w.created_at DESC
+         ) AS por_produto
+          ORDER BY created_at DESC
+          LIMIT ?`,
+      )
+      .bind(email, limite)
+      .all<CompraRow>();
+
+    return results.map((linha) => ({
+      productGroupId: linha.product_group_id,
+      titulo: linha.title,
+      tipo: linha.product_type ?? "",
+      tags: linha.tags ?? [],
+      // Lista, não valor único: a mesma peça pode chegar por outras origens, e
+      // `consolidar` une as listas em vez de escolher uma vencedora.
+      kinds: ["wishlist" as const],
+      em: linha.created_at,
+    }));
+  } catch (erro) {
+    console.error("[look] favoritosDe falhou", erro);
+    return [];
+  }
+};
+
 // ---------------------------------------------------------------------------
 // A âncora
 // ---------------------------------------------------------------------------
