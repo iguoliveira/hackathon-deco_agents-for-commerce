@@ -16,8 +16,19 @@ interface SementeRow {
   product_group_id: string;
   title: string;
   product_type: string;
-  color: string | null;
+  tags: string[] | null;
 }
+
+/**
+ * As tags do produto, no mesmo formato que `acharAncora` já usa.
+ *
+ * Repetido como fragmento em vez de virar JOIN porque as três consultas de
+ * semente partem de tabelas diferentes (variante, handle, pedido) e só
+ * compartilham o `product_group_id` no fim.
+ */
+const TAGS_DO_PRODUTO = `COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                                    WHERE pp.product_group_id = p.product_group_id
+                                      AND pp.name = 'TAG'), '{}') AS tags`;
 
 /**
  * Resolve variantes em produtos. É como favoritos e compras viram semente: os
@@ -36,7 +47,7 @@ export const sementesPorVariante = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT DISTINCT p.product_group_id, p.title, p.product_type, p.color
+        `SELECT DISTINCT p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO}
            FROM products p
            JOIN variants v ON v.product_group_id = p.product_group_id
           WHERE v.variant_id = ANY(?)`,
@@ -48,7 +59,7 @@ export const sementesPorVariante = async (
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
-      cor: linha.color,
+      tags: linha.tags ?? [],
       kind,
       em,
     }));
@@ -70,7 +81,7 @@ export const sementesPorHandle = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.color
+        `SELECT p.product_group_id, p.handle, p.title, p.product_type, ${TAGS_DO_PRODUTO}
            FROM products p
           WHERE p.handle = ANY(?)`,
       )
@@ -87,7 +98,7 @@ export const sementesPorHandle = async (
         productGroupId: linha.product_group_id,
         titulo: linha.title,
         tipo: linha.product_type ?? "",
-        cor: linha.color,
+        tags: linha.tags ?? [],
         kind,
         em,
         _pos: posicaoNoCookie.get(linha.handle) ?? Number.MAX_SAFE_INTEGER,
@@ -110,6 +121,14 @@ interface CompraRow extends SementeRow {
  * `INNER JOIN` com o catálogo, não `LEFT`: uma compra cuja variante saiu do
  * catálogo não tem o que informar ao agente — não há tipo, não há tag, não há
  * do que compor em volta. Mesma escolha que `findWaitedItems` já faz.
+ *
+ * Parte de `order_items` e não de `orders` desde a 0017: o pedido passou a ter
+ * vários itens, e a variante desceu para a linha do item. O JOIN com o catálogo
+ * **vivo** é de propósito — o agente precisa do tipo e das tags de agora, não
+ * dos de quando a compra aconteceu. O que ficou congelado no pedido é só o que
+ * foi transacionado (preço e título), e nada disso entra aqui.
+ *
+ * Pedido cancelado não conta: o sinal é POSSE, e quem cancelou não tem a peça.
  */
 export const comprasDe = async (email: string): Promise<Semente[]> => {
   const db = getDb();
@@ -119,11 +138,12 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
     const { results } = await db
       .prepare(
         `SELECT DISTINCT ON (p.product_group_id)
-                p.product_group_id, p.title, p.product_type, p.color, o.created_at
+                p.product_group_id, p.title, p.product_type, o.created_at, ${TAGS_DO_PRODUTO}
            FROM orders o
-           JOIN variants v ON v.variant_id = o.variant_id
+           JOIN order_items oi ON oi.order_id = o.id
+           JOIN variants v ON v.variant_id = oi.variant_id
            JOIN products p ON p.product_group_id = v.product_group_id
-          WHERE o.email = ?
+          WHERE o.email = ? AND o.status <> 'cancelled'
           ORDER BY p.product_group_id, o.created_at DESC`,
       )
       .bind(email)
@@ -133,7 +153,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
-      cor: linha.color,
+      tags: linha.tags ?? [],
       kind: "purchased" as const,
       em: linha.created_at,
     }));
@@ -152,7 +172,6 @@ interface AncoraRow {
   handle: string;
   title: string;
   product_type: string;
-  color: string | null;
   description: string | null;
   tags: string[] | null;
 }
@@ -166,7 +185,7 @@ const buscarAncora = async (
 
   const linha = await db
     .prepare(
-      `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.color, p.description,
+      `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.description,
               COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
                          WHERE pp.product_group_id = p.product_group_id
                            AND pp.name = 'TAG'), '{}') AS tags,
@@ -188,7 +207,6 @@ const buscarAncora = async (
       handle: linha.handle,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
-      cor: linha.color,
       // 240 caracteres: o bastante para o modelo entender a peça que ancora o
       // look, longe do bastante para a descrição (média de 866) competir com
       // os candidatos pelo espaço do prompt.

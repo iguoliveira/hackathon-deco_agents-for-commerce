@@ -13,8 +13,6 @@
  *   2. **`confianca` existe para o agente poder se recusar.** Sem saída honesta
  *      para "os candidatos não servem", ele inventa relação.
  *   3. **O motivo pede RELAÇÃO, não elogio.**
- *      (A regra 3 do texto foi reescrita — ver a decisão 9 abaixo. O que ela
- *      protegia continua protegido: cor afirmada errada foi um erro real.)
  *   4. **A marca é proibida.** A loja é de marca única (`vendor = 'Deco Store'`
  *      nos 136 produtos), então "da mesma marca" é verdade vazia.
  *   5. **Só afirme o que está escrito no candidato.**
@@ -29,36 +27,27 @@
  *      possíveis; ele pede um rótulo curto e deixa o modelo nomear os eixos que
  *      encontrar NESTE catálogo. É o que dá blocos com títulos que ninguém
  *      programou.
- *   8. **A cor tem duas fontes, e a peça aberta vence.** Quando a âncora tem
- *      cor, ela guia a composição; as sementes só orientam quando concordam
- *      entre si. Sem concordância, o agente se cala sobre o armário — inventar
- *      paleta soa pior que não falar de cor.
+ *   8. **Cor e clima são eixos separados.** "Cor fria" e "clima frio" não são a
+ *      mesma coisa, e sem regra explícita o modelo deriva uma da outra — "está
+ *      quente, use claro". Isso inventa preferência a partir do eixo errado e
+ *      some com a pessoa que deveria estar sendo ouvida. Proibido nas duas
+ *      direções.
+ *   9. **Fale do que ela TEM, não do que ela prefere.** Comprar três peças
+ *      pretas não prova gostar de preto — pode ser básico, presente, ou a única
+ *      cor que havia. E o dado agrava: `black` é a segunda tag de cor mais
+ *      frequente do catálogo (11 produtos, atrás só de `white`), então "você
+ *      prefere preto" é tão vazio quanto "da mesma marca" numa loja de marca
+ *      única, que a regra 4 já proíbe.
  *
- *      A cor vem de `products.color`, atributo desde a 0018, e o prompt proíbe
- *      lê-la de qualquer outro lugar. Antes ela vivia no fim do título
- *      ("… - Black") e o modelo a extraía por conta própria — o que dava certo
- *      nos 104 produtos com hífen e falhava em silêncio nos outros 31, porque
- *      "não tem cor no título" e "não tem cor" são indistinguíveis quando a
- *      fonte é uma string. Agora `null` diz explicitamente "o catálogo não
- *      sabe", e o agente tem como se calar pelo motivo certo.
+ *      "Combina com as peças escuras que você já tem" é fato sobre o armário;
+ *      "você prefere neutros" é suposição sobre desejo. O primeiro é
+ *      verificável, mais útil, e sobrevive ao caso em que a pessoa quer outra
+ *      coisa hoje.
  *
- *      Isto NÃO contradiz a regra da §1: o código continua sem conhecer
- *      nenhuma cor. Não há lista, enum nem CHECK — `color` é TEXT livre, e
- *      quem agrupa "Charcoal" com "Grey" é o modelo. O que mudou foi só de
- *      onde o dado vem, não quem o interpreta.
- *   9. **Identidade de cor é estrita; parentesco de cor é livre.** A regra 3
- *      original tratava os dois atos como um só, e o custo disso foi medido:
- *      com sementes `Grey` + `Charcoal` + `Navy` o agente não dizia nada sobre
- *      a preferência da pessoa, enquanto com três sementes `Black` ele dizia
- *      ("o blazer que você comprou"). Ele lia a proibição de afirmar MESMA COR
- *      como proibição de falar de cor entre palavras diferentes — e com isso
- *      perdia justamente o caso que vale a pena, porque ninguém se impressiona
- *      ao ver que preto combina com preto.
- *
- *      Por isso o texto agora diz, com todas as letras, que três cores
- *      diferentes formam uma paleta. O que continua proibido é chamar de
- *      igualdade o que é parentesco: "Charcoal" não é "Black", e afirmar que é
- *      seria o erro que a regra original nasceu para impedir.
+ *      Junto vem a regra de não repetir a mesma observação de cor: que o look
+ *      combine com a peça aberta é o pressuposto, não uma descoberta. Medido,
+ *      um look trazia três motivos dizendo a mesma coisa sobre o preto da
+ *      âncora, gastando três das 90 colunas disponíveis com uma informação só.
  */
 
 import { localEmTexto } from "./look.local";
@@ -98,18 +87,14 @@ Entre 5 e 10 peças, na ordem em que você acredita nelas.
 2. Não afirme material, gramatura, medida, composição, origem ou cuidado que
    não esteja escrito no candidato. Você não tem essa informação. Omitir é
    sempre melhor que inventar.
-3. A cor de cada peça vem no campo "cor", e SÓ dele. Nunca deduza cor do
-   título, da descrição, do nome do modelo ou da imagem. Quando "cor" vier
-   nulo, o catálogo não sabe a cor daquela peça — e você também não. Nesse
-   caso, não fale da cor dela: componha pelo resto.
-
-   Dizer que duas peças SÃO da mesma cor é estrito: só afirme isso quando as
-   duas trouxerem exatamente o MESMO valor em "cor". "Charcoal" não é "Black".
-
-   Dizer que peças CONVERSAM entre si é outra coisa, e é permitido — inclusive
-   com valores diferentes. "Charcoal", "Grey" e "Navy" são TRÊS CORES
-   DIFERENTES e formam uma paleta só; enxergar isso é parte do seu trabalho.
-   O que você não pode é chamar de igualdade aquilo que é parentesco.
+3. NÃO tire a cor do título. Em alguns catálogos ela aparece no fim dele
+   ("Vintage Wash Tee - Black"), em outros não — e você não tem como saber em
+   qual está. A prova de cor são as TAGS: elas trazem a cor em minúsculas
+   ("black", "off white", "dark green"). Como você só recebe as tags EM COMUM,
+   uma cor ali significa que as duas peças a compartilham — e é o único caso em
+   que você pode afirmar que combinam de cor. Sem isso você não sabe a cor
+   daquele candidato: não deduza do título, da descrição, do nome nem da
+   categoria, e não a mencione.
 4. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
    controla nada disso.
 5. Todos os candidatos já estão disponíveis. Nunca escreva que algo "ainda está
@@ -129,6 +114,27 @@ Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
   mesmaColecao       -> mesmo território da loja. Sinal fraco sozinho; nunca use
                         isso como único motivo.
   opcoesDisponiveis  -> o que dá para comprar hoje.
+  combinaComOGuardaRoupa -> tags que esta peça divide com o que a pessoa JÁ TEM.
+                        É o sinal mais forte que existe aqui: não é "parece com
+                        o que ela olha", é "funciona com o que ela possui".
+                        Quando aparecer, prefira o candidato e diga isso no
+                        motivo, nomeando a peça dela.
+  jaTemDesteTipo     -> peças do MESMO tipo que ela já possui. Quem já tem duas
+                        calças raramente precisa da terceira: só ofereça mais
+                        uma se ela cumprir função diferente, e explique qual.
+
+## NÃO EMPILHE PEÇAS INTERCAMBIÁVEIS
+
+Um look é feito de peças com FUNÇÕES diferentes, não de opções para a mesma
+função. Casaco, jaqueta, moletom e sobretudo competem entre si: são todos a
+camada de cima. Escolha NO MÁXIMO DOIS deles, e só quando um veste por baixo do
+outro de verdade — moletom sob jaqueta funciona; duas jaquetas, não.
+
+Se você se pegar escrevendo "alternativa", "opção" ou "também serve", pare: isso
+é substituição, e substituição não completa um look. Aquela vaga vale mais com
+uma peça de outra função — calça, calçado, boné, bolsa.
+
+O mesmo vale para baixo: uma calça basta.
 
 ## O CONTEXTO DA PESSOA
 
@@ -164,93 +170,41 @@ enfeite:
 Se você não reconhecer a cidade, não invente clima: componha pela peça e pelas
 sementes, e não cite lugar nenhum.
 
-## A COR
-
-A cor é mais um critério de composição, ao lado do tipo, das tags e do clima.
-Não é o mais importante de todos, e um look inteiro da mesma cor é pior que um
-look variado.
-
-Você tem duas fontes de cor, e elas não têm a mesma força.
-
-**A PEÇA ABERTA manda.** Quando ela tem "cor", o conjunto se monta em volta
-dela: se a pessoa abriu uma peça vermelha, o look acompanha vermelho — mesmo
-que tudo o que ela tenha comprado antes seja bege. Ela escolheu aquela peça
-agora, e não cabe a você corrigir.
-
-Quando a "cor" da peça aberta vier nula, não há fonte primária. Aí quem guia a
-cor é o armário da pessoa, e só ele.
-
-**AS SEMENTES mandam na escolha da cor** — mas preste atenção no que cada uma
-de fato diz. Elas não são todas a mesma coisa:
-
-  comprou             -> ela TEM essa peça. Fala do guarda-roupa dela.
-  favoritou           -> ela QUER. Levantou a mão por aquilo.
-  pediu avise-me      -> ela QUER, e a loja não tinha.
-  viu agora há pouco  -> ela OLHOU. Sinal fraco; olhar não é querer.
-
-Quando várias sementes ficam no mesmo território de cor, use isso: entre dois
-candidatos que empatam nos outros critérios, escolha o que fica nesse território
-e DIGA no motivo que foi por isso.
-
-**Fale de COMBINAR, nunca de PREFERIR.** Que alguém tenha comprado três peças
-pretas não prova que goste de preto — pode ser básico, presente, ou a única cor
-que havia. O que aquilo prova é que existem três peças pretas no armário dela, e
-que uma peça nova combinar com elas é útil. Isso é fato; gosto é suposição.
-
-  bom   "Combina com as peças escuras que você já tem."
-  bom   "Na linha do que você vem procurando."        (para favoritou/avise-me)
-  bom   "Fecha com o cardigã que você comprou."
-  ruim  "Você prefere neutros."                       (não sabe, e soa invasivo)
-  ruim  "Do seu estilo."                              (que estilo?)
-
-As sementes NÃO precisam ser da mesma cor para formar um território. Peças em
-"Charcoal", "Grey" e "Navy" são três cores diferentes e um território só — quem
-tem as três tem um armário escuro, e uma peça que converse com ele é uma boa
-recomendação. Esperar pela mesma palavra é perder o conjunto.
-
 **COR E CLIMA SÃO EIXOS SEPARADOS. Nunca deduza um do outro.** Calor não pede
-cor clara e frio não pede cor escura — quem decide a cor é a peça aberta e o
-que a pessoa já tem; quem decide peso, tecido e camada é o clima.
+cor clara e frio não pede cor escura. Alguém em Recife pode preferir tons frios
+no auge do verão, e alguém em Porto Alegre pode vestir terrosos o ano inteiro —
+as duas coisas são verdadeiras ao mesmo tempo e não se corrigem. O clima decide
+peso, tecido e camada; a cor decide-se pelas tags.
 
-Alguém em Recife pode preferir tons frios no auge do verão, e alguém em Porto
-Alegre pode vestir terrosos o ano inteiro. As duas coisas são verdadeiras ao
-mesmo tempo e não se corrigem.
-
-  bom   "Malha leve para o calor, no azul que você vem escolhendo."
+  bom   "Malha leve para o calor, no azul que você já tem."
   ruim  "Tons claros porque está quente."      (inventou cor a partir do clima)
   ruim  "Escuro combina com o inverno."        (idem, na outra direção)
 
-Quando as sementes NÃO concordam em cor — peças de cores sem relação entre si,
-ou nenhuma semente —, **não fale do armário dela.** Componha pela peça aberta e
-pelos outros critérios. Inventar um conjunto que não está ali é pior que não
-falar de cor nenhuma: soa como se você tivesse olhado outra pessoa.
+## FALE DO QUE ELA TEM, NÃO DO QUE ELA PREFERE
 
-Notar que UMA peça bate com UMA semente continua valendo — "fecha com o puffer
-oliva que você comprou" é um fato, não um padrão. O que não vale é transformar
-peças soltas num território que elas não formam.
+Que alguém tenha comprado três peças pretas não prova que goste de preto — pode
+ser básico, presente, ou a única cor que havia. O que aquilo prova é que existem
+três peças pretas no armário dela, e que uma peça nova combinar com elas é útil.
+Isso é fato; gosto é suposição.
 
-  ruim  "Combina com o seu estilo."         (que estilo? você não sabe)
-  ruim  "Perfeito para a sua paleta."       (não há paleta)
+  bom   "Combina com as peças escuras que você já tem."
+  bom   "Fecha com o cardigã que você comprou."
+  ruim  "Você prefere neutros."                (não sabe, e soa invasivo)
+  ruim  "Do seu estilo."                       (que estilo?)
 
-Harmonizar não é uniformizar. O que funciona é um conjunto que se sustenta, com
-contraste onde ele ajuda:
-
-  bom   "Contraste de couro por cima do algodão."
-  ruim  "Tudo preto, do mesmo tom."         (não é composição, é repetição)
+Repare no que cada sinal diz: **comprou** é posse — fala de compatibilidade;
+**favoritou** e **pediu avise-me** são desejo declarado; **viu** é o mais fraco,
+porque olhar não é querer.
 
 **NÃO REPITA A MESMA OBSERVAÇÃO DE COR.** Que o look inteiro combine com a peça
 aberta é o pressuposto do seu trabalho, não uma descoberta — dizer isso em três
-motivos gasta três vezes a mesma linha. Se várias peças entram pela mesma razão
-de cor, diga na mais forte e use as outras linhas para o que só elas têm:
-caimento, camada, textura, função, ou o armário da pessoa.
+motivos gasta três vezes a mesma linha. Se várias peças entram pela mesma razão,
+diga na mais forte e use as outras para o que só elas têm: caimento, camada,
+textura, função, ou o armário da pessoa.
 
   ruim  "Preto que fecha com a cor da tee."
         "Boné preto, no tom da tee."
         "Pochete preta na mesma cor da tee."   (três linhas, uma informação)
-
-  bom   "Preto que fecha com a cor da tee."
-        "Aba plana equilibra o volume de cima."
-        "Combina com as peças escuras que você já tem."
 
 ## A OCASIÃO
 
@@ -325,10 +279,12 @@ export const montarMensagem = (
     // prompt é convite para ele tentar devolver um.
     titulo: s.titulo,
     tipo: s.tipo,
-    // Explícito desde a 0018. Antes vinha escondido no fim do `titulo` e o
-    // modelo precisava parsear; agora `null` diz "não sabemos", que é uma
-    // informação que o título nunca conseguiu transmitir.
-    cor: s.cor,
+    // As tags entram porque sem elas a semente era um rótulo: o modelo só sabia
+    // o nome do que a pessoa tinha. Ele conseguia dizer "combina com o tênis
+    // branco que você comprou" lendo "White" do título — e essa era a única
+    // inferência que o dado permitia. Todo CANDIDATO já vinha com sinais
+    // calculados; o guarda-roupa, não.
+    tags: s.tags,
     sinal: ROTULO_DA_SEMENTE[s.kind] ?? s.kind,
   }));
 
@@ -340,7 +296,6 @@ export const montarMensagem = (
       {
         titulo: ancora.titulo,
         tipo: ancora.tipo,
-        cor: ancora.cor,
         tags: ancora.tags,
         descricao: ancora.descricao,
       },

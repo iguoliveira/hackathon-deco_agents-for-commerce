@@ -168,7 +168,7 @@ export const gerarLook = async (
   const alvo = await acharAncora(handle);
   if (!alvo) return null;
 
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
   if (candidatos.length < MIN_PECAS) return null;
 
   const look = await comporLook(alvo.ancora, contexto, candidatos);

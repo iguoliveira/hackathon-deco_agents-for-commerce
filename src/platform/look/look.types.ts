@@ -36,13 +36,18 @@ export interface Semente {
   /** `products.product_type`. */
   tipo: string;
   /**
-   * `products.color`, desde a 0018. `null` quando o catálogo não sabe.
+   * As tags da peça (`product_props` com `name = 'TAG'`).
    *
-   * É por aqui que a cor do armário chega ao agente. Antes da 0018 ela vinha
-   * escondida no fim do `titulo`, e ler cor exigia parsing de string — o que
-   * dava certo em 77% dos produtos e falhava em silêncio no resto.
+   * Sem elas a semente chegava ao modelo como **rótulo, não como dado**: só
+   * título e tipo. Ele conseguia dizer "combina com o tênis branco que você
+   * comprou" porque leu "White" da string do título — e era a única inferência
+   * que o dado permitia. Todo candidato já vinha com `tagsEmComum`; o que a
+   * pessoa possui, não. A assimetria é que tornava a compra decorativa.
+   *
+   * É delas que sai `combinaComOGuardaRoupa` em `look.candidates.ts`, calculado
+   * em código, do mesmo jeito que `tagsEmComum` é calculado contra a âncora.
    */
-  cor: string | null;
+  tags: string[];
   kind: SeedKind;
   /** ISO 8601. Semente recente pesa mais no desempate. */
   em: string;
@@ -97,8 +102,6 @@ export interface Candidato {
   handle: string;
   titulo: string;
   tipo: string;
-  /** `products.color`. `null` = o catálogo não sabe a cor desta peça. */
-  cor: string | null;
   preco: number;
   /** Mesma coleção da âncora: sinal fraco, nunca motivo sozinho. */
   mesmaColecao: boolean;
@@ -107,6 +110,21 @@ export interface Candidato {
   /** Só as opções com variante disponível AGORA (tamanhos, cores…). */
   opcoesDisponiveis: string[];
   descricao: string;
+  /**
+   * Tags que este candidato divide com o que a pessoa **já tem**.
+   *
+   * Simétrico a `tagsEmComum`, que é contra a peça aberta. Ausente quando não há
+   * interseção — omitir é mais barato que mandar `[]` em 18 candidatos, e o
+   * campo ausente lê-se como "nada a dizer" em vez de "medido e deu zero".
+   */
+  combinaComOGuardaRoupa?: string[];
+  /**
+   * Peças do MESMO tipo que a pessoa já possui.
+   *
+   * É o que deixa o modelo enxergar saturação — quem já tem duas calças não
+   * precisa da terceira — sem que o código decida por ele quantas são demais.
+   */
+  jaTemDesteTipo?: string[];
 }
 
 /** A peça aberta na PDP, na forma que vai para o prompt. */
@@ -115,8 +133,6 @@ export interface Ancora {
   handle: string;
   titulo: string;
   tipo: string;
-  /** `products.color`. `null` = o catálogo não sabe a cor da peça aberta. */
-  cor: string | null;
   descricao: string;
   tags: string[];
 }

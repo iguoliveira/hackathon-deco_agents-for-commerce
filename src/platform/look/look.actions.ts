@@ -182,7 +182,17 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
   // faria a PDP disparar o agente para um pool que ele recusaria por pequeno,
   // repetindo o gasto a cada visita sem nunca produzir look.
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  //
+  // O terceiro argumento é o guarda-roupa. Ele não filtra nada — só acrescenta
+  // `combinaComOGuardaRoupa` e `jaTemDesteTipo` a cada candidato. Passá-lo aqui
+  // e em `gerarLook` é obrigatório pelo mesmo motivo que `jaComprados`: os dois
+  // caminhos precisam produzir o MESMO pool, senão o que a PDP mede para decidir
+  // se vale chamar o modelo não é o que o modelo recebe.
+  const candidatos = await montarCandidatos(
+    alvo.variantId,
+    jaComprados(contexto),
+    contexto.sementes,
+  );
   if (candidatos.length < MIN_PECAS) return null;
 
   // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem

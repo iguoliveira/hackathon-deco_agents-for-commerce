@@ -83,15 +83,12 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     productGroupId: item.productGroupId,
     titulo: item.title,
     tipo: item.productType,
-    // `WaitedItem` não carrega cor, e enriquecê-lo é mexer em
-    // `src/platform/alerts/`, que é outro domínio e outra feature. `null` aqui
-    // é honesto: significa "o agente não sabe a cor desta peça", que é
-    // exatamente o caso — e é melhor que inventar.
-    //
-    // A lacuna custa: "avise-me" é o segundo sinal mais forte (peso 3) e fica
-    // fora do eixo de cor. Consertar é acrescentar `color` ao SELECT de
-    // `findWaitedItems` e ao tipo `WaitedItem`.
-    cor: null,
+    // Vazio: `WaitedItem` não carrega tags, e buscá-las custaria uma consulta a
+    // mais no caminho da PDP. A consequência é limitada e vale dizer qual: uma
+    // peça que só foi ESPERADA não contribui para `combinaComOGuardaRoupa` —
+    // ela ainda chega ao modelo com título e tipo, como antes. Compras e
+    // favoritos, que são posse ou intenção declarada, trazem as tags.
+    tags: [],
     kind: "waited" as const,
     em: item.waitedAt,
   }));

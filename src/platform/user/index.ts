@@ -8,6 +8,8 @@ export {
 } from "./user.actions";
 export {
   USER_QUERY_KEY,
+  useAuthAfterHydration,
+  useUserAfterHydration,
   useRecoverPassword,
   useSignIn,
   useSignOut,

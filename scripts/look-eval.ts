@@ -175,7 +175,11 @@ const sementesDe = async (handles: string[]): Promise<Semente[]> => {
       productGroupId: alvo.ancora.productGroupId,
       titulo: alvo.ancora.titulo,
       tipo: alvo.ancora.tipo,
-      cor: alvo.ancora.cor,
+      // As tags e não a cor: desde a #16 o armário chega ao modelo com os
+      // mesmos sinais calculados que os candidatos já tinham, e é delas que
+      // sai `combinaComOGuardaRoupa`. Forjar semente sem tags aqui produziria
+      // um armário mudo e mediria o agente errado.
+      tags: alvo.ancora.tags,
       kind: "purchased",
       em: agora,
     });

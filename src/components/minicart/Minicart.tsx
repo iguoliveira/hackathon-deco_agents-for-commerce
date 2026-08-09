@@ -1,15 +1,25 @@
 import { formatPrice } from "@decocms/apps-commerce/sdk/formatPrice";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { clx } from "~/sdk/clx";
 import Image from "~/components/ui/Image";
 import Icon from "../ui/Icon";
 import { MINICART_DRAWER_ID } from "../../constants";
 import {
+  CART_QUERY_KEY,
+  EMPTY_CART,
   useCart,
   useRemoveCartItem,
   useUpdateCartItem,
   type CartItem,
   type CartState,
 } from "../../platform/cart";
+// Do módulo, não do barrel: `platform/orders/index.ts` reexporta `orders.d1`,
+// que puxa `getDb` e o driver `postgres` para o grafo do cliente. Existe um
+// stub em vite.config.ts que mascara isso, mas contar com ele é o caminho para
+// o mesmo build quebrado que `node:crypto` já causou uma vez.
+import { checkoutServerFn } from "../../platform/orders/orders.actions";
+import { useAuthAfterHydration } from "../../platform/user";
 
 function QuantityStepper({ item }: { item: CartItem }) {
   const update = useUpdateCartItem();
@@ -68,12 +78,22 @@ function CartLine({ item, currency }: { item: CartItem; currency: string }) {
         <div className="w-16 h-16 rounded bg-base-200" aria-hidden="true" />
       )}
       <div className="flex flex-col grow gap-1">
+        {/* `/products/{handle}`: a rota deste storefront. O `/{handle}` daqui
+            era da época do Shopify e levava a 404 em todo item da sacola. */}
         <a
-          href={`/${item.productHandle}`}
+          href={`/products/${item.productHandle}`}
           className="text-sm font-medium line-clamp-2 hover:underline"
         >
           {item.title}
         </a>
+        {/* Sem o rótulo da variante, dois tamanhos da mesma peça ficam
+            indistinguíveis na sacola — e a pessoa remove o errado. */}
+        {item.variantTitle && (
+          <div className="text-xs text-base-400">{item.variantTitle}</div>
+        )}
+        {item.available === false && (
+          <div className="text-xs font-medium text-error">Esgotado — remova para finalizar</div>
+        )}
         <div className="text-sm text-base-400">{formatPrice(item.price.amount, currency)}</div>
         <div className="flex items-center justify-between mt-1">
           <QuantityStepper item={item} />
@@ -103,7 +123,47 @@ function EmptyState() {
   );
 }
 
+/**
+ * O rodapé com o botão que fecha a compra.
+ *
+ * Três estados, e o do meio é o que a regra de identidade exige: **sem sessão
+ * não se finaliza**. Um pedido grava um e-mail, e o único e-mail confiável é o
+ * da sessão verificada (ver `orders.actions.ts`). O carrinho, ao contrário,
+ * fica aberto a todo mundo — travar o "adicionar" não protegeria nada e faria a
+ * pessoa perder o carrinho ao entrar.
+ */
 function Footer({ cart }: { cart: CartState }) {
+  const navigate = useNavigate();
+  // `useAuthAfterHydration` e não `useUser`: este bloco escolhe ENTRE DOIS
+  // elementos diferentes (um link e um botão), e `useUser` responde logado no
+  // servidor e deslogado na primeira renderização do cliente. Isso é markup
+  // divergente, e derruba a árvore inteira na hidratação — o mesmo defeito que
+  // o `SignIn` do header tinha. O servidor reconfere a sessão de qualquer
+  // forma; isto aqui decide só o rótulo.
+  const isAuthenticated = useAuthAfterHydration();
+
+  const qc = useQueryClient();
+  const finalizar = useMutation({
+    mutationFn: () => checkoutServerFn(),
+    onSuccess: (resultado) => {
+      if (!resultado.ok) return;
+
+      // Com item removido, NÃO navega: a pessoa precisa ver a sacola com o que
+      // ficou de fora. Mandá-la para os pedidos aqui é o mesmo sumiço de antes,
+      // só que com um pedido certo na tela para distrair.
+      if (resultado.removidos.length > 0) {
+        qc.invalidateQueries({ queryKey: CART_QUERY_KEY });
+        return;
+      }
+
+      qc.setQueryData(CART_QUERY_KEY, EMPTY_CART);
+      navigate({ to: "/meus-pedidos" });
+    },
+  });
+
+  const temEsgotado = cart.items.some((item) => item.available === false);
+  const resultado = finalizar.data;
+
   return (
     <footer className="w-full border-t border-base-200">
       <div className="px-4 py-4 flex justify-between items-center">
@@ -113,17 +173,43 @@ function Footer({ cart }: { cart: CartState }) {
         </span>
       </div>
       <div className="px-4 pb-2 text-xs text-base-400 text-right">
-        Fees and shipping calculated at checkout
+        Compra simulada — nenhum pagamento é processado
       </div>
-      <div className="p-4">
-        {cart.checkoutUrl ? (
-          <a className="btn btn-primary w-full no-animation" href={cart.checkoutUrl}>
-            Begin Checkout
-          </a>
+      <div className="p-4 flex flex-col gap-2">
+        {!isAuthenticated ? (
+          <Link to="/login" preload="intent" className="btn btn-primary w-full no-animation">
+            Entrar para finalizar
+          </Link>
         ) : (
-          <button type="button" className="btn btn-primary w-full" disabled>
-            Begin Checkout
+          <button
+            type="button"
+            className="btn btn-primary w-full no-animation"
+            disabled={finalizar.isPending || temEsgotado || cart.items.length === 0}
+            onClick={() => finalizar.mutate()}
+          >
+            {finalizar.isPending ? "Finalizando…" : "Finalizar compra"}
           </button>
+        )}
+
+        {resultado?.ok && resultado.removidos.length > 0 && (
+          <p className="text-xs text-warning text-center">
+            {resultado.removidos.length === 1
+              ? "Um item esgotou e ficou de fora do pedido — ele continua na sacola."
+              : `${resultado.removidos.length} itens esgotaram e ficaram de fora — continuam na sacola.`}{" "}
+            <Link to="/meus-pedidos" className="underline">
+              Ver o pedido
+            </Link>
+          </p>
+        )}
+
+        {resultado && !resultado.ok && (
+          <p className="text-xs text-error text-center">
+            {resultado.motivo === "sem-sessao"
+              ? "Entre para finalizar a compra."
+              : resultado.motivo === "indisponivel"
+                ? "Os itens do carrinho esgotaram."
+                : "Não deu para finalizar agora. Tente de novo."}
+          </p>
         )}
       </div>
     </footer>
