@@ -424,6 +424,8 @@ aprendida de novo.
 | `personal-shopping-agent-proposta.md` | **parcialmente superado** — §§1-2 e 12 valem; §3, §4, §5, §7 e §11 foram substituídos por este arquivo |
 | `personal-shopping-agent-mudancas.md` | **parcialmente superado** — §1 (genérico) e §10 (o que não muda) valem; §§3-4 e 8 substituídos. **§2 não vale aqui**: ela argumenta pela continuidade do histórico do visitante anônimo, e esta feature não atende anônimo — ver o recorte no topo |
 | `tese-admin-agentes.md` | **fora do escopo do fim de semana** — nenhuma tela de admin é construída |
+| `agente-especificidade-de-cor.md` | **parcialmente superado** — o núcleo (fazer o agente usar a cor do armário) foi para `main` pela #16, por um caminho melhor; vale a §4: a `0018` e as três regras de prompt que a #16 não cobre |
+| `medicao-baseline-cor.md` | **histórico, não comparável** — medido antes da `0018`, com outros títulos e outro prompt. Valem só os achados metodológicos (estabilidade por condição, o orçamento do motivo); os números absolutos **não** servem de critério de aceite |
 | `personal-shopping-agent-mvp.md` | revogado |
 | `personal-shopping-agent-optimization.md` | revogado |
 | `personal-shopping-agent-pre-changes.md` | histórico |
