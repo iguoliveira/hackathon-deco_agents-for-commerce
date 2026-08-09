@@ -33,6 +33,18 @@
  * Marcador de falha (`origem = 'falha'`) também fica de fora, e por definição:
  * é quarentena, não conteúdo.
  *
+ * **`personas` fica de fora inteira**, e a razão é a mesma somada a outra. As
+ * três linhas que existem hoje em produção são todas `origem = 'falha'` —
+ * quarentena, pelo mesmo critério dos looks. E ainda que houvesse persona boa,
+ * ela é **cache derivado**: a chave é `hashDosSinais`, calculada a partir dos
+ * próprios sinais e sem identidade (`look.hash.ts`), então um banco novo a
+ * regenera na primeira visita de quem tiver aqueles sinais. É a única tabela de
+ * runtime cujo conteúdo o próprio sistema reconstrói.
+ *
+ * (Se um dia isso deixar de valer — persona cara de gerar, provedor caro —, o
+ * lugar de mudar é aqui, e a chave nova seria `sinais_hash` verbatim, sem
+ * recálculo, porque ela já não depende de mês nem de cidade.)
+ *
  * ## Referências que podem não existir no destino
  *
  * Alertas, pedidos e favoritos apontam para `variant_id`. Se o catálogo do banco
@@ -41,17 +53,12 @@
  * de `comprasDe` e vira sinal fantasma, difícil de rastrear depois.
  */
 
-try {
-  process.loadEnvFile(".env");
-} catch {
-  // Sem .env, o erro de DATABASE_URL logo abaixo é o útil.
-}
-
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import postgres from "postgres";
 import { fnv1a } from "../src/platform/look/look.hash";
 import { mesAtual } from "../src/platform/look/look.local";
+import { resolveDatabaseUrl } from "./db-url";
 
 const ARQUIVO = join(process.cwd(), "db", "seeds", "snapshot.json");
 
@@ -88,8 +95,14 @@ const hashSemSementes = (c: string, r: string, p: string, mes: string): string =
  *
  * O pseudônimo é derivado do próprio e-mail, então **a mesma pessoa continua
  * sendo a mesma pessoa** entre as quatro tabelas — uma vitrine continua ligada
- * ao alerta que a gerou. Só não dá para voltar ao endereço original, que é o
- * ponto.
+ * ao alerta que a gerou.
+ *
+ * **Impede inversão, não confirmação.** `fnv1a` é de 32 bits e sem salt
+ * (`look.hash.ts`): ninguém lê o apelido e recupera o endereço, mas quem já tem
+ * um e-mail candidato confere em uma linha se ele está aqui, e o espaço de 32
+ * bits é varrível. Para um repositório público com um punhado de usuários de
+ * teste isso é aceitável; se algum dia entrar e-mail de cliente, o conserto é um
+ * salt fora do repositório, não um hash mais longo.
  *
  * Não custa nada à demo: os 35 looks restaurados são de contexto **sem
  * sementes**, então não dependem de identidade nenhuma. O que é por e-mail só
@@ -125,7 +138,18 @@ interface Snapshot {
   wishlist: Record<string, unknown>[];
 }
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
+/**
+ * `resolveDatabaseUrl` e não `process.env.DATABASE_URL` cru: URL malformada faz
+ * o driver cair em `localhost` e devolver `ECONNREFUSED` com `message` vazia,
+ * que parece "o banco caiu". Vale mais aqui do que no `migrate.ts` — este roda
+ * apontado para uma connection string **recém-colada do painel do Supabase**,
+ * que é quando ela está errada com probabilidade alta.
+ *
+ * `max: 1` porque o restore é uma sequência de escritas curtas e o pooler em
+ * modo transação (6543) não gosta de várias conexões ociosas — mesma razão do
+ * `migrate.ts:36`.
+ */
+const sql = postgres(resolveDatabaseUrl(), { prepare: false, max: 1 });
 
 // ---------------------------------------------------------------------------
 // snapshot
@@ -345,10 +369,6 @@ const restore = async (): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 const main = async () => {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL não definida.");
-    process.exit(1);
-  }
   try {
     if (process.argv.includes("--restore")) await restore();
     else await snapshot();

@@ -26,15 +26,10 @@
  * replay descrito no fim de docs/auditoria-migrations.md.
  */
 
-try {
-  process.loadEnvFile(".env");
-} catch {
-  // Sem .env: o erro de DATABASE_URL logo abaixo é o útil.
-}
-
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
+import { resolveDatabaseUrl } from "./db-url";
 
 // ---------------------------------------------------------------------------
 // --comparar: a prova que os outros dois blocos não dão
@@ -75,14 +70,50 @@ interface Dump {
  * "só em A" é o que o banco novo vai perder; "só em B" é o que ele ganha de
  * brinde.
  *
+ * ## `--comparar` ou `--replay`?
+ *
+ * Os dois provam equivalência de schema e é fácil rodar o errado, então:
+ *
+ *   `--replay`    compara as MIGRATIONS contra UM banco. Não precisa de segundo
+ *                 banco nem de arquivo: roda tudo num schema temporário ali
+ *                 mesmo. É o que responde "as migrations descrevem este banco?".
+ *
+ *   `--comparar`  compara DOIS bancos que já existem, a partir de dois dumps.
+ *                 É o que responde "o projeto novo ficou igual ao antigo?" —
+ *                 pergunta que o `--replay` não alcança, porque ele só enxerga
+ *                 o banco em que está rodando.
+ *
+ * Nenhum dos dois substitui o outro. O `--replay` prova a mecânica; o
+ * `--comparar` prova o resultado no banco de verdade.
+ *
  * Dados ficam de fora de propósito. Um projeto novo nasce com o catálogo que as
  * migrations de seed inserem, e comparar contagem de linhas acusaria diferença
  * em toda tabela que a operação escreveu — pedidos, alertas, looks. O que
  * precisa bater é o **schema**.
  */
 const comparar = (arqA: string, arqB: string): number => {
-  const a = JSON.parse(readFileSync(arqA, "utf8")) as Dump;
-  const b = JSON.parse(readFileSync(arqB, "utf8")) as Dump;
+  // Valida a forma antes de usar: um arquivo truncado (redirecionamento
+  // interrompido, disco cheio) daria "Cannot read properties of undefined" numa
+  // linha lá dentro, e o diagnóstico apontaria para o comparador em vez de para
+  // o arquivo.
+  const ler = (arq: string): Dump => {
+    let d: unknown;
+    try {
+      d = JSON.parse(readFileSync(arq, "utf8"));
+    } catch (erro) {
+      console.error(`${arq}: não é JSON válido — ${(erro as Error).message}`);
+      process.exit(1);
+    }
+    const dump = d as Partial<Dump>;
+    if (!Array.isArray(dump?.tabelas) || !Array.isArray(dump?.extensoes)) {
+      console.error(`${arq}: não parece um dump de --json (faltam "tabelas"/"extensoes").`);
+      process.exit(1);
+    }
+    return dump as Dump;
+  };
+
+  const a = ler(arqA);
+  const b = ler(arqB);
 
   const problemas: string[] = [];
   const nomes = (d: Dump) => new Set(d.tabelas.map((t) => t.nome));
@@ -136,6 +167,16 @@ const comparar = (arqA: string, arqB: string): number => {
   const eB = new Set(b.extensoes);
   for (const e of [...eA].filter((x) => !eB.has(x))) problemas.push(`extensão só em A: ${e}`);
   for (const e of [...eB].filter((x) => !eA.has(x))) problemas.push(`extensão só em B: ${e}`);
+
+  // O LEDGER. Estava sendo emitido no `--json` e nunca lido aqui — e a omissão
+  // mordia o argumento que ela deveria sustentar: manter o número `0015` em vez
+  // de renumerar se justifica porque "renumerar deixaria os schemas iguais e os
+  // LEDGERS diferentes, a divergência mais chata de rastrear porque não aparece
+  // no schema". Um comparador cego para o ledger não conseguia provar isso.
+  const lA = new Set(a.aplicadas ?? []);
+  const lB = new Set(b.aplicadas ?? []);
+  for (const m of [...lA].filter((x) => !lB.has(x))) problemas.push(`migration só em A: ${m}`);
+  for (const m of [...lB].filter((x) => !lA.has(x))) problemas.push(`migration só em B: ${m}`);
 
   console.log(`\n\x1b[1mA = ${arqA}\x1b[0m  (${a.tabelas.length} tabelas)`);
   console.log(`\x1b[1mB = ${arqB}\x1b[0m  (${b.tabelas.length} tabelas)\n`);
@@ -344,7 +385,27 @@ if (argComparar !== -1) {
 const DIR = join(process.cwd(), "db", "migrations");
 const JSON_MODE = process.argv.includes("--json");
 
-const sql = postgres(process.env.DATABASE_URL!, { prepare: false });
+/**
+ * `resolveDatabaseUrl` e não `process.env.DATABASE_URL` direto, e isto não é
+ * uniformidade por uniformidade.
+ *
+ * Uma URL malformada faz o driver cair em `localhost` e devolver `ECONNREFUSED`
+ * com `message` VAZIA — parece "o banco caiu" e manda a pessoa investigar rede,
+ * firewall e Supabase antes de olhar para a própria string. É a regressão que
+ * `db-url.ts` foi escrito para impedir.
+ *
+ * Vale mais aqui do que em `migrate.ts`: aquele roda contra uma URL que já
+ * funciona; **este foi feito para ser apontado para uma connection string
+ * recém-colada do painel**, que é o único momento em que ela está errada com
+ * probabilidade alta.
+ *
+ * `max: 1` e `onnotice` pelo mesmo motivo do `migrate.ts:36`: o `--replay` faz
+ * `SET client_min_messages` de sessão, e num pool de várias conexões o `SET`
+ * pega uma e o `DROP SCHEMA … CASCADE` seguinte pode sair por outra — no pooler
+ * em modo transação (6543) `SET` de sessão não persiste de jeito nenhum. Com uma
+ * conexão só, o `SET` vale; o `onnotice` é o cinto.
+ */
+const sql = postgres(resolveDatabaseUrl(), { prepare: false, max: 1, onnotice: () => {} });
 
 const log = (...a: unknown[]) => {
   if (!JSON_MODE) console.log(...a);
@@ -360,16 +421,7 @@ interface Coluna {
 }
 
 const main = async () => {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL não definida.");
-    process.exit(1);
-  }
-
-  if (process.argv.includes("--replay")) {
-    const difs = await replay(sql);
-    await sql.end();
-    process.exit(difs === 0 ? 0 : 1);
-  }
+  if (process.argv.includes("--replay")) return replay(sql);
 
   // --- 1. o registro contra o disco ---------------------------------------
   const emDisco = readdirSync(DIR)
@@ -434,29 +486,58 @@ const main = async () => {
   // --- 3. objetos que nenhuma migration cria ------------------------------
   const textoDasMigrations = emDisco.map((f) => readFileSync(join(DIR, f), "utf8")).join("\n");
 
+  // Escapado: nome vindo do catálogo do Postgres pode conter metacaractere — o
+  // próprio `snap-case-for-iphone®` tem hífen — e um deles derrubaria a
+  // auditoria com erro de RegExp em vez de acusar o objeto.
+  const mencionado = (nome: string): boolean =>
+    new RegExp(`\\b${nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(textoDasMigrations);
+
   // `schema_migrations` é criada pelo próprio runner (scripts/migrate.ts), não
   // por um arquivo — listá-la como órfã seria um falso positivo garantido.
-  const tabelasOrfas = tabelas.filter(
-    (t) => t !== "schema_migrations" && !new RegExp(`\\b${t}\\b`).test(textoDasMigrations),
-  );
+  const tabelasOrfas = tabelas.filter((t) => t !== "schema_migrations" && !mencionado(t));
 
+  // **A busca é GLOBAL, e isso é limitação real.** O nome da coluna é procurado
+  // no texto concatenado das migrations, sem relação com a tabela dela — então
+  // `id`, `created_at` e `email` casam SEMPRE, e um
+  // `ALTER TABLE products ADD COLUMN user_id` feito no SQL editor passa aqui em
+  // silêncio.
+  //
+  // Fica assim de propósito. Casar coluna com tabela exigiria parsear SQL, e
+  // quem faz isso direito é o Postgres — que é o que o `--replay` usa. **Coluna
+  // a mais é achado do `--replay`, não deste bloco.** O que sobra aqui é o caso
+  // barato: nome que não aparece em migration nenhuma.
   const colunasOrfas = colunas.filter(
     (c) =>
       c.tabela !== "schema_migrations" &&
       !tabelasOrfas.includes(c.tabela) &&
-      !new RegExp(`\\b${c.coluna}\\b`).test(textoDasMigrations),
+      !mencionado(c.coluna),
   );
 
   // Índice criado à mão não aparece em migration nenhuma. Os implícitos de
-  // PRIMARY KEY/UNIQUE terminam em `_pkey`/`_key` e são criados pelo Postgres,
-  // não escritos — acusá-los seria ruído.
+  // PRIMARY KEY e UNIQUE são criados pelo Postgres, não escritos — acusá-los
+  // seria ruído.
+  //
+  // Filtrado pelo CATÁLOGO (índice preso a uma constraint), e não pelo sufixo do
+  // nome: `_pkey`/`_key` é convenção, não regra, e um índice manual batizado
+  // `idx_wishlist_user_key` ficava invisível só por causa de como foi chamado.
+  const implicitos = new Set(
+    (
+      await sql<{ nome: string }[]>`
+        SELECT i.relname AS nome
+          FROM pg_index x
+          JOIN pg_class i ON i.oid = x.indexrelid
+          JOIN pg_namespace n ON n.oid = i.relnamespace
+         WHERE n.nspname = 'public'
+           AND EXISTS (SELECT 1 FROM pg_constraint c WHERE c.conindid = x.indexrelid)`
+    ).map((r) => r.nome),
+  );
+
   const indicesOrfas = indices.filter(
     (i) =>
-      !i.nome.endsWith("_pkey") &&
-      !i.nome.endsWith("_key") &&
+      !implicitos.has(i.nome) &&
       i.tabela !== "schema_migrations" &&
       !tabelasOrfas.includes(i.tabela) &&
-      !new RegExp(`\\b${i.nome}\\b`).test(textoDasMigrations),
+      !mencionado(i.nome),
   );
 
   titulo("3. objetos no banco que migration nenhuma menciona");
@@ -511,8 +592,19 @@ const main = async () => {
     );
   }
 
-  await sql.end();
-  process.exit(problemas === 0 ? 0 : 1);
+  return problemas;
 };
 
-await main();
+// `finally` incondicional, igual ao `db-snapshot.ts`: sem ele uma falha no meio
+// deixa a conexão aberta e o processo pendurado, e o despejo de
+// `triggerUncaughtException` esconde a linha que interessa.
+try {
+  const problemas = await main();
+  await sql.end();
+  process.exit(problemas === 0 ? 0 : 1);
+} catch (erro) {
+  console.error(`
+[db:audit] ${(erro as Error).message || erro}`);
+  await sql.end({ timeout: 1 }).catch(() => {});
+  process.exit(1);
+}

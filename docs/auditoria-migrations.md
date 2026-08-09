@@ -99,9 +99,11 @@ nome aplicado em 08/08. Mantê-lo faz três coisas de uma vez:
   resolve sozinho. Um `0020_` criaria duas migrations com o mesmo SQL, e a
   primeira a mergear deixaria a outra órfã.
 
-Pelo mesmo motivo o arquivo entrou **sem comentário meu no topo**, contra o
-costume do repositório: qualquer linha a mais reintroduz o conflito com as duas
-PRs abertas. O porquê mora aqui.
+Pelo mesmo motivo o arquivo entrou **sem comentário meu no topo e sem newline
+final**, contra o costume do repositório: qualquer byte a mais reintroduz o
+conflito com as duas PRs abertas. O porquê mora aqui — e aqui, e não só na
+descrição da PR, porque descrição some no merge e quem for mergear a #15 ou a
+#24 vai olhar o arquivo e querer "consertar".
 
 ### O que isso NÃO resolve
 
@@ -149,7 +151,7 @@ português: duas cópias de lógica que já existe, que é exatamente o que
 ```bash
 npm run db:snapshot   # banco → db/seeds/snapshot.json  (commitado)
 npm run db:restore    # snapshot.json → banco, recalculando o hash para HOJE
-npm run db:setup      # migrate + restore — a máquina nova, em um comando
+npm run db:setup      # migrate + restore + audit — a máquina nova, provada
 ```
 
 O snapshot guarda `{ ancora, cidade, regiao, pais, titulo, confianca, pecas }`.
@@ -399,7 +401,20 @@ npx tsx scripts/db-audit.ts --comparar atual.json novo.json
 ```
 
 O `--comparar` confere tabelas, colunas, **tipos, nulabilidade, defaults**,
-índices e extensões. Sai 0 quando são idênticos.
+índices, extensões e o **ledger** (`schema_migrations`). Sai 0 quando idênticos.
+
+### `--comparar` ou `--replay`?
+
+Os dois provam equivalência de schema e é fácil rodar o errado:
+
+| | Compara | Responde |
+|---|---|---|
+| `--replay` | as **migrations** contra **um** banco | *"as migrations descrevem este banco?"* |
+| `--comparar` | **dois bancos** que já existem | *"o projeto novo ficou igual ao antigo?"* |
+
+Nenhum substitui o outro. O `--replay` prova a mecânica e não precisa de segundo
+banco; o `--comparar` prova o resultado no banco de verdade, que o `--replay` não
+alcança porque só enxerga aquele em que está rodando.
 
 Dados ficam de fora de propósito: um projeto novo nasce com o catálogo que as
 migrations de seed inserem, e comparar contagem de linhas acusaria diferença em
