@@ -425,8 +425,16 @@ Espelha `src/platform/shelf/`, que é o padrão que o validador de
 | `src/setup.ts` | registrar o loader | baixo — copiar de `personalShelf` |
 | `src/sections/Product/` | `CompleteTheLook.tsx` | baixo |
 | `src/components/header/` | seletor de local | baixo |
-| `src/server.ts` | grava `deco_recent` | **médio** — é o entry; `RequestContext.run` e a dedup de `Set-Cookie` não podem quebrar |
-| `.deco/blocks/` | posicionar a section na PDP | conteúdo |
+| `src/loaders/catalogProductDetailsPage.ts` | grava `deco_recent` | baixo — é o loader que roda em toda PDP |
+| `.deco/blocks/` | posicionar a section na **home** | conteúdo |
+
+> **A escrita de `deco_recent` nunca ficou em `src/server.ts`.** O plano previa
+> um middleware ali; a implementação a pôs no loader do look, com o argumento de
+> que ele rodava em toda PDP. Quando a section saiu da PDP e passou a existir só
+> na home, esse argumento caiu junto — e como aquela era a **única** escrita do
+> cookie no repositório, um dos quatro sinais do agente virou constante zero sem
+> erro nenhum. Hoje quem grava é o loader da PDP, que é o único que de fato roda
+> em toda visita a produto.
 
 ---
 

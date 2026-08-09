@@ -14,6 +14,7 @@
  * documentada em docs/personal-shopping-agent-mudancas.md §2.
  */
 
+import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import type { Local } from "./look.types";
 
 export const RECENT_COOKIE = "deco_recent";
@@ -68,6 +69,40 @@ export const serializarVistos = (vistos: string[], novo: string): string => {
   const lista = [novo, ...vistos.filter((h) => h !== novo)].slice(0, RECENT_MAX);
   const valor = encodeURIComponent(JSON.stringify(lista));
   return `${RECENT_COOKIE}=${valor}; Path=/; Max-Age=${RECENT_COOKIE_TTL}; SameSite=Lax`;
+};
+
+/**
+ * Põe a peça na frente do cookie de vistos. **Chame de um loader de PDP.**
+ *
+ * Morava em `loaders/completeTheLook.ts`, com um comentário argumentando que
+ * ali era o lugar certo porque *"este loader roda em toda PDP"*. Deixou de
+ * rodar quando a section saiu da PDP, e como esta é a **única** escrita de
+ * `deco_recent` em todo o `src/`, o cookie simplesmente parou de existir: um
+ * dos quatro sinais do agente virou constante zero, e a linha de procedência
+ * passaria a dizer "sem histórico seu ainda" para sempre. Achado na revisão da
+ * PR que removeu a section.
+ *
+ * Aqui embaixo o risco não se repete: a função vive ao lado do formato que ela
+ * escreve, e quem a chama é quem sabe que houve uma visita.
+ *
+ * `Set-Cookie` pela resposta HTTP, nunca por `document.cookie`: o Safari limita
+ * a 7 dias os cookies escritos por JavaScript, e o caminho "óbvio" apagaria o
+ * histórico de uma fatia grande do tráfego sem avisar.
+ *
+ * Nunca lança. Um cookie de conveniência não derruba a página que o gerou.
+ */
+export const marcarVisita = (handle: string, req?: Request): void => {
+  const request = req ?? RequestContext.current?.request;
+  if (!request) return;
+
+  try {
+    RequestContext.responseHeaders.append(
+      "Set-Cookie",
+      serializarVistos(lerVistos(request), handle),
+    );
+  } catch (erro) {
+    console.warn("[look] não deu para marcar a visita", erro);
+  }
 };
 
 /** O local escolhido no seletor, ou `null` para deixar o geo decidir. */

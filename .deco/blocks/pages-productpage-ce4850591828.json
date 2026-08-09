@@ -35,16 +35,6 @@
     {
       "__resolveType": "website/sections/Rendering/Lazy.tsx",
       "section": {
-        "__resolveType": "site/sections/Product/CompleteTheLook.tsx",
-        "mostrarProcedencia": true,
-        "look": {
-          "__resolveType": "site/loaders/completeTheLook.ts"
-        }
-      }
-    },
-    {
-      "__resolveType": "website/sections/Rendering/Lazy.tsx",
-      "section": {
         "__resolveType": "site/sections/Product/ProductShelf.tsx",
         "title": "You may also like",
         "products": {

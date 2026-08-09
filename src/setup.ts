@@ -208,13 +208,15 @@ registerCommerceLoaders({
     (await import("./loaders/personalShelf")).default(props),
   "site/loaders/personalShelf": async (props: any) =>
     (await import("./loaders/personalShelf")).default(props),
-  // O look que o agente compõe em volta da peça aberta. Recebe `req` porque o
-  // handle vem da URL quando a prop está vazia — que é o caso na PDP, onde um
-  // bloco só serve as 136 peças.
-  "site/loaders/completeTheLook.ts": async (props: any, req: any) =>
-    (await import("./loaders/completeTheLook")).default(props, req),
-  "site/loaders/completeTheLook": async (props: any, req: any) =>
-    (await import("./loaders/completeTheLook")).default(props, req),
+  // O look que o agente compõe. Sem `req`: ele recebia um para marcar a visita
+  // em `deco_recent`, e essa marcação mudou de casa para
+  // `catalogProductDetailsPage.ts` quando a section saiu da PDP. Passar `req`
+  // aqui seria ilusão de qualquer forma — `resolve.ts:911` chama o commerce
+  // loader com um argumento só, então o segundo chegava `undefined`.
+  "site/loaders/completeTheLook.ts": async (props: any) =>
+    (await import("./loaders/completeTheLook")).default(props),
+  "site/loaders/completeTheLook": async (props: any) =>
+    (await import("./loaders/completeTheLook")).default(props),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --
