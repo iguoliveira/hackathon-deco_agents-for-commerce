@@ -18,6 +18,15 @@ export interface ProductRow {
   created_at: string | null;
   currency_code: string;
   position: number;
+  /**
+   * Cor do produto, atributo desde a 0018. `null` quando o catálogo não a
+   * conhece — 31 dos 135 produtos —, e isso é diferente de string vazia:
+   * "não sabemos" não é "sem cor".
+   *
+   * Antes da 0018 isto vivia no fim do título ("… - Black") e era recuperado
+   * por parsing. Não vive mais: o título é o que a loja mostra.
+   */
+  color: string | null;
 }
 
 export interface ProductImageRow {

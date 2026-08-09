@@ -35,6 +35,14 @@ export interface Semente {
   titulo: string;
   /** `products.product_type`. */
   tipo: string;
+  /**
+   * `products.color`, desde a 0018. `null` quando o catálogo não sabe.
+   *
+   * É por aqui que a cor do armário chega ao agente. Antes da 0018 ela vinha
+   * escondida no fim do `titulo`, e ler cor exigia parsing de string — o que
+   * dava certo em 77% dos produtos e falhava em silêncio no resto.
+   */
+  cor: string | null;
   kind: SeedKind;
   /** ISO 8601. Semente recente pesa mais no desempate. */
   em: string;
@@ -89,6 +97,8 @@ export interface Candidato {
   handle: string;
   titulo: string;
   tipo: string;
+  /** `products.color`. `null` = o catálogo não sabe a cor desta peça. */
+  cor: string | null;
   preco: number;
   /** Mesma coleção da âncora: sinal fraco, nunca motivo sozinho. */
   mesmaColecao: boolean;
@@ -105,6 +115,8 @@ export interface Ancora {
   handle: string;
   titulo: string;
   tipo: string;
+  /** `products.color`. `null` = o catálogo não sabe a cor da peça aberta. */
+  cor: string | null;
   descricao: string;
   tags: string[];
 }

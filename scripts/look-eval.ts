@@ -174,6 +174,7 @@ const sementesDe = async (handles: string[]): Promise<Semente[]> => {
       productGroupId: alvo.ancora.productGroupId,
       titulo: alvo.ancora.titulo,
       tipo: alvo.ancora.tipo,
+      cor: alvo.ancora.cor,
       kind: "purchased",
       em: agora,
     });

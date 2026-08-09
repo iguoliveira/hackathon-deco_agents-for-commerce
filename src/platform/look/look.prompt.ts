@@ -29,16 +29,23 @@
  *      possíveis; ele pede um rótulo curto e deixa o modelo nomear os eixos que
  *      encontrar NESTE catálogo. É o que dá blocos com títulos que ninguém
  *      programou.
- *   8. **A cor tem duas fontes, e a peça aberta vence.** A âncora sempre tem
- *      cor e sempre existe; as sementes só orientam quando concordam entre si.
- *      Sem concordância, o agente se cala sobre preferência — inventar paleta
- *      soa pior que não falar de cor.
+ *   8. **A cor tem duas fontes, e a peça aberta vence.** Quando a âncora tem
+ *      cor, ela guia a composição; as sementes só orientam quando concordam
+ *      entre si. Sem concordância, o agente se cala sobre o armário — inventar
+ *      paleta soa pior que não falar de cor.
  *
- *      A cor NÃO é extraída em código. Ela já chega no título, dos dois lados
- *      do prompt, e o modelo a lê de lá. Um campo `cor` derivado com
- *      `split(" - ")` mentiria nos 23% de produtos sem hífen e devolveria ao
- *      código a decisão que a regra da §1 quer no modelo — o mesmo motivo de
- *      não existir tabela de estação. Ver docs/agente-especificidade-de-cor.md.
+ *      A cor vem de `products.color`, atributo desde a 0018, e o prompt proíbe
+ *      lê-la de qualquer outro lugar. Antes ela vivia no fim do título
+ *      ("… - Black") e o modelo a extraía por conta própria — o que dava certo
+ *      nos 104 produtos com hífen e falhava em silêncio nos outros 31, porque
+ *      "não tem cor no título" e "não tem cor" são indistinguíveis quando a
+ *      fonte é uma string. Agora `null` diz explicitamente "o catálogo não
+ *      sabe", e o agente tem como se calar pelo motivo certo.
+ *
+ *      Isto NÃO contradiz a regra da §1: o código continua sem conhecer
+ *      nenhuma cor. Não há lista, enum nem CHECK — `color` é TEXT livre, e
+ *      quem agrupa "Charcoal" com "Grey" é o modelo. O que mudou foi só de
+ *      onde o dado vem, não quem o interpreta.
  *   9. **Identidade de cor é estrita; parentesco de cor é livre.** A regra 3
  *      original tratava os dois atos como um só, e o custo disso foi medido:
  *      com sementes `Grey` + `Charcoal` + `Navy` o agente não dizia nada sobre
@@ -91,16 +98,16 @@ Entre 5 e 10 peças, na ordem em que você acredita nelas.
 2. Não afirme material, gramatura, medida, composição, origem ou cuidado que
    não esteja escrito no candidato. Você não tem essa informação. Omitir é
    sempre melhor que inventar.
-3. A cor de cada peça está no fim do título, depois do hífen
-   ("Vintage Wash Tee - Black"). Nunca deduza cor de descrição, de imagem ou de
-   nome de modelo. Se o título não tem hífen, você não sabe a cor daquela peça
-   — então não fale da cor dela.
+3. A cor de cada peça vem no campo "cor", e SÓ dele. Nunca deduza cor do
+   título, da descrição, do nome do modelo ou da imagem. Quando "cor" vier
+   nulo, o catálogo não sabe a cor daquela peça — e você também não. Nesse
+   caso, não fale da cor dela: componha pelo resto.
 
    Dizer que duas peças SÃO da mesma cor é estrito: só afirme isso quando as
-   duas trouxerem a MESMA palavra depois do hífen. "Charcoal" não é "Black".
+   duas trouxerem exatamente o MESMO valor em "cor". "Charcoal" não é "Black".
 
    Dizer que peças CONVERSAM entre si é outra coisa, e é permitido — inclusive
-   com palavras diferentes. "Charcoal", "Grey" e "Navy" são TRÊS CORES
+   com valores diferentes. "Charcoal", "Grey" e "Navy" são TRÊS CORES
    DIFERENTES e formam uma paleta só; enxergar isso é parte do seu trabalho.
    O que você não pode é chamar de igualdade aquilo que é parentesco.
 4. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
@@ -165,10 +172,13 @@ look variado.
 
 Você tem duas fontes de cor, e elas não têm a mesma força.
 
-**A PEÇA ABERTA manda.** Ela sempre tem cor, e o conjunto se monta em volta
-dela. Se a pessoa abriu uma peça vermelha, o look acompanha vermelho — mesmo
+**A PEÇA ABERTA manda.** Quando ela tem "cor", o conjunto se monta em volta
+dela: se a pessoa abriu uma peça vermelha, o look acompanha vermelho — mesmo
 que tudo o que ela tenha comprado antes seja bege. Ela escolheu aquela peça
 agora, e não cabe a você corrigir.
+
+Quando a "cor" da peça aberta vier nula, não há fonte primária. Aí quem guia a
+cor é o armário da pessoa, e só ele.
 
 **AS SEMENTES mandam na escolha da cor** — mas preste atenção no que cada uma
 de fato diz. Elas não são todas a mesma coisa:
@@ -227,6 +237,20 @@ contraste onde ele ajuda:
 
   bom   "Contraste de couro por cima do algodão."
   ruim  "Tudo preto, do mesmo tom."         (não é composição, é repetição)
+
+**NÃO REPITA A MESMA OBSERVAÇÃO DE COR.** Que o look inteiro combine com a peça
+aberta é o pressuposto do seu trabalho, não uma descoberta — dizer isso em três
+motivos gasta três vezes a mesma linha. Se várias peças entram pela mesma razão
+de cor, diga na mais forte e use as outras linhas para o que só elas têm:
+caimento, camada, textura, função, ou o armário da pessoa.
+
+  ruim  "Preto que fecha com a cor da tee."
+        "Boné preto, no tom da tee."
+        "Pochete preta na mesma cor da tee."   (três linhas, uma informação)
+
+  bom   "Preto que fecha com a cor da tee."
+        "Aba plana equilibra o volume de cima."
+        "Combina com as peças escuras que você já tem."
 
 ## A OCASIÃO
 
@@ -301,6 +325,10 @@ export const montarMensagem = (
     // prompt é convite para ele tentar devolver um.
     titulo: s.titulo,
     tipo: s.tipo,
+    // Explícito desde a 0018. Antes vinha escondido no fim do `titulo` e o
+    // modelo precisava parsear; agora `null` diz "não sabemos", que é uma
+    // informação que o título nunca conseguiu transmitir.
+    cor: s.cor,
     sinal: ROTULO_DA_SEMENTE[s.kind] ?? s.kind,
   }));
 
@@ -312,6 +340,7 @@ export const montarMensagem = (
       {
         titulo: ancora.titulo,
         tipo: ancora.tipo,
+        cor: ancora.cor,
         tags: ancora.tags,
         descricao: ancora.descricao,
       },

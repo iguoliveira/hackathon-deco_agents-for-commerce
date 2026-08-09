@@ -16,6 +16,7 @@ interface SementeRow {
   product_group_id: string;
   title: string;
   product_type: string;
+  color: string | null;
 }
 
 /**
@@ -35,7 +36,7 @@ export const sementesPorVariante = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT DISTINCT p.product_group_id, p.title, p.product_type
+        `SELECT DISTINCT p.product_group_id, p.title, p.product_type, p.color
            FROM products p
            JOIN variants v ON v.product_group_id = p.product_group_id
           WHERE v.variant_id = ANY(?)`,
@@ -47,6 +48,7 @@ export const sementesPorVariante = async (
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
+      cor: linha.color,
       kind,
       em,
     }));
@@ -68,7 +70,7 @@ export const sementesPorHandle = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT p.product_group_id, p.handle, p.title, p.product_type
+        `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.color
            FROM products p
           WHERE p.handle = ANY(?)`,
       )
@@ -85,6 +87,7 @@ export const sementesPorHandle = async (
         productGroupId: linha.product_group_id,
         titulo: linha.title,
         tipo: linha.product_type ?? "",
+        cor: linha.color,
         kind,
         em,
         _pos: posicaoNoCookie.get(linha.handle) ?? Number.MAX_SAFE_INTEGER,
@@ -116,7 +119,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
     const { results } = await db
       .prepare(
         `SELECT DISTINCT ON (p.product_group_id)
-                p.product_group_id, p.title, p.product_type, o.created_at
+                p.product_group_id, p.title, p.product_type, p.color, o.created_at
            FROM orders o
            JOIN variants v ON v.variant_id = o.variant_id
            JOIN products p ON p.product_group_id = v.product_group_id
@@ -130,6 +133,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
+      cor: linha.color,
       kind: "purchased" as const,
       em: linha.created_at,
     }));
@@ -148,6 +152,7 @@ interface AncoraRow {
   handle: string;
   title: string;
   product_type: string;
+  color: string | null;
   description: string | null;
   tags: string[] | null;
 }
@@ -168,7 +173,7 @@ export const acharAncora = async (
   try {
     const linha = await db
       .prepare(
-        `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.description,
+        `SELECT p.product_group_id, p.handle, p.title, p.product_type, p.color, p.description,
                 COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
                            WHERE pp.product_group_id = p.product_group_id
                              AND pp.name = 'TAG'), '{}') AS tags,
@@ -190,6 +195,7 @@ export const acharAncora = async (
         handle: linha.handle,
         titulo: linha.title,
         tipo: linha.product_type ?? "",
+        cor: linha.color,
         // 240 caracteres: o bastante para o modelo entender a peça que ancora o
         // look, longe do bastante para a descrição (média de 866) competir com
         // os candidatos pelo espaço do prompt.

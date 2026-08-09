@@ -64,6 +64,10 @@ const paraCandidato = (similar: SimilarCandidate): Candidato => {
     handle: produto.handle,
     titulo: produto.title,
     tipo: produto.product_type,
+    // Desde a 0018 a cor é atributo. Antes vinha no fim do `title` e o agente
+    // a lia por conta própria — o que funcionava em 77% do catálogo e falhava
+    // calado no resto, sem nunca dizer "não sei a cor desta peça".
+    cor: produto.color,
     preco: similar.record.variants[0]?.price ?? 0,
     mesmaColecao: similar.sameCollection,
     tagsEmComum: similar.sharedTags,
