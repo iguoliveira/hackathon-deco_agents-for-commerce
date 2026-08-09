@@ -34,7 +34,16 @@ import { comporLook, jaComprados } from "../src/platform/look/look.agent";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
 import { acharAncora } from "../src/platform/look/look.d1";
 import { mesAtual } from "../src/platform/look/look.local";
-import type { Contexto, Local, Semente } from "../src/platform/look/look.types";
+import type { Candidato, Contexto, Local, Semente } from "../src/platform/look/look.types";
+
+/**
+ * Ligado por `--sem-banais`. Ver `semBanaisNaAncora`.
+ *
+ * Uma constante de módulo e não um parâmetro porque o filtro é uma condição do
+ * experimento inteiro, não de uma rodada: misturar as duas variantes num mesmo
+ * `--rotulo` produziria uma amostra que não responde nada.
+ */
+const SEM_BANAIS = process.argv.includes("--sem-banais");
 
 const carregarDevVars = (): void => {
   let conteudo: string;
@@ -162,6 +171,42 @@ interface ResultadoCondicao {
   execucoes: Execucao[];
 }
 
+/**
+ * O experimento do `--sem-banais`: tira de `tagsEmComum` as tags comuns demais
+ * para distinguir qualquer coisa NESTE pool.
+ *
+ * `combinaComOGuardaRoupa` já faz isso desde a #16, com o argumento de que uma
+ * tag em 65% do catálogo não é afinidade, é o catálogo. `tagsEmComum` — que o
+ * prompt chama de "o eixo mais forte de combina com" — não passa pelo filtro.
+ * Medido em docs/anatomia-do-agente.md §6.2: na âncora principal, **11 de 18**
+ * candidatos declaram afinidade que é só tag banal.
+ *
+ * **Mede a apresentação, não a ordenação.** A fórmula do SQL pontua por
+ * `COUNT(tags em comum) × 3`, então as banais também inflam o RANQUE — e mudar
+ * isso alteraria quem entra no pool. Este experimento não toca nisso: filtra
+ * depois que o pool já está montado, e responde só "o modelo escolhe diferente
+ * quando o sinal é honesto?". Se der ganho aqui, a pergunta seguinte (e maior)
+ * é se vale mexer no ranqueamento.
+ */
+const semBanaisNaAncora = (candidatos: Candidato[]): Candidato[] => {
+  if (!SEM_BANAIS || candidatos.length < 4) return candidatos;
+
+  const frequencia = new Map<string, number>();
+  for (const c of candidatos) {
+    for (const tag of new Set(c.tagsEmComum)) frequencia.set(tag, (frequencia.get(tag) ?? 0) + 1);
+  }
+
+  const metade = candidatos.length / 2;
+  const banais = new Set([...frequencia].filter(([, n]) => n > metade).map(([tag]) => tag));
+  if (banais.size === 0) return candidatos;
+
+  console.log(`    \x1b[2m--sem-banais: removendo ${[...banais].join(", ")} de tagsEmComum\x1b[0m`);
+  return candidatos.map((c) => ({
+    ...c,
+    tagsEmComum: c.tagsEmComum.filter((t) => !banais.has(t)),
+  }));
+};
+
 const sementesDe = async (handles: string[]): Promise<Semente[]> => {
   const agora = new Date().toISOString();
   const out: Semente[] = [];
@@ -200,7 +245,14 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
     mes: mesAtual(),
   };
 
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  // O terceiro argumento é o guarda-roupa, e omiti-lo era medir um pool que a
+  // produção não produz. `lookDaPeca` o passa desde a #16, e sem ele
+  // `combinaComOGuardaRoupa` e `jaTemDesteTipo` nunca chegam ao modelo — as
+  // duas coisas que a #16 acrescentou. Qualquer comparação antes/depois que
+  // atravesse aquela PR estava confundida por isto.
+  const candidatos = semBanaisNaAncora(
+    await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes),
+  );
 
   console.log(`\n### ${cond.nome}`);
   console.log(`    ${cond.descricao}`);
