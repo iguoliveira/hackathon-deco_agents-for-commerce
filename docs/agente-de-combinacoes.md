@@ -194,11 +194,19 @@ leitura, pelo `JOIN`.
 | Favoritos | cookie `deco_wishlist`, TTL 1 ano | ler no servidor |
 | Avise-me | `stock_alerts` | nada |
 | Vistos | — | cookie `deco_recent`, ~30 min |
-| Comprou | — | `orders`, semeada para as personas |
+| Comprou | `orders` + `order_items` | **nada** — ver [`pedidos-e-compra-simulada.md`](pedidos-e-compra-simulada.md) |
 
-`orders` é semeada e **isso vai dito no slide**. Não existe checkout no
-repositório e fingir pipeline de compra é o tipo de coisa que um jurado de
-e-commerce reconhece na hora.
+> **08/08:** a linha "Comprou" deixou de ser pendência. Existe carrinho, botão de
+> finalizar e tela de pedidos, e a compra é gravada de verdade — o que a torna
+> semente sem precisar de seed. `comprasDe` lê de `order_items` desde a `0017`.
+>
+> A semente também deixou de ser rótulo: ela carrega `tags`, e
+> `combinaComOGuardaRoupa` cruza o guarda-roupa com cada candidato **em código**.
+> Antes o modelo recebia só título e tipo, e dizia "o tênis branco que você
+> comprou" lendo a cor da string do título.
+
+**Não há pagamento**, e isso continua indo dito no slide. Fingir pipeline de
+compra é o tipo de coisa que um jurado de e-commerce reconhece na hora.
 
 ---
 
@@ -342,6 +350,7 @@ aprendida de novo.
 | Documento | Estado |
 |---|---|
 | `agente-vitrine.md` | **em vigor** — descreve o agente construído, que esta feature reusa |
+| `pedidos-e-compra-simulada.md` | **em vigor** — a quarta semente (`comprou`), que a §5 daqui listava como falta |
 | `feature-back-in-stock-shelf.md` | **em vigor** — o sinal de "avise-me", que aqui vira uma das quatro sementes |
 | `catalog-population.md` | **em vigor** — o catálogo de 136, que é o que torna a composição possível |
 | `deploy-vercel-supabase.md` | **em vigor** — infra |
