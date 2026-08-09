@@ -26,20 +26,33 @@ const CAIXA =
   "rounded-lg border border-agente-linha bg-agente-veu px-4 py-6 sm:px-8 sm:py-8";
 
 /**
- * Quantas peças chegam à tela. **Amarrado às 5 colunas da grade, de propósito.**
+ * Quantas peças chegam à tela. **É uma trava de segurança, não um corte.**
  *
- * O agente devolve entre 4 e 10 peças (`MIN_PECAS`/`MAX_PECAS` em
- * `look.agent.ts`), então sem teto a última fileira quase sempre fica pela
- * metade — 8 peças em 5 colunas viram 5 + 3, com um vão de dois cards que lê
- * como erro de layout. Com o teto igual ao número de colunas, a vitrine é
- * **sempre uma fileira cheia**, qualquer que seja o tamanho da composição.
+ * Quem garante o número é o agente: a #32 o faz devolver 5 peças, e é lá que a
+ * decisão mora. Este teto existe para a section não quebrar o layout se algum
+ * dia chegar mais do que isso.
  *
- * O que se perde: as peças além da quinta não aparecem. É perda real e vale
- * dizer — o agente escolheu e explicou todas elas. Mas uma fileira completa
- * comunica "seleção" e uma fileira quebrada comunica "sobrou", e para uma
- * vitrine de recomendação a primeira leitura é a certa.
+ * **E se chegar mais, ele corta errado.** Vale saber por quê, porque o engano é
+ * natural: a ordem que chega aqui NÃO é a ordem do agente. `montarBlocos`
+ * agrupa por `ocasiao` num `Map` (`look.actions.ts`), então o `flatMap` percorre
+ * bloco a bloco — o resultado é ordem por ocasião. Medido com um look real de 8
+ * peças em 3 ocasiões:
  *
- * Se um dia isto virar página própria, o teto sai junto com a grade de 5.
+ *   ordem do agente   0 1 2 3 4 5 6 7
+ *   após agrupar      0 3 4 5 | 1 2 | 6 7
+ *   as 5 primeiras    0 3 4 5 1        <- descarta a posição 2, mantém a 5
+ *
+ * E a terceira ocasião some inteira da tela. Ou seja: cortar aqui não descarta
+ * "as menos convictas" — descarta a última ocasião, sistematicamente.
+ *
+ * Consertar exigiria carregar o `position` (existe em `PecaDoLook`, é jogado
+ * fora em `look.actions.ts` quando vira `PecaRenderizavel`) e ordenar antes de
+ * fatiar. Não foi feito porque com o agente devolvendo 5 o `slice` nunca corta.
+ * **Se `MAX_PECAS` voltar a passar de 5, isto vira bug de novo, em silêncio.**
+ *
+ * Sobre o número 5: ele casa com `lg:grid-cols-5`, então no desktop a vitrine é
+ * uma fileira cheia. Nas faixas menores não — 2 colunas dão 2+2+1 e 3 colunas
+ * dão 3+2. O vão da última fileira continua existindo no celular e no tablet.
  */
 const NA_TELA = 5;
 
@@ -84,9 +97,9 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
     look?.blocos.flatMap((bloco) => bloco.pecas.map((peca) => ({ ...peca, ocasiao: bloco.ocasiao }))) ??
     [];
 
-  // As primeiras `NA_TELA`, na ordem que o agente devolveu — que é o julgamento
-  // dele, do que mais acreditou para o que menos. Cortar do fim é descartar as
-  // menos convictas, que é o corte certo se algum tem de ser feito.
+  // Trava de segurança, não corte: o agente devolve 5 (#32). Se um dia chegar
+  // mais, este `slice` fica enviesado — a ordem aqui é por ocasião, não por
+  // convicção. O porquê está em `NA_TELA`, com a medição.
   const mostradas = todas.slice(0, NA_TELA);
 
   // O nome da section é FIXO; o `look.titulo` que o agente escreve não vai mais
