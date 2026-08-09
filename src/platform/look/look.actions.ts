@@ -22,7 +22,7 @@ import { recordToProduct } from "../catalog/catalog.mapper";
 import { donoDaVitrine } from "../shelf/shelf.identity";
 import { gerarLook, jaComprados, MIN_PECAS } from "./look.agent";
 import { montarCandidatos } from "./look.candidates";
-import { acharAncora, lerLook } from "./look.d1";
+import { acharAncora, falhaRecente, lerLook } from "./look.d1";
 import { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
 import { colherSementes } from "./look.seeds";
 import type { Contexto, Look } from "./look.types";
@@ -96,6 +96,37 @@ const hashDoContexto = (contexto: Contexto): string => {
 };
 
 /**
+ * Quanto tempo um par (peça, contexto) que falhou fica em quarentena.
+ *
+ * Minutos, não horas, e o número tem dono: a demo precisa se recuperar sozinha.
+ * Se o provedor voltar às 15h04, a section tem de reaparecer antes do pitch sem
+ * ninguém rodar nada — dez minutos é o maior valor que ainda cabe entre "parou
+ * de gerar carga" e "alguém percebeu no palco".
+ *
+ * É a única constante desta correção que se ajusta sem entender o resto: subir
+ * protege mais o provedor, descer recupera mais rápido.
+ */
+const TTL_FALHA_MINUTOS = 10;
+
+/**
+ * Os pares com geração em voo **neste processo**.
+ *
+ * O marcador no banco fecha o laço entre visitas, mas não fecha a janela DURANTE
+ * a primeira: enquanto uma geração de 120s está em voo, ela ainda não gravou
+ * nada, então cada pageview que chega nesse intervalo dispara mais uma. Na home,
+ * ancorada num handle fixo, todo visitante anônimo cai no mesmo par — o que
+ * transforma um pico de tráfego em N chamadas simultâneas para a mesma resposta.
+ *
+ * Um `Set` em memória resolve o caso que importa e é honesto sobre o que não
+ * resolve: **é por instância**. Duas instâncias da Vercel disparam duas vezes.
+ * Isso é aceitável porque as duas camadas cobrem coisas diferentes — o `Set`
+ * corta a rajada dentro de uma instância quente, o marcador corta a repetição
+ * entre visitas e entre instâncias. Um lock de verdade seria um `INSERT` de
+ * reserva antes de chamar o modelo; vale se um dia isto sair da demo.
+ */
+const emVoo = new Set<string>();
+
+/**
  * `Product` carrega URLs absolutas, então precisa da origin da requisição.
  * Mesmo fallback de `catalog.actions.ts` para quando roda fora de um contexto
  * de request (build, preview do editor).
@@ -146,14 +177,19 @@ const montarBlocos = async (look: Look): Promise<BlocoDoLook[]> => {
 /**
  * O look de uma peça para quem está olhando.
  *
- * `null` — e a section some — em quatro casos:
+ * `null` — e a section some — em cinco casos:
  *
  *   1. a peça não existe;
  *   2. não há candidatos suficientes para compor;
  *   3. **o agente ainda não compôs este par (peça, contexto)**;
- *   4. tudo o que ele escolheu esgotou desde a geração.
+ *   4. tudo o que ele escolheu esgotou desde a geração;
+ *   5. este par falhou há menos de `TTL_FALHA_MINUTOS` e está em quarentena.
  *
- * O caso 3 é o novo, e é o que faz esta função ter dois estados em vez de três:
+ * O caso 5 é o que mantém o 3 barato. Sem ele, "ainda não compôs" e "não
+ * consegue compor" eram indistinguíveis, e o segundo disparava uma geração nova
+ * a cada visita — indefinidamente, porque falha não deixava rastro.
+ *
+ * O caso 3 é o que faz esta função ter dois estados em vez de três:
  * ou existe um look do agente, ou não existe look. Um "complete o look" que é
  * só uma lista ordenada não é uma versão mais fraca da feature — é outra coisa,
  * e ela mente sobre a procedência justamente quando o agente falhou.
@@ -173,12 +209,21 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   };
   const hash = hashDoContexto(contexto);
 
-  // HIT: o caminho quente, uma leitura indexada e nada mais. Só existe linha
-  // gravada quando o agente compôs — `gerarLook` não persiste falha.
+  // HIT: o caminho quente, uma leitura indexada e nada mais. `lerLook` só
+  // devolve linha do agente — o marcador de falha que `gerarLook` grava tem
+  // `origem = 'falha'` e é ignorado aqui, então ele nunca vira look na tela.
   const cacheado = await lerLook(alvo.ancora.productGroupId, hash);
   if (cacheado) return montar(cacheado, contexto);
 
-  // MISS. Antes de gastar um minuto de modelo, confere se há com o que compor —
+  // MISS. Duas perguntas antes de gastar um minuto de modelo, e nesta ordem
+  // porque a primeira é de graça: alguém já está gerando isto agora, e este par
+  // acabou de falhar? As duas juntas são o que impede um pageview de virar uma
+  // chamada nova — ver `emVoo` e `TTL_FALHA_MINUTOS`.
+  const chave = `${alvo.ancora.productGroupId}:${hash}`;
+  if (emVoo.has(chave)) return null;
+  if (await falhaRecente(alvo.ancora.productGroupId, hash, TTL_FALHA_MINUTOS)) return null;
+
+  // Antes de gastar um minuto de modelo, confere se há com o que compor —
   // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
   // faria a PDP disparar o agente para um pool que ele recusaria por pequeno,
   // repetindo o gasto a cada visita sem nunca produzir look.
@@ -200,9 +245,17 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   // Não é problema porque o próximo carregamento tenta de novo — e para a demo
   // os produtos do roteiro são pré-aquecidos. `@vercel/functions` tornaria isto
   // garantido; vale medir antes de trazer dependência.
-  void gerarLook(handle, contexto, hash).catch((erro) =>
-    console.error(`[look] geração em background falhou para ${handle}`, erro),
-  );
+  //
+  // O `finally` é o que faz o `emVoo` ser um guarda e não um vazamento: se a
+  // chave só saísse no sucesso, uma geração que estourasse o timeout deixaria o
+  // par bloqueado para sempre nesta instância — trocando o laço por uma feature
+  // permanentemente desligada, que é pior porque não faz barulho. Nota: se a
+  // invocação for congelada pela Vercel, nem isto roda; quem cobre esse caso é o
+  // marcador no banco.
+  emVoo.add(chave);
+  void gerarLook(handle, contexto, hash)
+    .catch((erro) => console.error(`[look] geração em background falhou para ${handle}`, erro))
+    .finally(() => emVoo.delete(chave));
 
   // A section some nesta visita. É o custo aceito ao remover o fallback: sem
   // motivos não há o que mostrar, e mostrar a lista crua seria mostrar o

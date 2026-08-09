@@ -275,6 +275,10 @@ interface LookRow {
  * antigas: servir uma delas hoje poria na tela um look sem motivo nenhum, que é
  * exatamente o que se decidiu não mostrar. Sendo ignoradas, elas são
  * regeneradas na primeira visita e somem sozinhas.
+ *
+ * O mesmo filtro é o que torna seguro `gravarFalha` escrever nesta tabela: um
+ * marcador de falha é `origem = 'falha'`, então ele **nunca** chega à tela por
+ * este caminho, e nenhum consumidor precisou aprender um terceiro estado.
  */
 export const lerLook = async (anchorId: string, contextoHash: string): Promise<Look | null> => {
   const db = getDb();
@@ -344,6 +348,95 @@ export const gravarLook = async (
     return true;
   } catch (erro) {
     console.error("[look] gravarLook falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Registra que este par (peça, contexto) foi tentado e não deu.
+ *
+ * Existe porque falha que não deixa rastro vira laço: sem linha, a visita
+ * seguinte não sabe que a anterior já tentou, e cada pageview dispara uma
+ * chamada nova de até 120s. Com a section na home, isso é *toda* visita —
+ * inclusive bot, preview e health check. O sistema respondia a "o provedor está
+ * saturado" gerando mais carga.
+ *
+ * **O marcador não é um look de consolação, e a distinção importa.** Ele grava
+ * `origem = 'falha'` com `titulo` e `pecas` vazios; `lerLook` já ignora tudo que
+ * não seja `'agente'`, então nada disto pode aparecer na tela. A regra do §4 do
+ * doc continua de pé: ou o look é do agente, ou a section não aparece. O que
+ * mudou é só quando se tenta de novo — depois do TTL, não no próximo pageview.
+ *
+ * O `WHERE looks.origem <> 'agente'` no UPSERT não é defensividade barata: é o
+ * que impede um `look:warm` que falhe de APAGAR um look bom já gravado. Sem ele,
+ * pré-aquecer com o provedor fora destruiria exatamente o cache que se queria
+ * proteger.
+ */
+export const gravarFalha = async (
+  anchorId: string,
+  contextoHash: string,
+  motivo: string,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO looks (anchor_id, contexto_hash, titulo, confianca, pecas, origem,
+                            motivo_do_fallback, generated_at)
+              VALUES (?, ?, '', 0, '[]', 'falha', ?,
+                      to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         ON CONFLICT (anchor_id, contexto_hash) DO UPDATE
+                 SET origem = 'falha',
+                     motivo_do_fallback = EXCLUDED.motivo_do_fallback,
+                     generated_at = EXCLUDED.generated_at
+               WHERE looks.origem <> 'agente'`,
+      )
+      .bind(anchorId, contextoHash, motivo.slice(0, 200))
+      .run();
+
+    return true;
+  } catch (erro) {
+    console.error("[look] gravarFalha falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Se este par já falhou nos últimos `minutos` — a quarentena que corta o laço.
+ *
+ * A comparação é de STRING, e isso é correto aqui em vez de sorte: `generated_at`
+ * é ISO 8601 UTC de largura fixa, formato em que ordem lexicográfica e ordem
+ * cronológica são a mesma coisa. É o mesmo recorte que `shelf.d1.ts` já usa para
+ * varrer vitrines velhas.
+ *
+ * Erro devolve `false` — na dúvida, tenta gerar. Um banco intermitente não deve
+ * ser capaz de desligar a feature; o pior caso é voltar ao comportamento antigo.
+ */
+export const falhaRecente = async (
+  anchorId: string,
+  contextoHash: string,
+  minutos: number,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    const linha = await db
+      .prepare(
+        `SELECT 1 AS existe
+           FROM looks
+          WHERE anchor_id = ? AND contexto_hash = ? AND origem = 'falha'
+            AND generated_at > to_char((now() - make_interval(mins => ?)) AT TIME ZONE 'UTC',
+                                       'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+      )
+      .bind(anchorId, contextoHash, minutos)
+      .first<{ existe: number }>();
+
+    return !!linha;
+  } catch (erro) {
+    console.error("[look] falhaRecente falhou", erro);
     return false;
   }
 };

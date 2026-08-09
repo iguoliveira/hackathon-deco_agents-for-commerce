@@ -210,7 +210,7 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
   let falhas = 0;
   for (let i = 1; i <= n; i++) {
     const inicio = Date.now();
-    const look = await comporLook(alvo.ancora, contexto, candidatos);
+    const { look, porque } = await comporLook(alvo.ancora, contexto, candidatos);
     const segundos = (Date.now() - inicio) / 1000;
 
     // Desde "ou o look é do agente, ou a section não aparece", `comporLook`
@@ -218,9 +218,13 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
     // mais fallback por SQL. Para a avaliação isso é dado, não erro: uma
     // condição que falha muito é uma condição instável, e registrar a falha é
     // mais honesto que descartá-la da amostra.
+    //
+    // O `porque` distingue as duas instabilidades que a amostra confunde:
+    // "modelo indisponível" é o provedor, "confiança abaixo do piso" é a
+    // condição. A primeira reprova a hora do teste; a segunda, o prompt.
     if (!look) {
       falhas++;
-      console.log(`    [${i}/${n}] FALHOU — sem look (modelo indisponível ou recusou)`);
+      console.log(`    [${i}/${n}] FALHOU — ${porque}`);
       continue;
     }
 
