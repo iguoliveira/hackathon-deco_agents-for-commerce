@@ -206,6 +206,18 @@ O marcador preserva a intenção e corta o laço:
 - `origem = 'falha'`, `titulo` e `pecas` vazios, motivo em `motivo_do_fallback`
   — as colunas que a `0014` já tinha e que ficaram ociosas quando o fallback por
   SQL caiu. **Nenhuma migration.**
+- **A quarentena é por PEÇA, não pelo par `(peça, contexto)`.** Uma linha por
+  âncora, sob o `contexto_hash` reservado `__falha__` (que não colide com nada:
+  `hashDoContexto` só produz base36). A primeira versão usava o par e tinha um
+  furo que anulava quase todo o conserto: `marcarVisita` grava `deco_recent` em
+  toda PDP, `colherSementes` lê esse cookie e o hash inclui as sementes — então
+  quem navega gera um contexto novo a cada página, e um par novo nunca teve
+  marcador. A quarentena não errava; nunca era consultada. Para visitante
+  anônimo, que não tem sinal mais forte que `recent`, era o caso comum.
+  Por peça fecha, e pelo motivo certo: **"modelo indisponível" é propriedade do
+  provedor, não do contexto** — a peça é a chave mais fina que ainda faz sentido.
+  `lerLook` continua com a chave completa, então **nada disto muda o que alguém
+  vê**.
 - `lerLook` já ignora `origem <> 'agente'`, então o marcador **não pode virar
   look na tela**. A regra do título desta seção continua intacta.
 - O retry continua existindo, só que **espaçado**: `TTL_FALHA_MINUTOS = 10` em

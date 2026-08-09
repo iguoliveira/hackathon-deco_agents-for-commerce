@@ -203,17 +203,13 @@ export const gerarLook = async (
   // a visita seguinte encontraria exatamente o mesmo número. Marcar evita o par
   // gastar duas consultas de candidatos por pageview para sempre desistir.
   if (candidatos.length < MIN_PECAS) {
-    await gravarFalha(
-      alvo.ancora.productGroupId,
-      contextoHash,
-      `só ${candidatos.length} candidato(s) no pool`,
-    );
+    await gravarFalha(alvo.ancora.productGroupId, `só ${candidatos.length} candidato(s) no pool`);
     return null;
   }
 
   const { look, porque } = await comporLook(alvo.ancora, contexto, candidatos);
   if (!look) {
-    await gravarFalha(alvo.ancora.productGroupId, contextoHash, porque ?? "motivo não registrado");
+    await gravarFalha(alvo.ancora.productGroupId, porque ?? "motivo não registrado");
     return null;
   }
 

@@ -353,7 +353,16 @@ export const gravarLook = async (
 };
 
 /**
- * Registra que este par (peça, contexto) foi tentado e não deu.
+ * O `contexto_hash` reservado da quarentena. **Não é um contexto.**
+ *
+ * `hashDoContexto` produz base36 de um FNV-1a — dígitos e letras minúsculas,
+ * nunca sublinhados. Então esta chave não colide com nenhum contexto real, e a
+ * linha da quarentena não pode ocupar o lugar de um look.
+ */
+const HASH_DA_FALHA = "__falha__";
+
+/**
+ * Registra que ESTA PEÇA foi tentada e não deu. Uma linha por âncora.
  *
  * Existe porque falha que não deixa rastro vira laço: sem linha, a visita
  * seguinte não sabe que a anterior já tentou, e cada pageview dispara uma
@@ -361,22 +370,35 @@ export const gravarLook = async (
  * inclusive bot, preview e health check. O sistema respondia a "o provedor está
  * saturado" gerando mais carga.
  *
- * **O marcador não é um look de consolação, e a distinção importa.** Ele grava
- * `origem = 'falha'` com `titulo` e `pecas` vazios; `lerLook` já ignora tudo que
- * não seja `'agente'`, então nada disto pode aparecer na tela. A regra do §4 do
- * doc continua de pé: ou o look é do agente, ou a section não aparece. O que
- * mudou é só quando se tenta de novo — depois do TTL, não no próximo pageview.
+ * **A quarentena é por peça, e não pelo par (peça, contexto).** A primeira
+ * versão usava o par, e isso tinha um furo que anulava quase todo o conserto:
+ * `marcarVisita` grava `deco_recent` em toda PDP, `colherSementes` lê esse
+ * cookie e `hashDoContexto` inclui as sementes — então quem navega gera um
+ * contexto NOVO a cada página. Um par novo nunca teve marcador, e a quarentena
+ * não errava: ela simplesmente nunca era consultada. Para visitante anônimo, que
+ * não tem sinal mais forte que `recent`, era o caso comum, não a exceção.
+ *
+ * Por peça isso fecha, e fecha pelo motivo certo: **o que estamos registrando
+ * quase nunca é propriedade do contexto.** "Modelo indisponível" é propriedade
+ * do provedor; a peça é a chave mais fina que ainda faz sentido. O preço é uma
+ * falha de composição específica de um contexto atrasar em 10 minutos os outros
+ * contextos daquela peça — que se cura sozinho e custa muito menos que o laço.
+ *
+ * **Nada disto muda o que alguém vê.** `lerLook` continua com a chave completa
+ * `(anchor_id, contexto_hash)`, então a personalização é exatamente a de antes.
+ * A alternativa sugerida na revisão — tirar `recent` do hash — também fecharia o
+ * furo, mas ao preço de servir a uma pessoa um look composto a partir das peças
+ * que outra viu. Isso é decisão de produto, não conserto de laço.
+ *
+ * **O marcador não é um look de consolação.** Ele grava `origem = 'falha'` com
+ * `titulo` e `pecas` vazios; `lerLook` já ignora tudo que não seja `'agente'`,
+ * então nada disto pode aparecer na tela. A regra do §4 do doc continua de pé.
  *
  * O `WHERE looks.origem <> 'agente'` no UPSERT não é defensividade barata: é o
- * que impede um `look:warm` que falhe de APAGAR um look bom já gravado. Sem ele,
- * pré-aquecer com o provedor fora destruiria exatamente o cache que se queria
- * proteger.
+ * que impede um `look:warm` que falhe de APAGAR um look bom já gravado. Com o
+ * hash reservado ele é cinto e suspensório, mas o cinto é de graça.
  */
-export const gravarFalha = async (
-  anchorId: string,
-  contextoHash: string,
-  motivo: string,
-): Promise<boolean> => {
+export const gravarFalha = async (anchorId: string, motivo: string): Promise<boolean> => {
   const db = getDb();
   if (!db) return false;
 
@@ -393,7 +415,7 @@ export const gravarFalha = async (
                      generated_at = EXCLUDED.generated_at
                WHERE looks.origem <> 'agente'`,
       )
-      .bind(anchorId, contextoHash, motivo.slice(0, 200))
+      .bind(anchorId, HASH_DA_FALHA, motivo.slice(0, 200))
       .run();
 
     return true;
@@ -404,7 +426,7 @@ export const gravarFalha = async (
 };
 
 /**
- * Se este par já falhou nos últimos `minutos` — a quarentena que corta o laço.
+ * Se esta peça já falhou nos últimos `minutos` — a quarentena que corta o laço.
  *
  * A comparação é de STRING, e isso é correto aqui em vez de sorte: `generated_at`
  * é ISO 8601 UTC de largura fixa, formato em que ordem lexicográfica e ordem
@@ -414,11 +436,7 @@ export const gravarFalha = async (
  * Erro devolve `false` — na dúvida, tenta gerar. Um banco intermitente não deve
  * ser capaz de desligar a feature; o pior caso é voltar ao comportamento antigo.
  */
-export const falhaRecente = async (
-  anchorId: string,
-  contextoHash: string,
-  minutos: number,
-): Promise<boolean> => {
+export const falhaRecente = async (anchorId: string, minutos: number): Promise<boolean> => {
   const db = getDb();
   if (!db) return false;
 
@@ -431,7 +449,7 @@ export const falhaRecente = async (
             AND generated_at > to_char((now() - make_interval(mins => ?)) AT TIME ZONE 'UTC',
                                        'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
       )
-      .bind(anchorId, contextoHash, minutos)
+      .bind(anchorId, HASH_DA_FALHA, minutos)
       .first<{ existe: number }>();
 
     return !!linha;

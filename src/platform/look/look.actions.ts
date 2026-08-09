@@ -109,13 +109,18 @@ const hashDoContexto = (contexto: Contexto): string => {
 const TTL_FALHA_MINUTOS = 10;
 
 /**
- * Os pares com geração em voo **neste processo**.
+ * As PEÇAS com geração em voo **neste processo**.
  *
  * O marcador no banco fecha o laço entre visitas, mas não fecha a janela DURANTE
  * a primeira: enquanto uma geração de 120s está em voo, ela ainda não gravou
  * nada, então cada pageview que chega nesse intervalo dispara mais uma. Na home,
- * ancorada num handle fixo, todo visitante anônimo cai no mesmo par — o que
- * transforma um pico de tráfego em N chamadas simultâneas para a mesma resposta.
+ * ancorada num handle fixo, todo visitante cai na mesma peça — o que transforma
+ * um pico de tráfego em N chamadas simultâneas para a mesma resposta.
+ *
+ * **Por peça, e não por par (peça, contexto)** — mesma chave da quarentena, e
+ * pelo mesmo motivo: o contexto muda a cada PDP navegada (`deco_recent` entra no
+ * hash), então uma chave por par deixava a rajada passar inteira para quem está
+ * navegando. Ver `gravarFalha` para o argumento completo.
  *
  * Um `Set` em memória resolve o caso que importa e é honesto sobre o que não
  * resolve: **é por instância**. Duas instâncias da Vercel disparam duas vezes.
@@ -187,11 +192,15 @@ const montarBlocos = async (look: Look): Promise<BlocoDoLook[]> => {
  *   2. não há candidatos suficientes para compor;
  *   3. **o agente ainda não compôs este par (peça, contexto)**;
  *   4. tudo o que ele escolheu esgotou desde a geração;
- *   5. este par falhou há menos de `TTL_FALHA_MINUTOS` e está em quarentena.
+ *   5. esta PEÇA falhou há menos de `TTL_FALHA_MINUTOS` e está em quarentena.
  *
  * O caso 5 é o que mantém o 3 barato. Sem ele, "ainda não compôs" e "não
  * consegue compor" eram indistinguíveis, e o segundo disparava uma geração nova
  * a cada visita — indefinidamente, porque falha não deixava rastro.
+ *
+ * A quarentena é por **peça**, não pelo par: o contexto muda a cada PDP que a
+ * pessoa abre (`deco_recent` entra no hash), então uma quarentena por par nunca
+ * seria consultada por quem está navegando. Ver `gravarFalha`.
  *
  * O caso 3 é o que faz esta função ter dois estados em vez de três:
  * ou existe um look do agente, ou não existe look. Um "complete o look" que é
@@ -229,7 +238,7 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   // Cada `await` entre a pergunta e a reserva é uma janela por onde cabe uma
   // requisição inteira, e o pico simultâneo é precisamente o que este `Set`
   // existe para conter.
-  const chave = `${alvo.ancora.productGroupId}:${hash}`;
+  const chave = alvo.ancora.productGroupId;
   if (emVoo.has(chave)) return null;
   emVoo.add(chave);
 
@@ -239,7 +248,7 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   let disparou = false;
 
   try {
-    if (await falhaRecente(alvo.ancora.productGroupId, hash, TTL_FALHA_MINUTOS)) return null;
+    if (await falhaRecente(alvo.ancora.productGroupId, TTL_FALHA_MINUTOS)) return null;
 
     // Antes de gastar um minuto de modelo, confere se há com o que compor —
     // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
