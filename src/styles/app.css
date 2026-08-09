@@ -115,6 +115,35 @@
   }
 }
 
+/* O ícone cresce quando o BOTÃO recebe hover.
+ *
+ * Escrito em CSS e não como `group-hover:scale-110` no JSX porque a variante
+ * combinada não estava sendo gerada — `scale-110` e `group-hover` existem no
+ * bundle separadamente, mas a combinação não saiu do scanner, e o hover
+ * simplesmente não acontecia. Aqui o seletor é explícito e não depende de
+ * detecção de string.
+ *
+ * `:hover` no pai e não no próprio ícone: o alvo de clique é o botão inteiro,
+ * incluindo os 6px de folga que o `IconButton` adiciona para o toque. Reagir só
+ * quando o cursor cruza o desenho do ícone daria um hover que pisca nas bordas.
+ *
+ * Respeita quem pediu menos movimento — a mesma cortesia que o resto do site
+ * já tem nas animações de entrada. */
+@utility icon-hover {
+  transition: transform var(--duration-fast) var(--ease-out-soft);
+
+  :hover > & {
+    transform: scale(1.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    :hover > & {
+      transform: none;
+    }
+  }
+}
+
 /* Confirmação de "entrou na lista de desejos".
  *
  * Só no sentido de ENTRAR. Remover não ganha animação de propósito: comemorar

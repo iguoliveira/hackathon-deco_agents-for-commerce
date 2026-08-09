@@ -10,6 +10,17 @@ export type AvailableIcons =
   | "close"
   | "chevron-right"
   | "favorite"
+  /**
+   * O coração SÓLIDO. Existe porque `favorite` não é um traço — é um contorno
+   * vazado, desenhado como um preenchimento com furo no meio. Trocar o `fill`
+   * dele não preenche nada: o furo continua lá, e por isso o `filled` do
+   * `IconButton` nunca teve efeito visual no coração.
+   *
+   * Este símbolo é o mesmo path sem o segundo subpath (o furo), então as duas
+   * formas coincidem pixel a pixel — o que permite sobrepô-las e animar o
+   * preenchimento por dentro. Ver `WishlistButton`.
+   */
+  | "favorite-filled"
   | "home_pin"
   | "call"
   | "local_shipping"

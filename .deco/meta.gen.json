@@ -3659,7 +3659,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4162,6 +4162,7 @@
                         "close",
                         "chevron-right",
                         "favorite",
+                        "favorite-filled",
                         "home_pin",
                         "call",
                         "local_shipping",
@@ -5003,7 +5004,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },

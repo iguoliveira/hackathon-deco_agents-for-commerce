@@ -170,10 +170,19 @@ registerCommerceLoaders({
   // devolve `EMPTY_WISHLIST` sem ela. Hoje nenhuma section resolve esta chave
   // por aqui, então o defeito era latente — mas latente é o que volta quando
   // alguém puser um bloco que a use, e aí ninguém liga uma coisa na outra.
-  "site/loaders/wishlist.ts": async (props, req) =>
-    (await import("./loaders/wishlist")).default(props, req),
-  "site/loaders/wishlist": async (props, req) =>
-    (await import("./loaders/wishlist")).default(props, req),
+  // Sem `(props, req)`: nesta branch o loader não os recebe mais.
+  //
+  // A #22 passou a repassá-los porque, na `main`, `loaders/wishlist.ts` lia o
+  // cookie do `req` — e sem eles a lista voltava sempre vazia. Aqui esse loader
+  // foi reescrito para delegar a `getWishlistStateServerFn()`, que resolve a
+  // sessão por dentro, e a assinatura ficou sem parâmetros.
+  //
+  // O merge juntou os dois lados sem conflito de texto (são arquivos
+  // diferentes) e o resultado não compilava. É a mesma regra que `address.ts`
+  // já seguia logo abaixo, e a mesma de `notifyMe/subscribe.ts`: a identidade
+  // não vem por parâmetro.
+  "site/loaders/wishlist.ts": async () => (await import("./loaders/wishlist")).default(),
+  "site/loaders/wishlist": async () => (await import("./loaders/wishlist")).default(),
   "site/loaders/address.ts": async () => (await import("./loaders/address")).default(),
   "site/loaders/address": async () => (await import("./loaders/address")).default(),
   // ⚠️ Dead code, kept for the same reasons as the PLP override above: the Hero
@@ -283,10 +292,19 @@ registerInvokeHandlers({
   //
   // Testar isto exige cookie: sem `deco_wishlist` na requisição, o conserto e o
   // defeito devolvem a mesma resposta.
-  "site/loaders/wishlist.ts": async (props, req) =>
-    (await import("./loaders/wishlist")).default(props, req),
-  "site/loaders/wishlist": async (props, req) =>
-    (await import("./loaders/wishlist")).default(props, req),
+  // Sem `(props, req)`: nesta branch o loader não os recebe mais.
+  //
+  // A #22 passou a repassá-los porque, na `main`, `loaders/wishlist.ts` lia o
+  // cookie do `req` — e sem eles a lista voltava sempre vazia. Aqui esse loader
+  // foi reescrito para delegar a `getWishlistStateServerFn()`, que resolve a
+  // sessão por dentro, e a assinatura ficou sem parâmetros.
+  //
+  // O merge juntou os dois lados sem conflito de texto (são arquivos
+  // diferentes) e o resultado não compilava. É a mesma regra que `address.ts`
+  // já seguia logo abaixo, e a mesma de `notifyMe/subscribe.ts`: a identidade
+  // não vem por parâmetro.
+  "site/loaders/wishlist.ts": async () => (await import("./loaders/wishlist")).default(),
+  "site/loaders/wishlist": async () => (await import("./loaders/wishlist")).default(),
   "site/loaders/address.ts": async () => (await import("./loaders/address")).default(),
   "site/loaders/address": async () => (await import("./loaders/address")).default(),
   "site/actions/shipping/simulate.ts": async (props, req) =>

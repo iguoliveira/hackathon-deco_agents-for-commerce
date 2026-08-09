@@ -55,7 +55,11 @@ export default function Button(props: Props) {
   const { variant = "glass", size = "sm", className, children } = props;
 
   const classes = clx(
-    "tap-scale inline-flex items-center justify-center rounded-sm font-medium capitalize whitespace-nowrap transition-colors duration-(--duration-fast)",
+    // `cursor-pointer` pelo mesmo motivo do `IconButton`: o Preflight do
+    // Tailwind v4 define `cursor: default` em `button`, e sem isto nenhum botão
+    // do site mostra a mãozinha. `disabled:cursor-not-allowed` vem junto porque
+    // um botão desabilitado com mãozinha promete um clique que não acontece.
+    "tap-scale inline-flex cursor-pointer items-center justify-center rounded-sm font-medium capitalize whitespace-nowrap transition-colors duration-(--duration-fast) disabled:cursor-not-allowed",
     VARIANT_CLASS[variant],
     SIZE_CLASS[size],
     className,
