@@ -165,8 +165,15 @@ registerCommerceLoaders({
 registerCommerceLoaders({
   "site/loaders/user.ts": async () => (await import("./loaders/user")).default(),
   "site/loaders/user": async () => (await import("./loaders/user")).default(),
-  "site/loaders/wishlist.ts": async () => (await import("./loaders/wishlist")).default(),
-  "site/loaders/wishlist": async () => (await import("./loaders/wishlist")).default(),
+  // Repassa `(props, req)` pelo mesmo motivo do bloco de `registerInvokeHandlers`
+  // lá embaixo: `loaders/wishlist.ts` recebe a requisição por parâmetro e
+  // devolve `EMPTY_WISHLIST` sem ela. Hoje nenhuma section resolve esta chave
+  // por aqui, então o defeito era latente — mas latente é o que volta quando
+  // alguém puser um bloco que a use, e aí ninguém liga uma coisa na outra.
+  "site/loaders/wishlist.ts": async (props, req) =>
+    (await import("./loaders/wishlist")).default(props, req),
+  "site/loaders/wishlist": async (props, req) =>
+    (await import("./loaders/wishlist")).default(props, req),
   "site/loaders/address.ts": async () => (await import("./loaders/address")).default(),
   "site/loaders/address": async () => (await import("./loaders/address")).default(),
   // ⚠️ Dead code, kept for the same reasons as the PLP override above: the Hero
@@ -229,6 +236,55 @@ registerInvokeHandlers({
   // ver o comentário em `src/loaders/lookLocal.ts`.
   "site/loaders/lookLocal.ts": async () => (await import("./loaders/lookLocal")).default(),
   "site/loaders/lookLocal": async () => (await import("./loaders/lookLocal")).default(),
+  // ---------------------------------------------------------------------------
+  // Loaders que o CLIENTE invoca, e que precisam estar AQUI e não só em
+  // `registerCommerceLoaders`.
+  //
+  // Os dois registros não são a mesma coisa e é fácil confundi-los:
+  //
+  //   registerCommerceLoaders  -> resolve o decofile (sections, blocos)
+  //   registerInvokeHandlers   -> resolve POST /deco/invoke/<chave>
+  //
+  // `wishlist` e `address` estavam só no primeiro. Como quem os chama é
+  // `invoke.site.loaders.*` no cliente (wishlist.hooks.ts e address.hooks.ts),
+  // as duas chamadas voltavam **404 em produção** — a lista de desejos e o
+  // livro de endereços simplesmente não carregavam.
+  //
+  // Não aparecia em teste de navegação porque nenhuma section resolve estes
+  // dois: eles só existem no caminho do cliente. E `status 200 não é sinal de
+  // saúde neste site` não ajudava aqui — a página respondia 200 e o 404 ficava
+  // no console.
+  //
+  // Regra prática: se alguém escreve `invoke.site.loaders.X`, X precisa de
+  // entrada neste bloco. Hoje são três — `lookLocal`, `wishlist` e `address`.
+  //
+  // **A aridade da arrow não é estilo — ela decide se o loader recebe a
+  // requisição.** O runtime chama `handler(body, request)`, mas uma arrow sem
+  // parâmetros descarta os dois em silêncio, e o TypeScript aceita: passar uma
+  // função de aridade menor onde se espera `(props, req)` é atribuição legal.
+  // O `tsc` fica verde com o defeito dentro.
+  //
+  // E os três loaders NÃO são simétricos — copiar a linha de um para o outro é
+  // exatamente como se erra aqui:
+  //
+  //   wishlist  -> recebe `req` por PARÂMETRO (`loaders/wishlist.ts:5`), e sem
+  //                ele devolve `EMPTY_WISHLIST`. Precisa repassar.
+  //   address   -> lê de `RequestContext.current` (`loaders/address.ts:13`).
+  //   lookLocal -> idem, via `localDaRequisicao()`.
+  //
+  // O modo de falha do `wishlist` é o pior possível: **200 com corpo vazio**.
+  // A tela carrega, a lista aparece vazia, e nada grita. Favoritar grava o
+  // cookie (`actions/wishlist/submit.ts` tem o fallback do `RequestContext`),
+  // recarregar zera — a escrita funciona e a leitura não.
+  //
+  // Testar isto exige cookie: sem `deco_wishlist` na requisição, o conserto e o
+  // defeito devolvem a mesma resposta.
+  "site/loaders/wishlist.ts": async (props, req) =>
+    (await import("./loaders/wishlist")).default(props, req),
+  "site/loaders/wishlist": async (props, req) =>
+    (await import("./loaders/wishlist")).default(props, req),
+  "site/loaders/address.ts": async () => (await import("./loaders/address")).default(),
+  "site/loaders/address": async () => (await import("./loaders/address")).default(),
   "site/actions/shipping/simulate.ts": async (props, req) =>
     (await import("./actions/shipping/simulate")).default(props, req),
   "site/actions/shipping/simulate": async (props, req) =>
