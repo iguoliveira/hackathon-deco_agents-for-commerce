@@ -4,6 +4,11 @@
  *   npm run look:refresh -- retro-code-tee
  *   npm run look:refresh -- retro-code-tee --email 123@gmail.com
  *   npm run look:refresh -- retro-code-tee --email 123@gmail.com --cidade "Porto Alegre,RS,BR"
+ *   npm run look:refresh -- retro-code-tee --email 123@gmail.com --checar
+ *
+ * `--checar` responde "a PDP acharia look para hoje?" **sem gastar chamada** —
+ * mesma chave e mesma consulta do caminho quente. Sai 1 se alguma peça estiver
+ * fria, o que o torna usável como conferência de roteiro antes da demo.
  *
  * A chave do cache é (peça, pessoa, lugar, dia), então uma peça compõe **uma vez
  * por dia por pessoa** — o que é a feature, e não uma limitação a contornar:
@@ -29,8 +34,12 @@ try {
 }
 
 import { readFileSync } from "node:fs";
-import { aquecerLook, diaDeHoje } from "../src/platform/look/look.actions";
+import { aquecerLook, chaveDoDia, diaDeHoje } from "../src/platform/look/look.actions";
+import { acharAncora, lerLook } from "../src/platform/look/look.d1";
 import type { Local } from "../src/platform/look/look.types";
+
+/** O mesmo padrão de `localDaRequisicao()` fora de uma requisição. */
+const PADRAO: Local = { cidade: "São Paulo", regiao: "SP", pais: "BR", origem: "padrao" };
 
 /** `.dev.vars` guarda as credenciais do Decopilot; tsx não as carrega sozinho. */
 const carregarDevVars = (): void => {
@@ -81,8 +90,48 @@ const main = async (): Promise<void> => {
 
   const email = valorDe(args, "--email") ?? null;
   const local = lerCidade(valorDe(args, "--cidade"));
+  const soChecar = args.includes("--checar");
 
   console.log(`\ndia ${diaDeHoje()} · ${email ?? "anônimo"}${local ? ` · ${local.cidade}` : ""}\n`);
+
+  // `--checar` responde "a PDP acharia look para hoje?" **sem gastar chamada**.
+  // É a mesma leitura que `lookDaPeca` faz no caminho quente: mesma chave, mesma
+  // consulta. Existe para conferir o roteiro minutos antes da demo, quando
+  // descobrir que algo está frio ainda dá tempo de aquecer — e para provar, em
+  // teste, que uma peça já composta não recompõe.
+  if (soChecar) {
+    const chave = chaveDoDia(email, local ?? PADRAO);
+    let frias = 0;
+
+    for (const handle of handles) {
+      const alvo = await acharAncora(handle);
+      if (!alvo) {
+        frias++;
+        console.log(`  ? ${handle.padEnd(28)} não existe no catálogo`);
+        continue;
+      }
+
+      const inicio = Date.now();
+      const look = await lerLook(alvo.ancora.productGroupId, chave);
+      const ms = Date.now() - inicio;
+
+      if (look) {
+        console.log(
+          `  ✓ ${handle.padEnd(28)} quente  ${String(ms).padStart(4)}ms  "${look.titulo}"  ${look.pecas.length} peças`,
+        );
+      } else {
+        frias++;
+        console.log(`  ✗ ${handle.padEnd(28)} FRIA — a section não apareceria`);
+      }
+    }
+
+    console.log(
+      frias === 0
+        ? `\nchave ${chave} · tudo quente para hoje.\n`
+        : `\nchave ${chave} · ${frias} de ${handles.length} fria(s). Rode sem --checar para compor.\n`,
+    );
+    process.exit(frias === 0 ? 0 : 1);
+  }
 
   let falhas = 0;
   for (const handle of handles) {
