@@ -7,10 +7,24 @@
  * ao catálogo. Um agente que recebesse a loja inteira produziria um look
  * plausível e genérico, que é o que qualquer loja já tem.
  *
- * As sementes NÃO entram aqui. Elas vão para o prompt, como contexto de quem
- * está olhando, e é o modelo que decide o quanto elas puxam a escolha. Filtrar
- * o pool por elas em código seria decidir no lugar do agente com um critério
- * mais burro — e é justamente o pedaço em que ele é insubstituível.
+ * **As sementes entram aqui, e é importante saber exatamente quanto.** Este
+ * comentário já disse que elas não entravam; era verdade quando foi escrito e
+ * deixou de ser em duas etapas, sem que ninguém voltasse a ele. Hoje elas fazem
+ * duas coisas, e só duas:
+ *
+ *   `jaComprados`  REMOVE do pool o que a pessoa já tem. Não é ranqueamento
+ *                  disfarçado — é que recomendar peça comprada é erro de loja.
+ *   `guardaRoupa`  ACRESCENTA dois sinais calculados a cada candidato
+ *                  (`combinaComOGuardaRoupa`, `jaTemDesteTipo`). Não filtra e
+ *                  não reordena: só dá ao modelo o que ele não conseguiria
+ *                  cruzar de cabeça sem errar em silêncio.
+ *
+ * O que continua valendo é a regra por trás: **nenhuma semente ordena o pool.**
+ * Quem decide o quanto elas puxam a escolha é o modelo, lendo os sinais. Filtrar
+ * ou ranquear por elas em código seria decidir no lugar do agente com um
+ * critério mais burro — e é justamente o pedaço em que ele é insubstituível.
+ *
+ * Ver docs/anatomia-do-agente.md §2 para os três eixos inteiros.
  */
 
 import { findComplementsAvailable } from "../catalog/catalog.d1";
