@@ -11,12 +11,14 @@
  */
 
 /**
- * De onde veio o interesse. **A ordem de força é esta**, e ela é usada para
- * desempatar quando a mesma peça aparece por dois caminhos.
+ * De onde veio o interesse.
  *
- * `purchased` na frente porque é o único sinal que custou dinheiro: quem
- * comprou a calça declarou mais sobre o próprio guarda-roupa do que quem
- * favoritou dez peças numa tarde.
+ * **A ordem aqui já foi de força**, e era usada para desempatar quando a mesma
+ * peça chegava por dois caminhos. Não é mais: nada em código ranqueia estes
+ * valores. O que cada um significa está dito em português no prompt — *comprou*
+ * é posse, *avise-me* é desejo frustrado, *viu* é fraco — e quem decide quanto
+ * pesa é o modelo, com o conjunto todo na frente. Ver
+ * docs/persona-do-guarda-roupa.md §1.
  */
 export type SeedKind = "purchased" | "waited" | "wishlist" | "recent";
 
@@ -48,8 +50,25 @@ export interface Semente {
    * em código, do mesmo jeito que `tagsEmComum` é calculado contra a âncora.
    */
   tags: string[];
-  kind: SeedKind;
-  /** ISO 8601. Semente recente pesa mais no desempate. */
+  /**
+   * **Todas** as formas pelas quais a pessoa sinalizou esta peça. Nunca vazio.
+   *
+   * Era `kind: SeedKind`, um só, e a mesma peça chegando por dois caminhos —
+   * favoritar e depois comprar é o percurso normal, não a exceção — obrigava a
+   * escolher um vencedor. Escolher exigia a tabela de pesos, e a tabela nunca
+   * foi medida.
+   *
+   * Guardar as duas dissolve a pergunta em vez de respondê-la melhor: *"comprou
+   * e já tinha favoritado"* é mais informação que qualquer um dos dois sozinho,
+   * e é informação que existia e estava sendo jogada fora.
+   *
+   * E fecha um furo real. `look.agent.ts` exclui dos candidatos o que a pessoa
+   * já comprou; com um `kind` só, uma compra sombreada por um `recent` mais novo
+   * sumia, e a peça voltava a ser recomendada — exatamente o que o commit
+   * "não recomendar o que a pessoa já comprou" tinha consertado.
+   */
+  kinds: SeedKind[];
+  /** ISO 8601 do sinal MAIS RECENTE desta peça. Ordena o prompt; não pesa nada. */
   em: string;
 }
 
@@ -88,6 +107,21 @@ export interface Contexto {
   local: Local;
   /** Nome do mês em português — o modelo raciocina melhor sobre isso que sobre `8`. */
   mes: string;
+  /**
+   * O retrato do guarda-roupa, quando existe. **Substitui as sementes no
+   * prompt** — não se soma a elas, ou a medição do `look:eval` não conseguiria
+   * atribuir a diferença a nada.
+   *
+   * Opcional, e ausente é caminho normal: visitante sem histórico nunca teve
+   * persona, e uma síntese que falhou compõe sem ela. Nos dois casos o prompt
+   * volta a listar as sementes, que é exatamente o comportamento de hoje.
+   *
+   * **Fora do `hashDoContexto` de propósito.** A persona é derivada das
+   * sementes, e as sementes já estão no hash — incluí-la seria pôr a mesma
+   * informação duas vezes na chave, e pior: uma síntese que falhasse mudaria a
+   * chave do look e descartaria um cache válido.
+   */
+  persona?: Persona;
 }
 
 /**
@@ -125,6 +159,74 @@ export interface Candidato {
    * precisa da terceira — sem que o código decida por ele quantas são demais.
    */
   jaTemDesteTipo?: string[];
+}
+
+/**
+ * Um eixo do retrato do guarda-roupa — **observação, nunca preferência**.
+ *
+ * A distinção é a regra inteira, e ela não é de estilo de texto. O prompt de
+ * composição proíbe afirmar gosto ("você prefere neutros") com um argumento
+ * medido: `black` é a segunda tag de cor mais frequente do catálogo, então
+ * quase todo mundo compra preto porque preto é o que mais existe. Dizer que a
+ * pessoa gosta é suposição; dizer que o armário dela é escuro é fato.
+ *
+ *   ✅ { eixo: "cor dominante", valor: "escuros", evidencia: ["Pleated Chino"] }
+ *   ❌ { eixo: "estilo",        valor: "prefere neutros", evidencia: [] }
+ */
+export interface EixoDaPersona {
+  /**
+   * Como o **modelo** chamou o eixo. `string`, nunca união de literais.
+   *
+   * Mesma regra que fez `ocasiao` ser `string`: fixar `cor | tom | modelo`
+   * cravaria vocabulário de moda no domínio, e é o que já foi recusado para o
+   * clima (`estacao`) e para os tamanhos (`Size`). Num catálogo de vinho o
+   * modelo emite "corpo" ou "acidez" sem uma linha de código mudar.
+   */
+  eixo: string;
+  /** O que ele observou nesse eixo. */
+  valor: string;
+  /**
+   * Os títulos das peças que sustentam a afirmação. **Nunca vazio.**
+   *
+   * É o que separa esta persona da que o prompt proíbe: um eixo sem evidência é
+   * opinião sobre a pessoa; com evidência, é descrição do que ela tem. E é
+   * prático além de ético — é daqui que sai a citação concreta no motivo, sem a
+   * qual a composição perderia o "o cardigã que você comprou" e ficaria só com
+   * generalidade.
+   *
+   * `validar` descarta eixo cujo título não esteja entre os sinais recebidos:
+   * evidência inventada é alucinação com aparência de fundamento.
+   */
+  evidencia: string[];
+}
+
+/**
+ * O retrato do guarda-roupa de uma pessoa, sintetizado pelo modelo.
+ *
+ * Substitui a pesagem de sementes (`FORCA`), que respondia a uma pergunta de
+ * **truncamento** — quais sinais cabem nas seis vagas — e não de recomendação.
+ * Aqui o modelo recebe tudo e decide sozinho o que importa.
+ *
+ * **É por pessoa, não por peça aberta.** Uma persona serve para todas as PDPs
+ * que aquela pessoa abrir, e o cache é pelo hash dos sinais — ver
+ * docs/persona-do-guarda-roupa.md §4.
+ */
+export interface Persona {
+  eixos: EixoDaPersona[];
+  /**
+   * Quanto o modelo acredita no retrato. Abaixo do piso não há persona, e o
+   * look compõe sem ela — como já faz hoje para quem não tem histórico.
+   *
+   * Existe pelo mesmo motivo que a confiança do look: sem saída honesta para
+   * "estes sinais não descrevem ninguém", o modelo inventa um perfil.
+   */
+  confianca: number;
+}
+
+/** O que o modelo devolve na síntese, antes de qualquer validação. */
+export interface RespostaDaPersona {
+  eixos?: unknown;
+  confianca?: unknown;
 }
 
 /** A peça aberta na PDP, na forma que vai para o prompt. */

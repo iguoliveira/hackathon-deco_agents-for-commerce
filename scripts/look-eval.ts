@@ -32,6 +32,7 @@ try {
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { comporLook, jaComprados } from "../src/platform/look/look.agent";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
+import { obterPersona } from "../src/platform/look/persona.agent";
 import { acharAncora } from "../src/platform/look/look.d1";
 import { mesAtual } from "../src/platform/look/look.local";
 import type { Contexto, Local, Semente } from "../src/platform/look/look.types";
@@ -180,12 +181,26 @@ const sementesDe = async (handles: string[]): Promise<Semente[]> => {
       // sai `combinaComOGuardaRoupa`. Forjar semente sem tags aqui produziria
       // um armário mudo e mediria o agente errado.
       tags: alvo.ancora.tags,
-      kind: "purchased",
+      kinds: ["purchased"],
       em: agora,
     });
   }
   return out;
 };
+
+/**
+ * Liga a passada 1. `npm run look:eval -- --rotulo persona --n 3 --persona`
+ *
+ * Existe porque este script chama `comporLook` DIRETO, e nao `gerarLook` - sem
+ * o flag, a persona nunca entraria no prompt e o experimento do §8 de
+ * docs/persona-do-guarda-roupa.md compararia a pesagem contra ela mesma.
+ *
+ * `obterPersona` e nao `derivarPersona`: a sintese fica em cache pelo hash dos
+ * sinais, entao as N repeticoes de uma condicao pagam UMA chamada, e nao N. E
+ * isso que torna a comparacao honesta - o que se mede e a estabilidade da
+ * COMPOSICAO sob a mesma persona, nao a estabilidade da sintese.
+ */
+const COM_PERSONA = process.argv.includes("--persona");
 
 const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondicao | null> => {
   const alvo = await acharAncora(cond.ancora);
@@ -200,11 +215,27 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
     mes: mesAtual(),
   };
 
+  if (COM_PERSONA) {
+    const persona = await obterPersona(contexto.sementes);
+    if (persona) contexto.persona = persona;
+  }
+
   const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
 
   console.log(`\n### ${cond.nome}`);
   console.log(`    ${cond.descricao}`);
   console.log(`    âncora: ${alvo.ancora.titulo} · pool: ${candidatos.length} candidatos`);
+
+  if (COM_PERSONA) {
+    // Impresso porque um retrato ausente muda o que a linha esta medindo, e sem
+    // isto a condicao pareceria ter rodado com persona quando rodou sem.
+    const eixos = contexto.persona?.eixos;
+    console.log(
+      eixos
+        ? `    persona: ${eixos.map((e) => `${e.eixo}=${e.valor}`).join(" | ")}`
+        : "    persona: NENHUMA - esta condicao rodou pelas sementes",
+    );
+  }
 
   const execucoes: Execucao[] = [];
   let falhas = 0;
@@ -369,7 +400,7 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  console.log(`\n=== AVALIAÇÃO "${rotulo}" · ${condicoes.length} condições × ${n} repetições ===`);
+  console.log(`\n=== AVALIAÇÃO "${rotulo}" · ${condicoes.length} condições × ${n} repetições${COM_PERSONA ? " · COM PERSONA" : ""} ===`);
   console.log(`(estimativa: ~${Math.round((condicoes.length * n * 30) / 60)} min)`);
 
   const resultados: ResultadoCondicao[] = [];

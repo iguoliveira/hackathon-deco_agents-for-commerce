@@ -104,7 +104,7 @@ const lerSementes = async (handles: string[]): Promise<Semente[]> => {
       // pelo mesmo motivo que a real: sem tags não há `combinaComOGuardaRoupa`,
       // e o `--semente` deixaria de reproduzir o que acontece em produção.
       tags: alvo.ancora.tags,
-      kind: "purchased",
+      kinds: ["purchased"],
       em: agora,
     });
   }
@@ -166,7 +166,7 @@ const main = async (): Promise<void> => {
     console.log("sementes: nenhuma (visitante sem histórico)");
   } else {
     for (const s of contexto.sementes) {
-      console.log(`sementes: ${s.titulo} [${s.tipo}] — ${s.kind}`);
+      console.log(`sementes: ${s.titulo} [${s.tipo}] — ${s.kinds.join(" e ")}`);
     }
   }
 

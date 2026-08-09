@@ -35,6 +35,9 @@ import { consolidar } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
 import { validar } from "../src/platform/look/look.agent";
+import { validarPersona } from "../src/platform/look/persona.agent";
+import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
+import { hashDosSinais } from "../src/platform/look/look.hash";
 import type { Candidato, Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
@@ -290,15 +293,79 @@ const main = async (): Promise<void> => {
   ok("handle inventado é descartado", !validadas.some((p) => p.handle.endsWith("x")));
   ok("peça sem motivo é descartada", validadas.length === 1);
 
-  // `tags: []` porque estas duas asserções são sobre `consolidar` — dedup por
-  // produto e desempate por força —, e nenhuma das duas lê tags. Preencher com
-  // tags inventadas daria a impressão de que elas participam do que se mede.
+  // As tags participam agora: `consolidar` as une, porque um "avise-me" chega
+  // sem tags e a mesma peça vinda de uma compra chega com elas. Ficar com a
+  // lista vazia por ordem de chegada empobreceria `combinaComOGuardaRoupa`.
   const sementes: Semente[] = [
-    { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kind: "recent", em: "2026-08-01" },
-    { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kind: "purchased", em: "2026-07-01" },
+    { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kinds: ["recent"], em: "2026-08-01" },
+    { productGroupId: "a", titulo: "A", tipo: "T", tags: ["black"], kinds: ["purchased"], em: "2026-07-01" },
   ];
-  ok("a mesma peça por dois caminhos vira uma semente só", consolidar(sementes).length === 1);
-  ok("e fica com a origem mais forte", consolidar(sementes)[0]?.kind === "purchased");
+  const consolidadas = consolidar(sementes);
+  ok("a mesma peça por dois caminhos vira uma semente só", consolidadas.length === 1);
+  ok(
+    "e guarda AS DUAS origens, sem escolher vencedor",
+    !!consolidadas[0] &&
+      consolidadas[0].kinds.includes("purchased") &&
+      consolidadas[0].kinds.includes("recent"),
+  );
+  ok("as tags das duas se unem", consolidadas[0]?.tags.includes("black") === true);
+  ok("e o `em` fica com o sinal mais recente", consolidadas[0]?.em === "2026-08-01");
+
+  // ------------------------------------------------------------------
+  titulo("8. A persona não pode afirmar mais do que observou");
+  // ------------------------------------------------------------------
+  //
+  // `validarPersona` é pura: resolve o retorno do modelo contra os sinais que o
+  // geraram, sem tocar em banco nem em provedor. É por isso que a persona pode
+  // ser verificada de verdade mesmo com o provedor sem token — o que NÃO dá
+  // para verificar aqui é a qualidade do retrato, só o contrato.
+  const armario: Semente[] = [
+    { productGroupId: "p1", titulo: "Pleated Chino", tipo: "Pants", tags: ["black"], kinds: ["purchased"], em: "2026-08-01" },
+    { productGroupId: "p2", titulo: "Ribbed Cardigan", tipo: "Knit", tags: ["black"], kinds: ["wishlist"], em: "2026-07-01" },
+  ];
+
+  const doModelo = [
+    // legítimo: os dois títulos existem
+    { eixo: "cor dominante", valor: "escuros", evidencia: ["Pleated Chino", "Ribbed Cardigan"] },
+    // evidência PARCIALMENTE inventada — o eixo inteiro cai
+    { eixo: "material", valor: "algodão", evidencia: ["Pleated Chino", "Linen Shirt"] },
+    // evidência totalmente inventada
+    { eixo: "caimento", valor: "solto", evidencia: ["Oversized Tee"] },
+    // sem apoio nenhum: é opinião sobre a pessoa
+    { eixo: "estilo", valor: "minimalista", evidencia: [] },
+    // duplicata do primeiro eixo
+    { eixo: "Cor Dominante", valor: "neutros", evidencia: ["Pleated Chino"] },
+  ];
+
+  const eixos = validarPersona(doModelo, armario);
+  ok("eixo com evidência real sobrevive", eixos.some((e) => e.eixo === "cor dominante"));
+  ok("eixo sem evidência nenhuma é descartado", !eixos.some((e) => e.eixo === "estilo"));
+  ok("evidência inventada é descartada", !eixos.some((e) => e.eixo === "caimento"));
+  ok("eixo repetido não entra duas vezes", eixos.length === 2, `${eixos.length} eixo(s)`);
+  ok(
+    "e o eixo que sobrou por evidência parcial só cita peça real",
+    eixos.every((e) => e.evidencia.every((t) => armario.some((s) => s.titulo === t))),
+  );
+  ok("lixo no lugar dos eixos vira lista vazia", validarPersona("nada disso", armario).length === 0);
+
+  // O hash dos sinais é a chave do cache da persona. Se ele mudar com a ORDEM,
+  // a mesma pessoa sintetiza de novo a cada pageview — que é exatamente o laço
+  // que a quarentena da #20 teve de consertar uma camada abaixo.
+  ok(
+    "o hash dos sinais não depende da ordem",
+    hashDosSinais(armario) === hashDosSinais([...armario].reverse()),
+  );
+  ok(
+    "mas muda quando um sinal novo chega na mesma peça",
+    hashDosSinais(armario) !==
+      hashDosSinais([{ ...armario[0]!, kinds: ["purchased", "wishlist"] }, armario[1]!]),
+  );
+
+  // O prompt da síntese não pode vazar id: o modelo não escolhe peça aqui, e um
+  // id no texto é convite para ele devolver um.
+  const mensagem = montarMensagemDaPersona(armario);
+  ok("o prompt da persona não carrega productGroupId", !mensagem.includes("p1"));
+  ok("e traduz o sinal para português", mensagem.includes("comprou"));
 
   // ------------------------------------------------------------------
   console.log(
