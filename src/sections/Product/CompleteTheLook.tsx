@@ -77,15 +77,22 @@ export interface Props {
 /**
  * O look que o agente compôs em volta da peça aberta.
  *
- * Não é `ProductShelf` com outro loader, e a diferença não é cosmética: são
- * **blocos por ocasião** e um **motivo por peça**. Sem os dois isto vira mais um
- * carrossel de "produtos relacionados", que é exatamente o que qualquer loja já
- * tem — o texto e o agrupamento são o que transformam uma lista ordenada por
- * SQL numa composição que se explica.
+ * Não é `ProductShelf` com outro loader, e a diferença não é cosmética: cada
+ * peça vem com **o motivo que o modelo escreveu**. É o texto que transforma uma
+ * lista ordenada por SQL numa composição que se explica — sem ele isto vira o
+ * carrossel de "produtos relacionados" que qualquer loja já tem.
  *
- * Os títulos dos blocos **não estão no código**. Eles vêm de `ocasiao`, escrito
- * pelo modelo a partir deste catálogo, e o componente apenas os renderiza na
- * ordem em que chegaram. Um `SHELVES = [...]` aqui travaria a loja em moda.
+ * **Os blocos por ocasião saíram da TELA, não do dado.** Este comentário dizia
+ * que o agrupamento era metade da prova, e era verdade enquanto a section
+ * ocupava a largura toda com uma grade alta. Numa caixa de uma fileira, três
+ * subtítulos empilhados viraram ruído, e o que era agrupamento lia como bagunça.
+ * A `ocasiao` continua chegando aqui e continua indo para o `itemListName` — a
+ * pergunta "qual ocasião converte melhor" sobreviveu à mudança de layout.
+ *
+ * O que **não** pode voltar é vocabulário de moda no código: os rótulos de
+ * ocasião são escritos pelo modelo a partir deste catálogo, e um
+ * `SHELVES = [...]` aqui travaria a loja em moda para sempre. Se o agrupamento
+ * voltar à tela um dia, ele volta lendo `ocasiao`, nunca uma lista fixa.
  *
  * Some da página quando não há look. Composição vazia é pior que seção nenhuma.
  */
@@ -107,8 +114,8 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
   // recarregamento ("Camadas para o frio de SP", "Complete o look casual"), e um
   // título instável no mesmo lugar da página lê como erro, não como
   // personalização. O que prova o agente continua na tela — a procedência logo
-  // abaixo, os rótulos de ocasião e o motivo em cada peça —, e o `look.titulo`
-  // segue alimentando a analítica, onde a variação é dado e não ruído.
+  // abaixo e o motivo em cada peça —, e o `look.titulo` segue alimentando a
+  // analítica, onde a variação é dado e não ruído.
   const nome = titulo?.trim() || TITULO_PADRAO;
 
   const viewItemListEvent = useSendEvent({
@@ -207,6 +214,23 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
   );
 }
 
+/**
+ * O esqueleto, com o nome fixo **e sem ler prop nenhuma**.
+ *
+ * `_props` é ignorado de propósito, e isso não é preguiça: o framework passa um
+ * objeto VAZIO para o fallback (`DecoPageRenderer.tsx` → *"rawProps are no
+ * longer serialized to the client"*). Ler `titulo` aqui **funcionaria hoje por
+ * coincidência**, resolvendo sempre no padrão, e quebraria no dia em que alguém
+ * preenchesse o campo no admin: o cabeçalho nasceria "Recomendações com a sua
+ * cara" e TROCARIA para o valor configurado quando o look chegasse — de volta o
+ * salto de texto que esta section existe para não ter.
+ *
+ * O padrão contra o qual este aviso existe está vivo no arquivo vizinho:
+ * `PersonalShelf.tsx` faz `<Section.Header title={vitrine?.titulo ?? ""} />`.
+ * "Padronizar os dois" é o próximo passo natural de quem chegar aqui — e é o
+ * passo errado. Se um dia o fallback precisar do valor configurado, o caminho é
+ * o framework voltar a serializar props, não um `??` nesta linha.
+ */
 export const LoadingFallback = (_props: LoadingFallbackProps<Props>) => (
   <Section.Container>
     {/* A MESMA caixa do render final. Sem ela o esqueleto nasce sem fundo e a
