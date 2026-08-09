@@ -25,6 +25,24 @@ export const TITULO_PADRAO = "Recomendações com a sua cara";
 const CAIXA =
   "rounded-lg border border-agente-linha bg-agente-veu px-4 py-6 sm:px-8 sm:py-8";
 
+/**
+ * Quantas peças chegam à tela. **Amarrado às 5 colunas da grade, de propósito.**
+ *
+ * O agente devolve entre 4 e 10 peças (`MIN_PECAS`/`MAX_PECAS` em
+ * `look.agent.ts`), então sem teto a última fileira quase sempre fica pela
+ * metade — 8 peças em 5 colunas viram 5 + 3, com um vão de dois cards que lê
+ * como erro de layout. Com o teto igual ao número de colunas, a vitrine é
+ * **sempre uma fileira cheia**, qualquer que seja o tamanho da composição.
+ *
+ * O que se perde: as peças além da quinta não aparecem. É perda real e vale
+ * dizer — o agente escolheu e explicou todas elas. Mas uma fileira completa
+ * comunica "seleção" e uma fileira quebrada comunica "sobrou", e para uma
+ * vitrine de recomendação a primeira leitura é a certa.
+ *
+ * Se um dia isto virar página própria, o teto sai junto com a grade de 5.
+ */
+const NA_TELA = 5;
+
 export interface Props {
   /**
    * @title O look
@@ -66,6 +84,11 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
     look?.blocos.flatMap((bloco) => bloco.pecas.map((peca) => ({ ...peca, ocasiao: bloco.ocasiao }))) ??
     [];
 
+  // As primeiras `NA_TELA`, na ordem que o agente devolveu — que é o julgamento
+  // dele, do que mais acreditou para o que menos. Cortar do fim é descartar as
+  // menos convictas, que é o corte certo se algum tem de ser feito.
+  const mostradas = todas.slice(0, NA_TELA);
+
   // O nome da section é FIXO; o `look.titulo` que o agente escreve não vai mais
   // para a tela. A troca é deliberada: como cabeçalho ele mudava a cada
   // recarregamento ("Camadas para o frio de SP", "Complete o look casual"), e um
@@ -81,14 +104,14 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
       name: "view_item_list",
       params: {
         item_list_name: look?.titulo,
-        items: todas.map(({ product }, index) =>
+        items: mostradas.map(({ product }, index) =>
           mapProductToAnalyticsItem({ index, product, ...useOffer(product.offers) }),
         ),
       },
     },
   });
 
-  if (!look || todas.length === 0) return null;
+  if (!look || mostradas.length === 0) return null;
 
   /**
    * Um card: a peça e o motivo. **Mesma régua da `PersonalShelf`**, de
@@ -107,7 +130,7 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
    * O preço é abrir mão da animação de entrada nesta vitrine. Barato: uma
    * animação que às vezes deixa o conteúdo invisível é pior que nenhuma.
    */
-  const cartao = (peca: (typeof todas)[number], index: number) => (
+  const cartao = (peca: (typeof mostradas)[number], index: number) => (
     <div className="flex w-full flex-col gap-2">
       <ProductCard
         index={index}
@@ -160,7 +183,7 @@ export default function CompleteTheLook({ look, titulo, mostrarProcedencia = tru
           larguras menores, senão o card fica estreito demais para a foto.
         */}
         <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-          {todas.map((peca, index) => (
+          {mostradas.map((peca, index) => (
             <div key={peca.product.productID ?? peca.product.url ?? index}>
               {cartao(peca, index)}
             </div>
