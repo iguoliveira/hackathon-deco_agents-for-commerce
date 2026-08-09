@@ -36,7 +36,8 @@
     "look:dryrun": "tsx scripts/look-dryrun.ts",
     "look:check": "tsx scripts/look-render-check.ts",
     "look:eval": "tsx scripts/look-eval.ts",
-    "look:warm": "tsx scripts/look-warm.ts"
+    "look:warm": "tsx scripts/look-warm.ts",
+    "perf:medir": "tsx scripts/perf-medir.ts"
   },
   "author": "deco.cx",
   "license": "MIT",
