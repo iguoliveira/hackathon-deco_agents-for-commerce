@@ -348,18 +348,18 @@ leitura, pelo `JOIN`.
 > requisição em todos. Como a ordem final agora é cronológica, esse carimbo é
 > sempre mais novo que o `created_at` verdadeiro e venceria a comparação de
 > `consolidar`, empurrando a peça ao topo com uma data inventada. Por isso
-> `colherSementes` descarta do cookie o que o banco já trouxe: mesma peça, mesma
-> origem, data pior. Não é hierarquia entre fontes — é não deixar entrar um dado
-> que a fonte não tem.
+> `herdarDataReal` troca esse carimbo pela data verdadeira quando **qualquer**
+> fonte datada conhece a peça — compra, avise-me ou o favorito do banco.
 >
-> **A migration vive nesta branch**, trazida da #15 porque a #15 pode não entrar.
-> O nome `0015_wishlist.sql` é mantido de propósito: `migrate.ts` controla por
-> nome de arquivo, e esse nome **já está** no `schema_migrations` do banco
-> compartilhado — então ela é pulada lá e roda num banco do zero. Renomear para
-> `0019` a faria reexecutar no compartilhado e o registro divergir do que está no
-> ar. O custo é conviver com duas `0015` (a outra é `0015_fix_duplicate_images`),
-> o que já era o caso: elas são independentes e a ordem entre elas é
-> determinística pelo `.sort()`.
+> **Herda, não descarta**, e a diferença é o `kinds`: filtrar a entrada do cookie
+> resolveria a ordem, mas a peça perderia a origem `wishlist` e *"comprou e
+> favoritou"* viraria só *"comprou"* — a informação que a #26 ganhou ao parar de
+> eleger vencedora. Não é hierarquia entre fontes: o cookie cede no ponto da
+> data, e só por ser o único que não a tem. Favorito que existe apenas no cookie
+> segue com o instante da requisição, que é a melhor aproximação disponível.
+>
+> **A migration `0015_wishlist.sql` está em `main` desde a #29** — esta branch a
+> trouxe da #15 antes disso, byte a byte idêntica, e o merge resolve sozinho.
 >
 > **Não existe mais UI de favoritar.** Sem ela, `wishlist_items` só tem o que for
 > semeado — e é assim que a wishlist entra na demo. Vale o mesmo aviso que

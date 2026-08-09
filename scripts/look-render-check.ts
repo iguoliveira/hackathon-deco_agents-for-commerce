@@ -31,7 +31,7 @@ import completeTheLookLoader from "../src/loaders/completeTheLook";
 import { lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
 import { montarCandidatos } from "../src/platform/look/look.candidates";
-import { consolidar } from "../src/platform/look/look.seeds";
+import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
 import { validar } from "../src/platform/look/look.agent";
@@ -298,7 +298,14 @@ const main = async (): Promise<void> => {
   // lista vazia por ordem de chegada empobreceria `combinaComOGuardaRoupa`.
   const sementes: Semente[] = [
     { productGroupId: "a", titulo: "A", tipo: "T", tags: [], kinds: ["recent"], em: "2026-08-01" },
-    { productGroupId: "a", titulo: "A", tipo: "T", tags: ["black"], kinds: ["purchased"], em: "2026-07-01" },
+    {
+      productGroupId: "a",
+      titulo: "A",
+      tipo: "T",
+      tags: ["black"],
+      kinds: ["purchased"],
+      em: "2026-07-01",
+    },
   ];
   const consolidadas = consolidar(sementes);
   ok("a mesma peça por dois caminhos vira uma semente só", consolidadas.length === 1);
@@ -311,6 +318,51 @@ const main = async (): Promise<void> => {
   ok("as tags das duas se unem", consolidadas[0]?.tags.includes("black") === true);
   ok("e o `em` fica com o sinal mais recente", consolidadas[0]?.em === "2026-08-01");
 
+  // O cookie de favoritos não guarda QUANDO cada um foi feito, então chega
+  // carimbado com o instante da requisição — que vence qualquer data real na
+  // comparação de `consolidar`. `herdarDataReal` desarma isso antes.
+  //
+  // As três colisões são testadas separadamente porque a primeira versão da
+  // correção só cobria a primeira: o conjunto era montado apenas com os
+  // favoritos do banco, e compra e avise-me continuavam sendo atropelados.
+  const agora = "2026-08-09T20:00:00Z";
+  const doCookie: Semente[] = [
+    { productGroupId: "p", titulo: "P", tipo: "T", tags: [], kinds: ["wishlist"], em: agora },
+  ];
+  const semente = (kind: Semente["kinds"][number], em: string): Semente => ({
+    productGroupId: "p",
+    titulo: "P",
+    tipo: "T",
+    tags: [],
+    kinds: [kind],
+    em,
+  });
+
+  for (const [kind, rotulo] of [
+    ["purchased", "de uma compra"],
+    ["waited", "de um avise-me"],
+    ["wishlist", "de um favorito do banco"],
+  ] as const) {
+    const [herdada] = herdarDataReal(doCookie, [semente(kind, "2026-05-02T10:00:00Z")]);
+    ok(`o cookie não sobrepõe a data ${rotulo}`, herdada?.em === "2026-05-02T10:00:00Z");
+  }
+
+  // E o que se ganha ao herdar em vez de descartar: a origem sobrevive.
+  const misturada = consolidar([
+    semente("purchased", "2026-05-02T10:00:00Z"),
+    ...herdarDataReal(doCookie, [semente("purchased", "2026-05-02T10:00:00Z")]),
+  ]);
+  ok(
+    "a peça comprada E favoritada mantém as duas origens",
+    misturada[0]?.kinds.includes("purchased") === true &&
+      misturada[0]?.kinds.includes("wishlist") === true,
+  );
+  ok("e a data continua sendo a da compra", misturada[0]?.em === "2026-05-02T10:00:00Z");
+
+  // Favorito que só existe no cookie não tem data melhor — segue com `agora`.
+  const soNoCookie = herdarDataReal(doCookie, []);
+  ok("favorito só do cookie mantém o instante da requisição", soNoCookie[0]?.em === agora);
+
   // ------------------------------------------------------------------
   titulo("8. A persona não pode afirmar mais do que observou");
   // ------------------------------------------------------------------
@@ -320,8 +372,22 @@ const main = async (): Promise<void> => {
   // ser verificada de verdade mesmo com o provedor sem token — o que NÃO dá
   // para verificar aqui é a qualidade do retrato, só o contrato.
   const armario: Semente[] = [
-    { productGroupId: "p1", titulo: "Pleated Chino", tipo: "Pants", tags: ["black"], kinds: ["purchased"], em: "2026-08-01" },
-    { productGroupId: "p2", titulo: "Ribbed Cardigan", tipo: "Knit", tags: ["black"], kinds: ["wishlist"], em: "2026-07-01" },
+    {
+      productGroupId: "p1",
+      titulo: "Pleated Chino",
+      tipo: "Pants",
+      tags: ["black"],
+      kinds: ["purchased"],
+      em: "2026-08-01",
+    },
+    {
+      productGroupId: "p2",
+      titulo: "Ribbed Cardigan",
+      tipo: "Knit",
+      tags: ["black"],
+      kinds: ["wishlist"],
+      em: "2026-07-01",
+    },
   ];
 
   const doModelo = [
@@ -338,7 +404,10 @@ const main = async (): Promise<void> => {
   ];
 
   const eixos = validarPersona(doModelo, armario);
-  ok("eixo com evidência real sobrevive", eixos.some((e) => e.eixo === "cor dominante"));
+  ok(
+    "eixo com evidência real sobrevive",
+    eixos.some((e) => e.eixo === "cor dominante"),
+  );
   ok("eixo sem evidência nenhuma é descartado", !eixos.some((e) => e.eixo === "estilo"));
   ok("evidência inventada é descartada", !eixos.some((e) => e.eixo === "caimento"));
   ok("eixo repetido não entra duas vezes", eixos.length === 2, `${eixos.length} eixo(s)`);
@@ -346,7 +415,10 @@ const main = async (): Promise<void> => {
     "e o eixo que sobrou por evidência parcial só cita peça real",
     eixos.every((e) => e.evidencia.every((t) => armario.some((s) => s.titulo === t))),
   );
-  ok("lixo no lugar dos eixos vira lista vazia", validarPersona("nada disso", armario).length === 0);
+  ok(
+    "lixo no lugar dos eixos vira lista vazia",
+    validarPersona("nada disso", armario).length === 0,
+  );
 
   // O hash dos sinais é a chave do cache da persona. Se ele mudar com a ORDEM,
   // a mesma pessoa sintetiza de novo a cada pageview — que é exatamente o laço

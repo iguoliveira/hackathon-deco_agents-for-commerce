@@ -119,33 +119,76 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
     em: item.waitedAt,
   }));
 
-  // **O cookie não repete o que o banco já sabe.**
+  // **O cookie não carimba data em peça que já tem data de verdade.**
   //
   // `consolidar` une as origens e fica com o `em` MAIS RECENTE. O cookie não
-  // guarda quando cada favorito foi feito, então `sementesPorVariante` carimba
-  // `agora` em todos — e para uma peça favoritada nas duas casas esse carimbo é
-  // sempre mais novo que o `created_at` verdadeiro. Ele venceria a comparação, e
-  // a peça subiria ao topo da ordem cronológica com uma data inventada,
+  // guarda quando cada favorito foi feito — `sementesPorVariante` carimba
+  // `agora` em todos —, e `agora` vence qualquer data real por construção. A
+  // peça subiria ao topo da ordem cronológica com uma data inventada,
   // empurrando para baixo sinais que de fato aconteceram depois dela.
   //
-  // Descartar a entrada do cookie não perde nada: é a mesma peça, com o mesmo
-  // `kinds: ["wishlist"]`, só que com data pior. O filtro é por
-  // `productGroupId` — a mesma chave por que `consolidar` agrupa —, então duas
-  // variantes da mesma peça também não escapam.
+  // **As três fontes com data real entram no cruzamento, não só a do banco.**
+  // A primeira versão disto olhava apenas `favoritadosNoBanco`, e cobria uma
+  // das três colisões possíveis: uma compra de maio favoritada no cookie
+  // chegava ao prompt como o sinal mais recente da pessoa, na frente de uma
+  // compra de agosto. `comprados` e `esperadasComoSemente` também trazem data,
+  // e também eram atropeladas.
   //
-  // Isto não restaura hierarquia entre as fontes: nenhuma vence a outra por ser
-  // mais "forte". O banco é preferido num ponto só, o da data, e por ser o único
-  // dos dois que a tem.
-  const jaVeioDoBanco = new Set(favoritadosNoBanco.map((s) => s.productGroupId));
-  const cookieSemRepetir = favoritadosNoCookie.filter((s) => !jaVeioDoBanco.has(s.productGroupId));
+  // **A entrada do cookie herda a data real em vez de ser descartada.** Filtrar
+  // resolveria a ordem, mas ao custo do `kinds`: a peça perderia a origem
+  // `wishlist`, e "comprou e favoritou" viraria só "comprou" — exatamente a
+  // informação que a #26 ganhou ao parar de eleger vencedora entre origens.
+  // Herdando, as duas coisas sobrevivem: `consolidar` funde os `kinds` e o `em`
+  // continua sendo o que aconteceu de verdade.
+  //
+  // Isto não restaura hierarquia entre fontes: nenhuma vence outra por ser mais
+  // "forte". O cookie cede num ponto só, o da data, e por ser o único que não a
+  // tem. Um favorito que exista **apenas** no cookie segue com `agora`, que é a
+  // melhor aproximação disponível para ele.
+  const cookieSemDataInventada = herdarDataReal(favoritadosNoCookie, [
+    ...comprados,
+    ...esperadasComoSemente,
+    ...favoritadosNoBanco,
+  ]);
 
   return consolidar([
     ...comprados,
     ...esperadasComoSemente,
     ...favoritadosNoBanco,
-    ...cookieSemRepetir,
+    ...cookieSemDataInventada,
     ...olhados,
   ]);
+};
+
+/**
+ * Troca o `agora` das sementes de cookie pela data verdadeira da mesma peça,
+ * quando alguma fonte com data a conhece.
+ *
+ * Exportada para ser testável: a lógica vive no meio de `colherSementes`, que
+ * precisa de request e de banco, e o defeito que ela conserta é silencioso —
+ * ordem errada não lança, não aparece em `typecheck` e só se manifesta num
+ * prompt que ninguém lê.
+ *
+ * `datadas` deve conter **todas** as fontes que trazem `em` real. Passar só uma
+ * delas foi o bug original: cobria `wishlist ∩ cookie` e deixava
+ * `purchased ∩ cookie` e `waited ∩ cookie` intactas.
+ */
+export const herdarDataReal = (
+  doCookie: readonly Semente[],
+  datadas: readonly Semente[],
+): Semente[] => {
+  if (doCookie.length === 0) return [];
+
+  const maisRecentePorProduto = new Map<string, string>();
+  for (const semente of datadas) {
+    const atual = maisRecentePorProduto.get(semente.productGroupId);
+    if (!atual || semente.em > atual) maisRecentePorProduto.set(semente.productGroupId, semente.em);
+  }
+
+  return doCookie.map((semente) => {
+    const real = maisRecentePorProduto.get(semente.productGroupId);
+    return real ? { ...semente, em: real } : semente;
+  });
 };
 
 /**
