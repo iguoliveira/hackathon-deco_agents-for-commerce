@@ -120,6 +120,50 @@ export const sementesPorHandle = async (
   }
 };
 
+/**
+ * As tags de um conjunto de produtos, por `product_group_id`.
+ *
+ * Existe para os "avise-me". As outras três origens já chegam com tags —
+ * favoritos e vistos passam por `sementesPorVariante`/`sementesPorHandle`,
+ * compras por `comprasDe` —, mas `findWaitedItems` vive no domínio `alerts` e
+ * devolve `WaitedItem`, que não as carrega.
+ *
+ * Isso deixava a semente `waited` com `tags: []`, e o comentário em
+ * `look.seeds.ts` admitia a limitação chamando-a de "consequência limitada": uma
+ * peça só esperada não contribuía para `combinaComOGuardaRoupa`.
+ *
+ * **Deixou de ser limitada.** Na vitrine sem âncora, o desejo alimenta
+ * `combinaComOQueQuer`, que é metade do único eixo que liga produto e pessoa —
+ * e medido nos quatro armários semeados, cujo desejo vem só de "avise-me", o
+ * campo dava zero em 127 produtos. Não era sinal fraco: era sinal ausente.
+ *
+ * Uma consulta a mais, e só quando há esperados. Barata: índice por
+ * `product_group_id` e nada de JOIN.
+ */
+export const tagsDeProdutos = async (
+  productGroupIds: readonly string[],
+): Promise<Map<string, string[]>> => {
+  const db = getDb();
+  if (!db || productGroupIds.length === 0) return new Map();
+
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT product_group_id, ARRAY_AGG(value) AS tags
+           FROM product_props
+          WHERE name = 'TAG' AND product_group_id = ANY(?)
+          GROUP BY product_group_id`,
+      )
+      .bind([...productGroupIds])
+      .all<{ product_group_id: string; tags: string[] | null }>();
+
+    return new Map(results.map((linha) => [linha.product_group_id, linha.tags ?? []]));
+  } catch (erro) {
+    console.error("[look] tagsDeProdutos falhou", erro);
+    return new Map();
+  }
+};
+
 interface CompraRow extends SementeRow {
   created_at: string;
 }

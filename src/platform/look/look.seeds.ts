@@ -29,7 +29,13 @@
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { readWishlistCookie } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
-import { comprasDe, favoritosDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
+import {
+  comprasDe,
+  favoritosDe,
+  sementesPorHandle,
+  sementesPorVariante,
+  tagsDeProdutos,
+} from "./look.d1";
 import { lerVistos } from "./look.cookies";
 import type { Semente } from "./look.types";
 
@@ -105,16 +111,21 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
       sementesPorHandle(vistos, "recent", agora),
     ]);
 
+  // As tags dos "avise-me", numa consulta a mais e só quando há esperados.
+  //
+  // Antes iam vazias, com o argumento de que a consulta extra não valia a pena e
+  // a consequência era limitada — uma peça só esperada não contribuía para
+  // `combinaComOGuardaRoupa`. **O argumento caiu.** Na vitrine sem âncora o
+  // desejo alimenta `combinaComOQueQuer`, que é metade do único eixo entre
+  // produto e pessoa, e medido nos armários semeados — cujo desejo vem só de
+  // "avise-me" — o campo dava zero em 127 produtos. Sinal ausente, não fraco.
+  const tagsDosEsperados = await tagsDeProdutos(esperados.map((item) => item.productGroupId));
+
   const esperadasComoSemente: Semente[] = esperados.map((item) => ({
     productGroupId: item.productGroupId,
     titulo: item.title,
     tipo: item.productType,
-    // Vazio: `WaitedItem` não carrega tags, e buscá-las custaria uma consulta a
-    // mais no caminho da PDP. A consequência é limitada e vale dizer qual: uma
-    // peça que só foi ESPERADA não contribui para `combinaComOGuardaRoupa` —
-    // ela ainda chega ao modelo com título e tipo, como antes. Compras e
-    // favoritos, que são posse ou intenção declarada, trazem as tags.
-    tags: [],
+    tags: tagsDosEsperados.get(item.productGroupId) ?? [],
     kinds: ["waited" as const],
     em: item.waitedAt,
   }));
