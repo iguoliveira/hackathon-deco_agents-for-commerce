@@ -5,10 +5,11 @@ import { clx } from "~/sdk/clx";
 import Image from "~/components/ui/Image";
 import Icon from "../ui/Icon";
 import { MINICART_DRAWER_ID } from "../../constants";
+import React from "react";
 import {
   CART_QUERY_KEY,
   EMPTY_CART,
-  useCart,
+  useCartAfterHydration,
   useRemoveCartItem,
   useUpdateCartItem,
   type CartItem,
@@ -217,14 +218,20 @@ function Footer({ cart }: { cart: CartState }) {
 }
 
 export default function Minicart() {
-  const { cart, isFetching } = useCart();
+  // `useCartAfterHydration`: `EmptyState` contra a lista e o `disabled` do
+  // finalizar sao markup decidido pelo estado da query. Ver o hook.
+  const { cart, isFetching } = useCartAfterHydration();
   const currency = cart.subtotal.currencyCode;
+
+  // Avoid hydration mismatch: isFetching is client-only, don't use it for SSR-rendered classes
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   return (
     <div
       className={clx(
         "flex flex-col h-full w-full",
-        isFetching && "transition-opacity duration-150 opacity-80",
+        mounted && isFetching && "transition-opacity duration-150 opacity-80",
       )}
     >
       <div className="flex items-center justify-between border-b border-base-200 px-4 py-3">

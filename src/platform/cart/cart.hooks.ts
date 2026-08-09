@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addItemServerFn,
@@ -62,6 +63,40 @@ export function useCart() {
     isFetching: query.isFetching,
     error: query.error,
   };
+}
+
+/**
+ * O carrinho, mas seguro para decidir **o que é renderizado**.
+ *
+ * `useCart()` responde diferente no servidor e na primeira renderização do
+ * cliente: no servidor o cookie `deco_cart` já foi lido e resolvido contra o
+ * catálogo, no cliente a query começa em `placeholderData: EMPTY_CART`. Quem
+ * ramifica markup nisso produz HTML divergente, e o React **descarta a árvore
+ * inteira** — a página fica em branco e o carrinho parece não funcionar.
+ *
+ * São três pontos, e nenhum deles se parece com markup à primeira vista:
+ *
+ *   Bag.tsx        o badge com a contagem
+ *   Minicart.tsx   `EmptyState` contra a lista de itens
+ *   Minicart.tsx   o `disabled` do botão de finalizar
+ *
+ * Quarto componente com este mesmo defeito no repositório — os outros são
+ * `SignIn`, `WishlistButton` e a tela de pedidos. O padrão é sempre o mesmo:
+ * **`useQuery` com `placeholderData` cujo resultado vira markup.**
+ *
+ * Servidor e primeira renderização sempre veem o carrinho vazio; o real entra
+ * depois da montagem. O badge pisca uma vez — preço barato por não perder a
+ * página.
+ *
+ * **Use este para renderizar; use `useCart()` para ler quantidade em lógica.**
+ */
+export function useCartAfterHydration() {
+  const { cart, isLoading, isFetching, error } = useCart();
+  const [hidratado, setHidratado] = useState(false);
+
+  useEffect(() => setHidratado(true), []);
+
+  return { cart: hidratado ? cart : EMPTY_CART, isLoading, isFetching, error };
 }
 
 export function useAddToCart() {

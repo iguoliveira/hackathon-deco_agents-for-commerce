@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Product } from "@decocms/apps-commerce/types";
 import { invoke } from "../../runtime";
 import { useUserAfterHydration } from "../../platform/user";
-import { STOCK_ALERT_QUERY_KEY, useHasStockAlert } from "../../platform/alerts";
+import { STOCK_ALERT_QUERY_KEY, useHasStockAlertAfterHydration } from "../../platform/alerts";
 import type { NotifyMeResult } from "../../actions/notifyMe/subscribe";
 import Button from "../ui/Button";
 
@@ -21,7 +21,9 @@ export default function OutOfStock({ productID }: Props) {
   const queryClient = useQueryClient();
   // Signed-out shoppers always read `false` here: their identity is the email
   // they are about to type, which does not exist yet at render time.
-  const { alreadyRequested } = useHasStockAlert(productID);
+  // Guarda de hidratação: este valor escolhe entre o formulário e a
+  // confirmação, e isso é markup. Ver docs/pedidos-e-compra-simulada.md §6.1b.
+  const { alreadyRequested } = useHasStockAlertAfterHydration(productID);
   const notify = useMutation({
     // `email` is omitted when signed in — the server takes it from the session.
     mutationFn: async (input: { email?: string; name?: string }) => {
