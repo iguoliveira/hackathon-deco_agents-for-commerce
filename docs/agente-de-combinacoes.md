@@ -312,9 +312,19 @@ leitura, pelo `JOIN`.
 > cookie carrega o instante da requisição para tudo. Invertendo, o desempate por
 > recência entre favoritos viraria sorteio.
 >
-> **A migration ainda não está em `main`** (vive na branch da #15). Sem a tabela,
-> a consulta falha, o `catch` devolve `[]`, e o agente segue com o cookie — que é
-> o comportamento anterior. Nada quebra na espera.
+> **A migration vive nesta branch**, trazida da #15 porque a #15 pode não entrar.
+> O nome `0015_wishlist.sql` é mantido de propósito: `migrate.ts` controla por
+> nome de arquivo, e esse nome **já está** no `schema_migrations` do banco
+> compartilhado — então ela é pulada lá e roda num banco do zero. Renomear para
+> `0019` a faria reexecutar no compartilhado e o registro divergir do que está no
+> ar. O custo é conviver com duas `0015` (a outra é `0015_fix_duplicate_images`),
+> o que já era o caso: elas são independentes e a ordem entre elas é
+> determinística pelo `.sort()`.
+>
+> **Não existe mais UI de favoritar.** Sem ela, `wishlist_items` só tem o que for
+> semeado — e é assim que a wishlist entra na demo. Vale o mesmo aviso que
+> `orders` já carrega: **isso vai dito no slide**. Um jurado de e-commerce
+> reconhece dado semeado apresentado como comportamento.
 
 > **08/08:** a linha "Comprou" deixou de ser pendência. Existe carrinho, botão de
 > finalizar e tela de pedidos, e a compra é gravada de verdade — o que a torna
@@ -397,6 +407,27 @@ vez.
 
 Contra o Supabase e o Decopilot reais, não em teste sintético. Âncora:
 `vintage-wash-tee` (*Vintage Wash Tee - Black*), 18 candidatos, 15 tipos.
+
+> **09/08 — a wishlist do banco chegando como semente.** Nove asserções contra o
+> banco real, num eixo que discrimina: sem cookie na requisição, a metade do
+> banco fica isolada e é exatamente o que se quer medir.
+>
+> `favoritosDe` devolveu 3 sementes com **tags** (6, 5 e 4 — logo alimentam
+> `combinaComOGuardaRoupa`) e com a data de **quando** cada uma foi favoritada,
+> não o instante da consulta. E-mail sem favoritos devolve vazio; sem sessão, não
+> há wishlist do banco.
+>
+> O trecho mais informativo da saída, com dados de verdade:
+>
+> ```
+> purchased  Ctrl+Shift+Tote Bag   ← favoritou E comprou: o sinal mais forte venceu
+> wishlist   Essential Cotton Tee
+> wishlist   Code Wizard Hat
+> ```
+>
+> É o `consolidar` fazendo o que deve: a mesma peça chegando por duas origens
+> ocupa **uma** vaga, com a origem mais forte. Sem isso, ela gastaria duas das
+> seis e empurraria para fora um sinal genuinamente diferente.
 
 **O clima é inferido, e isso muda a escolha — não só o texto.** Mesma peça,
 mesmo pool, mesmo código, só a string da cidade mudando:
