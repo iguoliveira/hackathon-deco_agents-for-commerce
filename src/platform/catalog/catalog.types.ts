@@ -25,6 +25,12 @@ export interface ProductRow {
    *
    * Antes da 0018 isto vivia no fim do título ("… - Black") e era recuperado
    * por parsing. Não vive mais: o título é o que a loja mostra.
+   *
+   * **Hoje o campo não tem leitor**, e isso é deliberado, não esquecimento: o
+   * agente lê cor das TAGS desde a #16, que é a fonte que não depende de qual
+   * migration o banco tem. A coluna entra como consequência de tirar a cor do
+   * título — que é correção de apresentação — e fica disponível para quem
+   * precisar de cor estruturada. Os `SELECT p.*` já a trazem.
    */
   color: string | null;
 }

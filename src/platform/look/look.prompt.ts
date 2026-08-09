@@ -37,7 +37,7 @@
  *      cor que havia. E o dado agrava: `black` é a segunda tag de cor mais
  *      frequente do catálogo (11 produtos, atrás só de `white`), então "você
  *      prefere preto" é tão vazio quanto "da mesma marca" numa loja de marca
- *      única, que a regra 4 já proíbe.
+ *      única, que a regra 6 já proíbe.
  *
  *      "Combina com as peças escuras que você já tem" é fato sobre o armário;
  *      "você prefere neutros" é suposição sobre desejo. O primeiro é
