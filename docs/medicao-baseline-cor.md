@@ -4,8 +4,19 @@
 > 4 condições × 3 repetições = 12 chamadas reais ao Decopilot.
 > Dados brutos em `.eval/antes.json` (não versionado).
 >
-> Este é o número contra o qual a mudança de prompt será comparada. Ver o plano
-> em [agente-especificidade-de-cor.md](./agente-especificidade-de-cor.md).
+> ⚠️ **Este baseline NÃO é comparável com medições feitas depois da migration
+> `0018`.** Ele foi tirado quando a cor ainda vivia no fim do título, e o
+> `0018` mudou os títulos de 104 produtos e passou a cor para `products.color`.
+> O prompt que o agente lia era outro, e os títulos que ele via também.
+>
+> O que continua valendo daqui são os **achados metodológicos** — a estabilidade
+> por condição, o efeito de orçamento do motivo, e a dificuldade da âncora de
+> cor forte. Os números absolutos servem de referência histórica, não de
+> critério de aceite. Para comparar contra o estado atual, é preciso um baseline
+> novo.
+>
+> Ver o desenho final em
+> [agente-especificidade-de-cor.md](./agente-especificidade-de-cor.md).
 
 ## Por que medir antes
 
