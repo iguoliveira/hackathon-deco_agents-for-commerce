@@ -113,8 +113,7 @@ function BannerItem({ image, lcp }: { image: Banner; lcp?: boolean }) {
         <img
           className="object-cover w-full h-full"
           loading={lcp ? "eager" : "lazy"}
-          // @ts-expect-error: fetchpriority is a valid HTML attribute not yet typed in preact
-          fetchpriority={lcp ? "high" : "auto"}
+          fetchPriority={lcp ? "high" : "auto"}
           src={desktop}
           alt={alt}
         />

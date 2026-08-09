@@ -80,7 +80,7 @@ export function Source({
       width={width}
       height={height}
       sizes={sizes ?? `${width}px`}
-      {...(fetchPriority ? { fetchpriority: fetchPriority } : {})}
+      {...(fetchPriority ? { fetchPriority } : {})}
     />
   );
 }

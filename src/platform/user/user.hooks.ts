@@ -15,7 +15,6 @@ export function useUser() {
     queryKey: USER_QUERY_KEY,
     queryFn: () => getUserServerFn(),
     staleTime: 60_000,
-    placeholderData: null,
   });
   const user: Person | null = query.data ?? null;
   return {

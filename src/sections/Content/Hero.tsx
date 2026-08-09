@@ -172,7 +172,7 @@ function HeroSlide({ image, mobileImage, href = "/", headline, logo, logoAlt, is
             height={794}
             decoding="async"
             loading={isLcp ? "eager" : "lazy"}
-            {...(isLcp ? { fetchpriority: "high" } : {})}
+            {...(isLcp ? { fetchPriority: "high" } : {})}
           />
         </Picture>
       </Link>

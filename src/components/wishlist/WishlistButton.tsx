@@ -12,16 +12,16 @@ interface Props {
 }
 
 function WishlistButton({ item, variant = "full" }: Props) {
-  const productID = (item as { item_id: string }).item_id;
-  const productGroupID = item.item_group_id ?? "";
+  const productId = (item as { item_id: string }).item_id;
+  const productGroupId = item.item_group_id ?? "";
 
   const { isInWishlist } = useWishlist();
   const toggle = useToggleWishlist();
   const { isAuthenticated } = useUser();
   const navigate = useNavigate();
 
-  const inWishlist = isInWishlist(productID);
-  const pending = toggle.isPending && toggle.variables?.productID === productID;
+  const inWishlist = isInWishlist(productId);
+  const pending = toggle.isPending && toggle.variables?.productId === productId;
 
   const addToWishlistEvent = useSendEvent({
     on: "click",
@@ -29,11 +29,7 @@ function WishlistButton({ item, variant = "full" }: Props) {
   });
 
   const handleClick = () => {
-    if (!isAuthenticated) {
-      navigate({ to: "/login" });
-      return;
-    }
-    toggle.mutate({ productID, productGroupID });
+    toggle.mutate({ productId, productGroupId });
   };
 
   const label = inWishlist ? "Remove from wishlist" : "Add to wishlist";

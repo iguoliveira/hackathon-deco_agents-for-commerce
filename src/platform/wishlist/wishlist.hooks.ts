@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { invoke } from "../../runtime";
-import { EMPTY_WISHLIST, type WishlistState } from "./wishlist.types";
+import {
+  getWishlistStateServerFn,
+  toggleWishlistItemServerFn,
+  mergeWishlistOnLoginServerFn,
+} from "./wishlist.actions";
+import { EMPTY_WISHLIST, type WishlistState, type ToggleWishlistInput } from "./wishlist.types";
 
 export const WISHLIST_QUERY_KEY = ["wishlist"] as const;
 
 export function useWishlist() {
   const query = useQuery({
     queryKey: WISHLIST_QUERY_KEY,
-    queryFn: (): Promise<WishlistState> => invoke.site.loaders.wishlist() as Promise<WishlistState>,
+    queryFn: () => getWishlistStateServerFn(),
     staleTime: 60_000,
     placeholderData: EMPTY_WISHLIST,
   });
@@ -17,28 +21,27 @@ export function useWishlist() {
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,
-    isInWishlist: (productID: string) => wishlist.productIDs.includes(productID),
+    isInWishlist: (productId: string) => wishlist.items.some((i) => i.productId === productId),
   };
-}
-
-export interface ToggleWishlistInput {
-  productID: string;
-  productGroupID: string;
 }
 
 export function useToggleWishlist() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: ToggleWishlistInput): Promise<WishlistState> =>
-      invoke.site.actions.wishlist.submit(input) as Promise<WishlistState>,
+      toggleWishlistItemServerFn({ data: input }),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: WISHLIST_QUERY_KEY });
       const prev = qc.getQueryData<WishlistState>(WISHLIST_QUERY_KEY) ?? EMPTY_WISHLIST;
-      const next: WishlistState = prev.productIDs.includes(input.productID)
-        ? {
-            productIDs: prev.productIDs.filter((id) => id !== input.productID),
-          }
-        : { productIDs: [...prev.productIDs, input.productID] };
+      const exists = prev.items.some((i) => i.productId === input.productId);
+      const next: WishlistState = exists
+        ? { items: prev.items.filter((i) => i.productId !== input.productId) }
+        : {
+            items: [
+              ...prev.items,
+              { productId: input.productId, productGroupId: input.productGroupId, addedAt: new Date().toISOString() },
+            ],
+          };
       qc.setQueryData(WISHLIST_QUERY_KEY, next);
       return { prev };
     },
@@ -46,5 +49,11 @@ export function useToggleWishlist() {
       if (ctx?.prev) qc.setQueryData(WISHLIST_QUERY_KEY, ctx.prev);
     },
     onSuccess: (server) => qc.setQueryData(WISHLIST_QUERY_KEY, server),
+  });
+}
+
+export function useMergeWishlistOnLogin() {
+  return useMutation({
+    mutationFn: () => mergeWishlistOnLoginServerFn(),
   });
 }

@@ -86,6 +86,10 @@
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9OZXdzbGV0dGVyL05ld3NsZXR0ZXIudHN4",
           "namespace": "site"
         },
+        "site/sections/Product/CompleteTheLook.tsx": {
+          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
+          "namespace": "site"
+        },
         "site/sections/Product/PersonalShelf.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
           "namespace": "site"
@@ -128,6 +132,10 @@
         }
       },
       "loaders": {
+        "site/loaders/_cookie.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM=",
+          "namespace": "site"
+        },
         "site/loaders/address.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM=",
           "namespace": "site"
@@ -148,6 +156,10 @@
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=",
           "namespace": "site"
         },
+        "site/loaders/completeTheLook.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==",
+          "namespace": "site"
+        },
         "site/loaders/personalShelf.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=",
           "namespace": "site"
@@ -162,10 +174,6 @@
         },
         "site/loaders/wishlist.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3dpc2hsaXN0LnRz",
-          "namespace": "site"
-        },
-        "site/loaders/_cookie.ts": {
-          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM=",
           "namespace": "site"
         },
         "shopify/loaders/ProductDetailsPage.ts": {
@@ -238,6 +246,22 @@
         "properties": {
           "__resolveType": {
             "type": "string"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL19jb29raWUudHM=": {
+        "title": "site/loaders/_cookie.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/_cookie.ts"
+            ],
+            "default": "site/loaders/_cookie.ts"
           }
         }
       },
@@ -368,6 +392,28 @@
           }
         }
       },
+      "c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==": {
+        "title": "site/loaders/completeTheLook.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/completeTheLook.ts"
+            ],
+            "default": "site/loaders/completeTheLook.ts"
+          },
+          "handle": {
+            "type": "string",
+            "nullable": true,
+            "title": "Handle da peça",
+            "description": "Deixe vazio na PDP: o handle é lido da URL. Preencher só serve para fixar uma peça numa página que não é de produto."
+          }
+        }
+      },
       "c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=": {
         "title": "site/loaders/personalShelf.ts",
         "type": "object",
@@ -445,22 +491,6 @@
               "site/loaders/wishlist.ts"
             ],
             "default": "site/loaders/wishlist.ts"
-          }
-        }
-      },
-      "c2l0ZS9sb2FkZXJzL19jb29raWUudHM=": {
-        "title": "site/loaders/_cookie.ts",
-        "type": "object",
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/loaders/_cookie.ts"
-            ],
-            "default": "site/loaders/_cookie.ts"
           }
         }
       },
@@ -4617,6 +4647,54 @@
           }
         }
       },
+      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props": {
+        "type": "object",
+        "properties": {
+          "look": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Resolvable"
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
+              }
+            ],
+            "title": "O look",
+            "nullable": true,
+            "description": "Resolve com `site/loaders/completeTheLook.ts`. Na PDP, deixe o handle vazio lá."
+          },
+          "mostrarProcedencia": {
+            "type": "boolean",
+            "nullable": true,
+            "title": "Mostrar a procedência",
+            "description": "A linha \"montado para <cidade>, a partir de N sinais\". Deixe ligado na demo — é o que torna a personalização visível."
+          }
+        },
+        "required": [
+          "look"
+        ]
+      },
+      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=": {
+        "title": "site/sections/Product/CompleteTheLook.tsx",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
+          }
+        ],
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/sections/Product/CompleteTheLook.tsx"
+            ],
+            "default": "site/sections/Product/CompleteTheLook.tsx"
+          }
+        }
+      },
       "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props": {
         "type": "object",
         "properties": {
@@ -5750,6 +5828,10 @@
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL05ld3NsZXR0ZXIvTmV3c2xldHRlci50c3g=@Props"
           },
           {
+            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
+            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
+          },
+          {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
           },
@@ -5797,6 +5879,9 @@
             "$ref": "#/definitions/Resolvable"
           },
           {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM="
+          },
+          {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2FkZHJlc3MudHM="
           },
           {
@@ -5812,6 +5897,9 @@
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
           },
           {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
+          },
+          {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
           },
           {
@@ -5822,9 +5910,6 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3dpc2hsaXN0LnRz"
-          },
-          {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL19jb29raWUudHM="
           },
           {
             "$ref": "#/definitions/c2hvcGlmeS9sb2FkZXJzL1Byb2R1Y3REZXRhaWxzUGFnZS50cw=="

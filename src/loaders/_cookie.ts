@@ -9,18 +9,30 @@ export function readWishlistCookie(req: Request): WishlistState {
   if (!match) return EMPTY_WISHLIST;
   try {
     const raw = decodeURIComponent(match.slice(WISHLIST_COOKIE.length + 1));
-    const ids = JSON.parse(raw);
-    return Array.isArray(ids) && ids.every((x) => typeof x === "string")
-      ? { productIDs: ids }
-      : EMPTY_WISHLIST;
+    const data = JSON.parse(raw);
+    // Suporta formato antigo (productIDs: string[]) e novo (items: WishlistItem[])
+    if (Array.isArray(data)) {
+      return { items: data.map((id: string) => ({ productId: id, productGroupId: "", addedAt: new Date().toISOString() })) };
+    }
+    if (data?.items && Array.isArray(data.items)) {
+      return { items: data.items };
+    }
+    if (data?.productIDs && Array.isArray(data.productIDs)) {
+      return { items: data.productIDs.map((id: string) => ({ productId: id, productGroupId: "", addedAt: new Date().toISOString() })) };
+    }
+    return EMPTY_WISHLIST;
   } catch {
     return EMPTY_WISHLIST;
   }
 }
 
 export function serializeWishlistCookie(state: WishlistState): string {
-  const value = encodeURIComponent(JSON.stringify(state.productIDs));
+  const value = encodeURIComponent(JSON.stringify({ items: state.items }));
   return `${WISHLIST_COOKIE}=${value}; Path=/; Max-Age=${WISHLIST_COOKIE_TTL}; SameSite=Lax`;
+}
+
+export function getProductIDs(state: WishlistState): string[] {
+  return state.items.map((i) => i.productId);
 }
 
 export const NEWSLETTER_COOKIE = "deco_newsletter";

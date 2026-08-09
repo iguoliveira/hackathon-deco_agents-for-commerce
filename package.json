@@ -40,6 +40,7 @@
   "dependencies": {
     "@decocms/apps-commerce": "^7.20.7",
     "@decocms/apps-shopify": "^7.20.7",
+    "@decocms/apps-website": "^7.34.4",
     "@decocms/blocks": "^7.20.7",
     "@decocms/blocks-admin": "^7.20.7",
     "@decocms/blocks-cli": "^7.20.7",

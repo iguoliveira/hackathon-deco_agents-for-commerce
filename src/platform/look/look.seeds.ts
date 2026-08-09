@@ -16,7 +16,7 @@
  */
 
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
-import { readWishlistCookie } from "../../loaders/_cookie";
+import { readWishlistCookie, getProductIDs } from "../../loaders/_cookie";
 import { findWaitedItems } from "../alerts";
 import { comprasDe, sementesPorHandle, sementesPorVariante } from "./look.d1";
 import { lerVistos } from "./look.cookies";
@@ -67,7 +67,7 @@ export const colherSementes = async (email: string | null): Promise<Semente[]> =
   // `readWishlistCookie` lê `req.headers` direto — chamá-lo com `undefined`
   // lançaria dentro de um loader, que é exatamente o que este domínio não pode
   // fazer. Sem request, as duas fontes de cookie contribuem zero.
-  const favoritos = request ? readWishlistCookie(request).productIDs : [];
+  const favoritos = request ? getProductIDs(readWishlistCookie(request)) : [];
   const vistos = lerVistos(request);
 
   // As quatro em paralelo: são independentes, e serializá-las somaria quatro

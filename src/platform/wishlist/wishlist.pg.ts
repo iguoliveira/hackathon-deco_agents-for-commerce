@@ -1,0 +1,145 @@
+import { getDb } from "../db";
+import type { WishlistItem } from "./wishlist.types";
+
+/**
+ * Lê wishlist do usuário autenticado (ordenada por recência).
+ */
+export async function getWishlist(userId: string): Promise<WishlistItem[]> {
+  const db = getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .prepare(
+      `SELECT product_id, product_group_id, created_at
+       FROM wishlist_items
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+    )
+    .bind(userId)
+    .all<{ product_id: string; product_group_id: string; created_at: string }>();
+
+  return rows.results.map((r) => ({
+    productId: r.product_id,
+    productGroupId: r.product_group_id,
+    addedAt: r.created_at,
+  }));
+}
+
+/**
+ * Adiciona item à wishlist (idempotente: UNIQUE constraint evita duplicata).
+ */
+export async function addWishlistItem(
+  userId: string,
+  productId: string,
+  productGroupId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+
+  await db
+    .prepare(
+      `INSERT INTO wishlist_items (user_id, product_id, product_group_id)
+       VALUES (?, ?, ?)
+       ON CONFLICT (user_id, product_id) DO NOTHING`,
+    )
+    .bind(userId, productId, productGroupId)
+    .run();
+}
+
+/**
+ * Remove item da wishlist.
+ */
+export async function removeWishlistItem(
+  userId: string,
+  productId: string,
+): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+
+  await db
+    .prepare(
+      `DELETE FROM wishlist_items
+       WHERE user_id = ? AND product_id = ?`,
+    )
+    .bind(userId, productId)
+    .run();
+}
+
+/**
+ * Toggle item na wishlist (atômico no banco).
+ * Retorna true se adicionado, false se removido.
+ */
+export async function toggleWishlistItem(
+  userId: string,
+  productId: string,
+  productGroupId: string,
+): Promise<{ added: boolean }> {
+  const db = getDb();
+  if (!db) return { added: false };
+
+  // Usa batch para garantir atomicidade (transação)
+  const statements = [
+    db.prepare(
+      `DELETE FROM wishlist_items
+       WHERE user_id = ? AND product_id = ?`,
+    ).bind(userId, productId),
+    db.prepare(
+      `INSERT INTO wishlist_items (user_id, product_id, product_group_id)
+       VALUES (?, ?, ?)
+       ON CONFLICT (user_id, product_id) DO NOTHING`,
+    ).bind(userId, productId, productGroupId),
+  ];
+
+  const results = await db.batch(statements);
+  const deleted = results[0].results as unknown as { changes: number }[];
+
+  if (deleted.length > 0 && deleted[0].changes > 0) {
+    return { added: false }; // foi removido
+  }
+
+  return { added: true }; // foi adicionado
+}
+
+/**
+ * Merge: move itens do cookie para o banco no login (idempotente).
+ * Busca product_group_id no catálogo para cada variant ID.
+ */
+export async function mergeCookieWishlist(
+  userId: string,
+  cookieProductIds: string[],
+): Promise<void> {
+  if (cookieProductIds.length === 0) return;
+
+  const db = getDb();
+  if (!db) return;
+
+  // Busca product_group_id dos produtos no catálogo
+  const placeholders = cookieProductIds.map(() => "?").join(",");
+  const catalogRows = await db
+    .prepare(
+      `SELECT v.variant_id, p.product_group_id
+       FROM variants v
+       JOIN products p ON p.product_group_id = v.product_group_id
+       WHERE v.variant_id IN (${placeholders})`,
+    )
+    .bind(...cookieProductIds)
+    .all<{ variant_id: string; product_group_id: string }>();
+
+  const groupIdByVariant = new Map(
+    catalogRows.results.map((r) => [r.variant_id, r.product_group_id]),
+  );
+
+  for (const productId of cookieProductIds) {
+    const productGroupId = groupIdByVariant.get(productId);
+    if (!productGroupId) continue; // produto não existe mais no catálogo
+
+    await db
+      .prepare(
+        `INSERT INTO wishlist_items (user_id, product_id, product_group_id)
+         VALUES (?, ?, ?)
+         ON CONFLICT (user_id, product_id) DO NOTHING`,
+      )
+      .bind(userId, productId, productGroupId)
+      .run();
+  }
+}

@@ -72,6 +72,11 @@ export const signInServerFn = createServerFn({ method: "POST" })
     }
     persistAccessToken(token);
     const u = await shopifyUserLoader(headersFromAccessToken(token));
+
+    // Merge wishlist do cookie para o banco
+    const { mergeWishlistOnLoginServerFn } = await import("../wishlist/wishlist.actions");
+    await mergeWishlistOnLoginServerFn();
+
     return toPerson(u);
   });
 
@@ -104,6 +109,11 @@ export const signUpServerFn = createServerFn({ method: "POST" })
     }
     persistAccessToken(token);
     const u = await shopifyUserLoader(headersFromAccessToken(token));
+
+    // Merge wishlist do cookie para o banco
+    const { mergeWishlistOnLoginServerFn } = await import("../wishlist/wishlist.actions");
+    await mergeWishlistOnLoginServerFn();
+
     return toPerson(u);
   });
 
