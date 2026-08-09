@@ -85,10 +85,10 @@ const tagsBanais = (catalogo: readonly Candidato[]): Set<string> => {
  */
 export const montarCandidatos = async (
   guardaRoupa: readonly PecaDaPessoa[] = [],
-  jaComprados: ReadonlySet<string> = new Set(),
+  /** `product_group_id` do que ela já comprou. Excluído no SQL — ver `catalogoDisponivel`. */
+  jaComprados: readonly string[] = [],
 ): Promise<Candidato[]> => {
-  const catalogo = await catalogoDisponivel();
-  const disponiveis = catalogo.filter((produto) => !jaComprados.has(produto.handle));
+  const disponiveis = await catalogoDisponivel(jaComprados);
 
   const banais = tagsBanais(disponiveis);
 

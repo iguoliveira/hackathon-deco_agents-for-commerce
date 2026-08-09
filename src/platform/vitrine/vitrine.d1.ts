@@ -6,7 +6,7 @@
  */
 
 import { getDb } from "../db";
-import type { Candidato } from "./vitrine.types";
+import type { Candidato, PecaRecomendada, Vitrine } from "./vitrine.types";
 
 interface ProdutoRow {
   handle: string;
@@ -44,8 +44,20 @@ interface ProdutoRow {
  * modelo é o de entrada. `available = 1` no JOIN, e não no WHERE, para que um
  * produto sem nenhuma variante disponível simplesmente não apareça — ele não é
  * recomendável hoje.
+ *
+ * **A exclusão do que a pessoa já comprou acontece AQUI, no SQL, e não em cima
+ * do resultado.** As sementes identificam a peça por `product_group_id`; o
+ * `Candidato` só carrega `handle`, porque id nenhum pode vazar para o prompt
+ * (um id ali é convite para o modelo devolver um). Filtrar depois exigiria uma
+ * das duas coisas erradas: pôr o id no tipo, ou casar handle com gid — que não
+ * casa, e falharia em silêncio deixando peças compradas na vitrine.
+ *
+ * O banco é o único lugar onde as duas identidades convivem sem que nenhuma
+ * precise sair dele.
  */
-export const catalogoDisponivel = async (): Promise<Candidato[]> => {
+export const catalogoDisponivel = async (
+  jaComprados: readonly string[] = [],
+): Promise<Candidato[]> => {
   const db = getDb();
   if (!db) return [];
 
@@ -63,9 +75,11 @@ export const catalogoDisponivel = async (): Promise<Candidato[]> => {
            JOIN variants v
              ON v.product_group_id = p.product_group_id AND v.available = 1
            LEFT JOIN variant_options vo ON vo.variant_id = v.variant_id
+          WHERE p.product_group_id <> ALL(?)
           GROUP BY p.product_group_id, p.handle, p.title, p.product_type
           ORDER BY p.handle`,
       )
+      .bind([...jaComprados])
       .all<ProdutoRow>();
 
     return results.map((linha) => ({
@@ -79,5 +93,153 @@ export const catalogoDisponivel = async (): Promise<Candidato[]> => {
   } catch (erro) {
     console.error("[vitrine] catalogoDisponivel falhou", erro);
     return [];
+  }
+};
+
+// ---------------------------------------------------------------------------
+// A vitrine gravada
+// ---------------------------------------------------------------------------
+
+interface VitrineRow {
+  titulo: string;
+  confianca: number;
+  pecas: string;
+  origem: string;
+}
+
+/**
+ * A vitrine daquele conjunto de sinais, ou `null`.
+ *
+ * **Linha com `origem <> 'agente'` é tratada como inexistente**, exatamente como
+ * em `lerLook` e `lerPersona`. É o que torna seguro o marcador de falha morar
+ * nesta mesma tabela: quem consome nunca vê um terceiro estado, só vitrine ou
+ * nada.
+ */
+export const lerVitrine = async (sinaisHash: string): Promise<Vitrine | null> => {
+  const db = getDb();
+  if (!db) return null;
+
+  try {
+    const linha = await db
+      .prepare(`SELECT titulo, confianca, pecas, origem FROM vitrines WHERE sinais_hash = ?`)
+      .bind(sinaisHash)
+      .first<VitrineRow>();
+
+    if (!linha || linha.origem !== "agente") return null;
+
+    const pecas = JSON.parse(linha.pecas) as PecaRecomendada[];
+    if (!Array.isArray(pecas) || pecas.length === 0) return null;
+
+    return { titulo: linha.titulo, confianca: linha.confianca, pecas };
+  } catch (erro) {
+    console.error("[vitrine] lerVitrine falhou", erro);
+    return null;
+  }
+};
+
+/**
+ * Grava a vitrine daquele conjunto de sinais, substituindo a anterior.
+ *
+ * `UPSERT` porque o cron é reexecutável por natureza: rodar duas vezes reescreve,
+ * nunca duplica nem falha por chave.
+ */
+export const gravarVitrine = async (sinaisHash: string, vitrine: Vitrine): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, origem, motivo, generated_at)
+              VALUES (?, ?, ?, ?, 'agente', NULL,
+                      to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         ON CONFLICT (sinais_hash) DO UPDATE
+                 SET titulo = EXCLUDED.titulo,
+                     confianca = EXCLUDED.confianca,
+                     pecas = EXCLUDED.pecas,
+                     origem = EXCLUDED.origem,
+                     motivo = EXCLUDED.motivo,
+                     generated_at = EXCLUDED.generated_at`,
+      )
+      .bind(sinaisHash, vitrine.titulo, vitrine.confianca, JSON.stringify(vitrine.pecas))
+      .run();
+
+    return true;
+  } catch (erro) {
+    console.error("[vitrine] gravarVitrine falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Registra que ESTES SINAIS foram tentados e não deram.
+ *
+ * A quarentena da #20, num contexto em que ela importa mais: o consumidor é um
+ * **cron**, e sem marcador um conjunto de sinais que nunca converge consome uma
+ * chamada de 60s a cada execução, para sempre — sem ninguém olhando, que é o
+ * pior lugar para um laço morar.
+ *
+ * O `WHERE vitrines.origem <> 'agente'` impede que uma falha APAGUE uma vitrine
+ * boa já gravada. Mesmo cinto de `gravarFalha` e `gravarFalhaDaPersona`.
+ */
+export const gravarFalhaDaVitrine = async (
+  sinaisHash: string,
+  motivo: string,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    await db
+      .prepare(
+        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, origem, motivo, generated_at)
+              VALUES (?, '', 0, '[]', 'falha', ?,
+                      to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+         ON CONFLICT (sinais_hash) DO UPDATE
+                 SET origem = 'falha',
+                     motivo = EXCLUDED.motivo,
+                     generated_at = EXCLUDED.generated_at
+               WHERE vitrines.origem <> 'agente'`,
+      )
+      .bind(sinaisHash, motivo.slice(0, 200))
+      .run();
+
+    return true;
+  } catch (erro) {
+    console.error("[vitrine] gravarFalhaDaVitrine falhou", erro);
+    return false;
+  }
+};
+
+/**
+ * Se estes sinais já falharam nos últimos `minutos`.
+ *
+ * Comparação de string, correta porque `generated_at` é ISO 8601 UTC de largura
+ * fixa. Erro devolve `false`: na dúvida, tenta — um banco intermitente não deve
+ * desligar a feature.
+ */
+export const vitrineFalhouRecentemente = async (
+  sinaisHash: string,
+  minutos: number,
+): Promise<boolean> => {
+  const db = getDb();
+  if (!db) return false;
+
+  try {
+    const linha = await db
+      .prepare(
+        `SELECT 1 AS existe
+           FROM vitrines
+          WHERE sinais_hash = ? AND origem = 'falha'
+            AND generated_at > to_char((now() - make_interval(mins => ?)) AT TIME ZONE 'UTC',
+                                       'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+      )
+      .bind(sinaisHash, minutos)
+      .first<{ existe: number }>();
+
+    return !!linha;
+  } catch (erro) {
+    console.error("[vitrine] vitrineFalhouRecentemente falhou", erro);
+    return false;
   }
 };
