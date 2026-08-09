@@ -19,7 +19,7 @@
 import { extrairJson } from "../shelf/shelf.agent";
 import { perguntar } from "../shelf/shelf.decopilot";
 import { montarCandidatos } from "./look.candidates";
-import { acharAncora, gravarLook, lerLook } from "./look.d1";
+import { acharAncora, gravarFalha, gravarLook, lerLook } from "./look.d1";
 import { montarMensagem, PISO_DE_CONFIANCA } from "./look.prompt";
 import type { Ancora, Candidato, Contexto, Look, PecaDoLook, RespostaCrua } from "./look.types";
 
@@ -95,16 +95,35 @@ export const validar = (lista: unknown, candidatos: Candidato[]): PecaDoLook[] =
 };
 
 /**
+ * O que `comporLook` devolve: o look, ou a razão de não ter havido um.
+ *
+ * O `porque` já existia — ia para o `console.warn` e morria ali. Ele passou a
+ * ser devolvido porque a falha agora é PERSISTIDA (`gravarFalha`), e "tentei e
+ * não deu" sem dizer o que não deu é um registro que não responde nada quando
+ * alguém for olhar. `motivo_do_fallback` é a coluna que estava esperando por
+ * isto desde a 0014.
+ *
+ * Não é união discriminada de propósito: os dois consumidores em `scripts/` só
+ * perguntam `if (!look)`, e um discriminante que não estreita depois do
+ * destructuring seria cerimônia sem retorno.
+ */
+export interface Composicao {
+  look: Look | null;
+  /** Preenchido **só** quando `look` é `null`. */
+  porque: string | null;
+}
+
+/**
  * A composição, a partir de um espaço de escolha já montado.
  *
- * Devolve `null` — e não um look de consolação — em todo caminho de falha. Ver
- * a decisão inteira em `look.types.ts` → `Look`: uma lista sem motivos, servida
- * justamente quando o agente falhou, ocupa na tela o lugar da única coisa que
- * esta feature tem a provar.
+ * Devolve `look: null` — e não um look de consolação — em todo caminho de falha.
+ * Ver a decisão inteira em `look.types.ts` → `Look`: uma lista sem motivos,
+ * servida justamente quando o agente falhou, ocupa na tela o lugar da única
+ * coisa que esta feature tem a provar.
  *
- * O `porque` vai para o log e não para a tela. Ele continua existindo porque
- * "por que não apareceu look?" precisa de resposta sem anexar um depurador —
- * mas quem responde é o terminal, não a pessoa que veio comprar.
+ * O `porque` **não vai para a tela** — vai para o log e para o banco. Ele existe
+ * porque "por que não apareceu look?" precisa de resposta sem anexar um
+ * depurador; quem responde é o terminal, não a pessoa que veio comprar.
  *
  * Separada de `gerarLook` para o dry run poder reaproveitá-la sem repetir a
  * consulta — e para que o caminho que o script exercita seja literalmente o
@@ -114,10 +133,10 @@ export const comporLook = async (
   ancora: Ancora,
   contexto: Contexto,
   candidatos: Candidato[],
-): Promise<Look | null> => {
-  const desistir = (porque: string): null => {
+): Promise<Composicao> => {
+  const desistir = (porque: string): Composicao => {
     console.warn(`[look] ${ancora.handle}: sem look — ${porque}`);
-    return null;
+    return { look: null, porque };
   };
 
   const resposta = await perguntar(
@@ -140,9 +159,12 @@ export const comporLook = async (
   }
 
   return {
-    titulo: texto(crua.titulo, TITULO_PADRAO, 45),
-    confianca,
-    pecas,
+    look: {
+      titulo: texto(crua.titulo, TITULO_PADRAO, 45),
+      confianca,
+      pecas,
+    },
+    porque: null,
   };
 };
 
@@ -154,11 +176,18 @@ export const comporLook = async (
  * uma request que alguém esteja esperando.** Quem consome é `look.actions.ts`,
  * que dispara sem `await` e responde na hora.
  *
- * **Falha não grava nada.** Antes, o look do SQL era persistido como estado
- * intermediário válido; sem ele, escrever qualquer coisa aqui só ensinaria o
- * cache a servir a falha. Deixar o par (peça, contexto) sem linha é o que faz o
- * próximo carregamento tentar de novo — que é o comportamento certo quando a
- * causa provável é saturação do provedor.
+ * **Falha grava um marcador, e não um look.** A versão anterior não gravava
+ * nada, com um argumento que parecia bom: sem linha, o próximo carregamento
+ * tenta de novo, que é o certo quando a causa provável é saturação do provedor.
+ * O que faltava ao argumento é o caso em que a geração NUNCA converge — aí
+ * "tenta de novo" deixa de ser resiliência e vira laço, e a cada pageview nasce
+ * uma chamada de 120s que falha e não deixa rastro. Responder a uma saturação
+ * gerando mais carga é o pior comportamento disponível.
+ *
+ * O marcador preserva a intenção original e corrige o defeito: o retry continua
+ * existindo, só que **espaçado** por `TTL_FALHA_MINUTOS` em vez de imediato. Ele
+ * não é servível — `lerLook` ignora `origem <> 'agente'` —, então a regra "ou o
+ * look é do agente, ou a section não aparece" segue intacta.
  */
 export const gerarLook = async (
   handle: string,
@@ -169,10 +198,20 @@ export const gerarLook = async (
   if (!alvo) return null;
 
   const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
-  if (candidatos.length < MIN_PECAS) return null;
 
-  const look = await comporLook(alvo.ancora, contexto, candidatos);
-  if (!look) return null;
+  // Pool pequeno também é falha que se repete: ele não depende do modelo, então
+  // a visita seguinte encontraria exatamente o mesmo número. Marcar evita o par
+  // gastar duas consultas de candidatos por pageview para sempre desistir.
+  if (candidatos.length < MIN_PECAS) {
+    await gravarFalha(alvo.ancora.productGroupId, `só ${candidatos.length} candidato(s) no pool`);
+    return null;
+  }
+
+  const { look, porque } = await comporLook(alvo.ancora, contexto, candidatos);
+  if (!look) {
+    await gravarFalha(alvo.ancora.productGroupId, porque ?? "motivo não registrado");
+    return null;
+  }
 
   await gravarLook(alvo.ancora.productGroupId, contextoHash, look);
 

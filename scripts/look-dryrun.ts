@@ -191,14 +191,15 @@ const main = async (): Promise<void> => {
   }
 
   const inicio = Date.now();
-  const look = await comporLook(alvo.ancora, contexto, candidatos);
+  const { look, porque } = await comporLook(alvo.ancora, contexto, candidatos);
   const decorrido = ((Date.now() - inicio) / 1000).toFixed(1);
 
   // Não existe mais look de consolação: ou o agente compôs, ou não há nada a
-  // imprimir. `comporLook` já escreveu no log qual caminho de falha foi, e essa
-  // linha é a resposta inteira — na PDP, este mesmo caso é a section sumindo.
+  // imprimir. Na PDP este mesmo caso é a section sumindo — com a diferença de
+  // que lá o motivo é gravado em `looks.motivo_do_fallback` e o par entra em
+  // quarentena. O dry run não grava: quem roda isto quer tentar de novo agora.
   if (!look) {
-    console.error(`\n=== SEM LOOK (${decorrido}s) — o motivo está na linha acima ===\n`);
+    console.error(`\n=== SEM LOOK (${decorrido}s) — ${porque} ===\n`);
     process.exit(1);
   }
 
