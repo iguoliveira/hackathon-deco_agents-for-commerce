@@ -139,20 +139,28 @@ export interface PecaDoLook {
 }
 
 /**
- * O look pronto.
+ * O look pronto. **Se existe um `Look`, ele é do agente** — não há outra forma
+ * de produzir um.
  *
- * `origem` não é telemetria decorativa: é o que permite responder "por que este
- * look está sem texto?" sem reabrir o log. `sql` significa que o modelo falhou,
- * recusou-se (confiança baixa) ou devolveu lixo, e o que está na tela é a
- * ordenação determinística de `findComplementsAvailable`.
+ * Já houve: até esta versão, quando o modelo falhava, recusava-se (confiança
+ * baixa) ou devolvia lixo, o código montava um look com os candidatos na ordem
+ * que o SQL já dava, sem motivos, e a section renderizava assim. A degradação
+ * era de "look explicado" para "look sem texto".
+ *
+ * Isso caiu, e o motivo é de produto, não de código: sem os motivos e sem o
+ * agrupamento por ocasião, o que sobra na tela é indistinguível de um carrossel
+ * de "produtos relacionados", que toda loja já tem. A feature inteira existe
+ * para provar que a composição é raciocinada — e uma versão dela que não prova
+ * nada, mostrada exatamente no momento em que o agente falhou, é pior que a
+ * ausência: ela ocupa o lugar onde a prova deveria estar.
+ *
+ * A degradação agora é para **nada**. Quem consome trata `null` como "a section
+ * some", e o próximo carregamento tenta de novo.
  */
 export interface Look {
   titulo: string;
   confianca: number;
   pecas: PecaDoLook[];
-  origem: "agente" | "sql";
-  /** Preenchido quando `origem === "sql"` — a razão exata da queda. */
-  motivoDoFallback?: string;
 }
 
 /** O que o modelo devolve, antes de qualquer validação. Nada aqui é confiável. */

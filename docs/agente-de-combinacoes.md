@@ -11,6 +11,22 @@ com uma linha dizendo por que ela entrou.
 
 Não é "quem viu isto também viu". É **composição**, e ela é assinada.
 
+> ### Quem é o público: usuário logado
+>
+> **Esta feature pressupõe identidade, e visitante anônimo não é caso a
+> considerar.** A composição parte do **armário da pessoa** — o que ela comprou,
+> favoritou, pediu "avise-me" e viu. Sem identidade não há armário, e sem armário
+> o agente não faz o que se propõe: vira um carrossel de relacionados com texto
+> bonito, que é exatamente aquilo que esta feature existe para contradizer.
+>
+> Isso não é uma limitação a ser corrigida depois. É o **recorte**: um caminho
+> anônimo não está previsto, não é medido e não decide desenho nenhum aqui. Onde
+> este documento diz "a pessoa", leia "a pessoa logada".
+>
+> A premissa viveu implícita até a revisão da PR #14 apontar decisões que só
+> fazem sentido sob ela — e uma premissa que só existe na cabeça de quem escreveu
+> reaparece como achado a cada revisão. Está escrita agora.
+
 ---
 
 ## 1. Por que esta feature e não a do `personal-shopping-agent-proposta.md`
@@ -91,9 +107,9 @@ Semente de favorito lida no servidor · cookie de vistos · tabela de pedidos ·
               │                       │
               │            ┌──────────┴──────────┐
               │            ▼                     ▼
-              │      responde JÁ com        dispara o agente
-              │      a ordem do SQL         SEM await
-              │      (sem motivos)               │
+              │      a section NÃO         dispara o agente
+              │      aparece nesta         SEM await
+              │      visita                      │
               │                                  ▼
               │                        ┌──────────────────┐
               │                        │ UMA chamada ao   │  ~35-60s
@@ -103,7 +119,8 @@ Semente de favorito lida no servidor · cookie de vistos · tabela de pedidos ·
               │                        resolve handles contra
               │                        os pools (sem modelo)
               │                                 ▼
-              │                          grava em `looks`
+              │                     falhou? não grava nada
+              │                     compôs? grava em `looks`
               └───────────┬─────────────────────┘
                           ▼
               JOIN com variants (disponibilidade AGORA)
@@ -133,13 +150,47 @@ O Decopilot leva 35-60s, e às vezes trava em `waiting-capacity` até o timeout
 telão do pitch é pior que não ter a feature.
 
 O padrão já é o do repo: `subscribe.ts` dispara `gerarVitrine(email)` **sem
-`await`** e responde na hora. Aqui é o mesmo, com uma melhora — no miss a
-pessoa não vê nada quebrado, vê a ordenação do SQL sem motivos. O produto
-degrada de **look explicado** para **look sem texto**, nunca para vazio.
+`await`** e responde na hora. Aqui é o mesmo: no miss, dispara e responde
+`null`.
 
-**Consequência que precisa ir para o roteiro:** os produtos da demo são
-pré-aquecidos antes do pitch. Isso é o que qualquer loja faria e vale dizer no
-slide — o que não vale é descobrir isso ao vivo.
+### É pelo agente ou não aparece
+
+> **Não existe look sem motivos.** Se o agente não compôs, a section some.
+
+A versão anterior desta feature degradava de **look explicado** para **look sem
+texto**: no miss, ou quando o modelo falhava, a tela recebia os candidatos na
+ordem que `findComplementsAvailable` já dava, sem motivo nenhum. Isso caiu.
+
+O argumento é de produto. Sem os motivos e sem o agrupamento por ocasião, o que
+sobra é indistinguível de um carrossel de "produtos relacionados" — que toda
+loja já tem, e cuja existência é justamente o que esta feature veio contradizer.
+Mostrá-lo **exatamente no momento em que o agente falhou** é pior que não
+mostrar nada: ele ocupa, silenciosamente, o lugar onde a prova deveria estar, e
+um jurado que role a página vê a feature funcionando quando ela não funcionou.
+
+O que isso custa, dito sem enfeite:
+
+- a **primeira visita** a um par (peça, contexto) novo não mostra a section;
+- o `contexto_hash` inclui a cidade, então **trocar de cidade ao vivo cai nesse
+  caso** — a roupa nova só aparece no carregamento seguinte, ~40s depois;
+- uma falha do provedor vira ausência, não degradação.
+
+**Consequência que precisa ir para o roteiro:** `npm run look:warm` deixou de
+ser otimização e virou pré-requisito. Os produtos da demo — e as cidades que se
+pretende demonstrar — são pré-aquecidos antes do pitch. Vale dizer no slide que
+uma loja de verdade faria isso num job; o que não vale é descobrir ao vivo.
+
+**Pré-aqueça no contexto da persona logada, não no do terminal.** `aquecerLook`
+usa o contexto de quem chama, e do terminal isso é uma conta sem histórico —
+que, pelo recorte do topo, não é o caso de uso. O par que precisa estar quente é
+`(peça do roteiro, persona da demo)`, e hoje o caminho para produzi-lo é abrir a
+PDP logado como ela. Um `--cidade` e um `--email` no `look:warm` fechariam isso
+num comando; enquanto não existem, o pré-aquecimento é manual e vai no checklist
+do dia.
+
+Falha **não grava**. Persistir um look de consolação ensinaria o cache a servir
+a falha; sem linha, o próximo carregamento tenta de novo, que é o certo quando a
+causa provável é saturação do provedor.
 
 ### A chave do cache
 
@@ -160,7 +211,7 @@ CREATE TABLE IF NOT EXISTS looks (
   titulo        TEXT NOT NULL,
   confianca     REAL NOT NULL,
   pecas         TEXT NOT NULL,   -- JSON [{handle, motivo, ocasiao, position}]
-  origem        TEXT NOT NULL,   -- 'agente' | 'sql'
+  origem        TEXT NOT NULL,   -- sempre 'agente'; ver nota abaixo
   generated_at  TEXT NOT NULL,
   PRIMARY KEY (anchor_id, contexto_hash)
 );
@@ -176,6 +227,14 @@ CREATE TABLE IF NOT EXISTS orders (
 **`pecas` é JSON num TEXT de propósito.** É blob opaco: só é lido inteiro, nunca
 filtrado em SQL. Normalizar custaria uma tabela e um JOIN para não comprar nada
 — mesmo argumento que a spec aprovada usa para `Proposal.evidence`.
+
+**`origem` e `motivo_do_fallback` sobrevivem à remoção do fallback**, e não por
+inércia: a `0014` já foi aplicada, e uma migration para apagar duas colunas que
+não incomodam ninguém não se paga. `gravarLook` escreve `'agente'` literal e
+`NULL`; `lerLook` **ignora qualquer linha que não seja `'agente'`**, e é isso que
+aposenta sozinhas as linhas antigas — servir uma delas hoje poria na tela
+exatamente o look sem motivos que se decidiu não mostrar. Elas são regeneradas
+na primeira visita.
 
 **Nenhuma das duas tem `FOREIGN KEY` para `products`.** É a regra da `0005`: as
 migrations de seed apagam e reinserem o catálogo, e um `ON DELETE CASCADE`
@@ -212,7 +271,7 @@ src/platform/look/
   look.seeds.ts        wishlist ∪ alerts ∪ recent ∪ orders → Semente[]
   look.candidates.ts   etapa 1: pools ancorados na peça aberta
   look.prompt.ts       a instrução do agente
-  look.agent.ts        etapas 2 e 3, validação e fallback
+  look.agent.ts        etapas 2 e 3, validação (falhou = `null`, sem fallback)
   look.d1.ts           único arquivo com SQL de `looks` e `orders`
   look.actions.ts      o que o loader consome
   index.ts
@@ -254,8 +313,14 @@ vez.
 7. **A section busca dados client-side.** O HTML da PDP tem TTL longo; renderizar
    no servidor congela a personalização dentro da janela do pitch e parece
    quebrado. É o bug mais provável de aparecer no dia.
-8. **Nada lança.** Todo caminho de falha termina num look — o do agente ou o do
-   SQL.
+8. **Nada lança.** Todo caminho de falha termina em `null`, e `null` é a section
+   sumindo — nunca um erro na tela, nunca um look de consolação.
+9. **Ou é do agente, ou não aparece.** Nenhuma peça chega à tela sem motivo. A
+   ordenação por SQL não é fallback; ela não existe mais.
+10. **O público é o usuário logado.** Comportamento com visitante anônimo não é
+    requisito, não é medido e não decide desenho — ver o recorte no topo. Um
+    achado cujo único cenário seja "visitante sem histórico" está fora de
+    escopo por definição, e não vira tarefa.
 
 ---
 
@@ -295,8 +360,9 @@ origem `agente`, 22–41s.
    de comprar. Correção: sementes `purchased` saem do pool.
    **Só `purchased`** — favoritar e ver não tiram a peça de circulação, porque a
    fronteira é *ter ou não ter*. A exclusão vive em `jaComprados()`, exportada,
-   porque o caminho do agente e o do fallback precisam excluir exatamente o
-   mesmo conjunto; divergirem faria uma peça sumir no reload sem explicação.
+   porque `look.actions.ts` também conta candidatos antes de disparar o agente e
+   as duas contagens têm de bater; divergirem faria a PDP gastar um minuto de
+   modelo a cada visita para um pool que o agente recusaria por pequeno.
 
 2. **O dry run mentia sobre o agrupamento.** Ele imprimia um cabeçalho toda vez
    que o rótulo mudava em relação à peça anterior, e o modelo intercala
@@ -347,7 +413,7 @@ aprendida de novo.
 | `deploy-vercel-supabase.md` | **em vigor** — infra |
 | `tese-agente-vendas-ia.md` r6 | **normativa e parcialmente ociosa**: o agente de busca que ela especifica está fora do fim de semana. As `explicit_exclusions` continuam valendo |
 | `personal-shopping-agent-proposta.md` | **parcialmente superado** — §§1-2 e 12 valem; §3, §4, §5, §7 e §11 foram substituídos por este arquivo |
-| `personal-shopping-agent-mudancas.md` | **parcialmente superado** — §1 (genérico) e §10 (o que não muda) valem; §§3-4 e 8 substituídos |
+| `personal-shopping-agent-mudancas.md` | **parcialmente superado** — §1 (genérico) e §10 (o que não muda) valem; §§3-4 e 8 substituídos. **§2 não vale aqui**: ela argumenta pela continuidade do histórico do visitante anônimo, e esta feature não atende anônimo — ver o recorte no topo |
 | `tese-admin-agentes.md` | **fora do escopo do fim de semana** — nenhuma tela de admin é construída |
 | `personal-shopping-agent-mvp.md` | revogado |
 | `personal-shopping-agent-optimization.md` | revogado |

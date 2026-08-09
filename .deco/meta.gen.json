@@ -156,6 +156,10 @@
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==",
           "namespace": "site"
         },
+        "site/loaders/lookLocal.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==",
+          "namespace": "site"
+        },
         "site/loaders/personalShelf.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=",
           "namespace": "site"
@@ -395,6 +399,22 @@
             "nullable": true,
             "title": "Handle da peça",
             "description": "Deixe vazio na PDP: o handle é lido da URL. Preencher só serve para fixar uma peça numa página que não é de produto."
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==": {
+        "title": "site/loaders/lookLocal.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/lookLocal.ts"
+            ],
+            "default": "site/loaders/lookLocal.ts"
           }
         }
       },
@@ -3521,6 +3541,15 @@
             "description": "Small promo line shown at the bottom of the mega menu",
             "default": "Frete grátis em compras acima de R$500."
           },
+          "cidades": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "title": "Cidades do seletor",
+            "description": "Atalhos oferecidos no seletor de local, como \"Porto Alegre,RS,BR\". É de onde o agente parte para compor o look. Lista vazia usa o padrão da demo."
+          },
           "loading": {
             "type": "string",
             "enum": [
@@ -5895,6 +5924,9 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw=="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="

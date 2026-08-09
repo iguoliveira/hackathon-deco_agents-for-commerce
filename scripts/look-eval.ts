@@ -142,7 +142,6 @@ interface Execucao {
   handles: string[];
   ocasioes: string[];
   confianca: number;
-  origem: string;
   titulo: string;
   /** Tipos distintos entre as peças escolhidas — o antídoto do "quatro calças". */
   tiposDistintos: number;
@@ -158,6 +157,8 @@ interface ResultadoCondicao {
   /** Quantos candidatos o SQL ofereceu. Muda entre condições porque as sementes
    *  `purchased` saem do pool — sem isto, comparar condições engana. */
   tamanhoDoPool: number;
+  /** Execuções em que o modelo não devolveu look. Instabilidade da condição. */
+  falhas: number;
   execucoes: Execucao[];
 }
 
@@ -202,10 +203,22 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
   console.log(`    âncora: ${alvo.ancora.titulo} · pool: ${candidatos.length} candidatos`);
 
   const execucoes: Execucao[] = [];
+  let falhas = 0;
   for (let i = 1; i <= n; i++) {
     const inicio = Date.now();
     const look = await comporLook(alvo.ancora, contexto, candidatos);
     const segundos = (Date.now() - inicio) / 1000;
+
+    // Desde "ou o look é do agente, ou a section não aparece", `comporLook`
+    // devolve `null` quando o modelo falha, se recusa ou responde lixo — não há
+    // mais fallback por SQL. Para a avaliação isso é dado, não erro: uma
+    // condição que falha muito é uma condição instável, e registrar a falha é
+    // mais honesto que descartá-la da amostra.
+    if (!look) {
+      falhas++;
+      console.log(`    [${i}/${n}] FALHOU — sem look (modelo indisponível ou recusou)`);
+      continue;
+    }
 
     const porHandle = new Map(candidatos.map((c) => [c.handle, c]));
     const tipos = new Set(
@@ -217,7 +230,6 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
       handles: look.pecas.map((p) => p.handle),
       ocasioes: [...new Set(look.pecas.map((p) => p.ocasiao))],
       confianca: look.confianca,
-      origem: look.origem,
       titulo: look.titulo,
       tiposDistintos: tipos.size,
       motivosComCor: comCor,
@@ -226,7 +238,7 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
     });
 
     console.log(
-      `    [${i}/${n}] ${look.origem} · ${look.pecas.length} peças · ${tipos.size} tipos · ` +
+      `    [${i}/${n}] ${look.pecas.length} peças · ${tipos.size} tipos · ` +
         `conf ${look.confianca} · cor em ${comCor}/${look.pecas.length} · ${segundos.toFixed(1)}s`,
     );
   }
@@ -236,6 +248,7 @@ const rodarCondicao = async (cond: Condicao, n: number): Promise<ResultadoCondic
     descricao: cond.descricao,
     ancora: alvo.ancora.titulo,
     tamanhoDoPool: candidatos.length,
+    falhas,
     execucoes,
   };
 };

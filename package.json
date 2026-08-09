@@ -34,7 +34,9 @@
     "update": "bunx npm-check-updates -u -f '@decocms/*' && bun install",
     "shelf:dryrun": "tsx scripts/shelf-dryrun.ts",
     "look:dryrun": "tsx scripts/look-dryrun.ts",
-    "look:eval": "tsx scripts/look-eval.ts"
+    "look:check": "tsx scripts/look-render-check.ts",
+    "look:eval": "tsx scripts/look-eval.ts",
+    "look:warm": "tsx scripts/look-warm.ts"
   },
   "author": "deco.cx",
   "license": "MIT",
