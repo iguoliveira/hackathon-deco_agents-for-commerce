@@ -1,0 +1,783 @@
+{
+ "geradoEm": "2026-08-09T19:41:15.564Z",
+ "mesDeOrigem": "agosto",
+ "looks": [
+  {
+   "ancora": "all-over-print-bomber-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o bomber gráfico",
+   "confianca": 0.7,
+   "pecas": "[{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Camiseta lisa por baixo, para não competir com o print do bomber.\",\"ocasiao\":\"camada base\",\"position\":0},{\"handle\":\"zip-through-hoodie\",\"motivo\":\"Zíper inteiro cabe por baixo do bomber sem embolar no pescoço.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"chunky-knit-sweater\",\"motivo\":\"Ponto grosso segura o calor nos dias mais frios de agosto aí.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Alternativa mais leve para os dias de amplitude térmica maior.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro fecha o visual nos dias mais frios de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Acessório gráfico que dialoga com o print do bomber.\",\"ocasiao\":\"detalhe gráfico\",\"position\":5},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Outro toque gráfico, no mesmo tom de humor do print.\",\"ocasiao\":\"detalhe gráfico\",\"position\":6}]"
+  },
+  {
+   "ancora": "canvas-messenger",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com a bolsa",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve que combina com a alça larga da bolsa carteiro.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Camada externa para o friozinho de agosto em São Paulo.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"straight-leg-jeans\",\"motivo\":\"Calça reta que ancora o look sem competir com a bolsa.\",\"ocasiao\":\"dia a dia\",\"position\":2},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Base leve por baixo da jaqueta nos dias mais quentes do mês.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"minimal-leather-sneakers\",\"motivo\":\"Tênis discreto que fecha o visual sem chamar mais atenção que a bolsa.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Camada extra para os dias mais frios, sem exagerar no volume.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"classic-bomber-jacket\",\"motivo\":\"Alternativa de camada externa, corte que para na cintura.\",\"ocasiao\":\"para o frio\",\"position\":6},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório casual que soma ao clima despojado da bolsa de lona.\",\"ocasiao\":\"dia a dia\",\"position\":7}]"
+  },
+  {
+   "ancora": "classic-bomber-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com a bomber",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Camada leve por baixo, sem criar volume sob a bomber.\",\"ocasiao\":\"para o dia a dia\",\"position\":0},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Camiseta que respira nos dias mais quentes de agosto em SP.\",\"ocasiao\":\"para o dia a dia\",\"position\":1},{\"handle\":\"straight-leg-jeans\",\"motivo\":\"Corte reto equilibra o volume canelado da bomber.\",\"ocasiao\":\"para o dia a dia\",\"position\":2},{\"handle\":\"pleated-chino\",\"motivo\":\"Alternativa mais arrumada à calça jeans para essa jaqueta.\",\"ocasiao\":\"para trabalhar\",\"position\":3},{\"handle\":\"minimal-leather-sneakers\",\"motivo\":\"Tênis discreto que fecha o visual sem competir com a bomber.\",\"ocasiao\":\"para o dia a dia\",\"position\":4},{\"handle\":\"canvas-messenger\",\"motivo\":\"Mesmo tom marrom da bomber, bolsa que acompanha o uso diário.\",\"ocasiao\":\"para o dia a dia\",\"position\":5},{\"handle\":\"hooded-rain-shell\",\"motivo\":\"Camada extra para levar dobrada nos dias de chuva de agosto.\",\"ocasiao\":\"para a chuva\",\"position\":6}]"
+  },
+  {
+   "ancora": "classic-pullover-hoodie",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Conjunto natural do hoodie, na mesma felpa e no mesmo tom.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Camada do meio para cobrir o hoodie num agosto mais frio em SP.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"denim-jacket-sherpa\",\"motivo\":\"Jaqueta por cima do hoodie para os dias mais gelados.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro básico em algodão que fecha a produção de frio.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Camiseta leve para usar por baixo do capuz em dias amenos.\",\"ocasiao\":\"casual\",\"position\":4},{\"handle\":\"long-sleeve-daily-tee\",\"motivo\":\"Segunda pele por baixo do moletom quando o frio aperta.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"dad-hat\",\"motivo\":\"Boné básico que dá o toque casual ao conjunto.\",\"ocasiao\":\"casual\",\"position\":6},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"Bolsa de algodão para o dia a dia com esse look.\",\"ocasiao\":\"dia a dia\",\"position\":7}]"
+  },
+  {
+   "ancora": "coach-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para completar a jaqueta",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para vestir por dentro da coach jacket.\",\"ocasiao\":\"camada extra\",\"position\":0},{\"handle\":\"zip-through-hoodie\",\"motivo\":\"Camada intermediária para o frio de agosto sob a jaqueta.\",\"ocasiao\":\"camada extra\",\"position\":1},{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Base de algodão para os dias mais amenos do mês.\",\"ocasiao\":\"camada extra\",\"position\":2},{\"handle\":\"baggy-carpenter-jeans\",\"motivo\":\"Calça de perna larga que equilibra o volume da jaqueta.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"canvas-high-tops\",\"motivo\":\"Tênis que fecha o visual streetwear da jaqueta.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"five-panel-cap\",\"motivo\":\"Acessório discreto que soma ao conjunto sem disputar atenção.\",\"ocasiao\":\"streetwear\",\"position\":5},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Bolsa para carregar o essencial junto com o look.\",\"ocasiao\":\"dia a dia\",\"position\":6}]"
+  },
+  {
+   "ancora": "code-wizard-hat",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Look dev com clima de São Paulo",
+   "confianca": 0.7,
+   "pecas": "[{\"handle\":\"dev-mode-tee\",\"motivo\":\"Base leve no mesmo universo de código do chapéu.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"the-future-of-web-dev-sweatshirt\",\"motivo\":\"Camada quente para o frio de agosto em São Paulo.\",\"ocasiao\":\"frio de agosto\",\"position\":1},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para abrir por cima nas manhãs frias.\",\"ocasiao\":\"frio de agosto\",\"position\":2},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Mesmo território de código do chapéu, para levar o dia.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"high-top-canvas-shoes\",\"motivo\":\"Tênis casual que fecha o look sem disputar atenção.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Camada externa a mais para os dias mais frescos.\",\"ocasiao\":\"frio de agosto\",\"position\":5}]"
+  },
+  {
+   "ancora": "crewneck-sweatshirt",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o conjunto de frio",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Calça de moletom fecha o conjunto por baixo desse moletom careca.\",\"ocasiao\":\"casual\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"A gola dessa camisa aparece por baixo do moletom sem capuz.\",\"ocasiao\":\"para vestir por baixo\",\"position\":1},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Camada externa casual, boa para o frio de agosto em São Paulo.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Camada fina entre o moletom e um casaco maior, sem apertar.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"wool-overcoat\",\"motivo\":\"Sobretudo pesado para os dias mais frios de agosto aí.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"winter-hat\",\"motivo\":\"Acessório que completa o visual sem competir com o moletom.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"tailored-blazer\",\"motivo\":\"Estruturado o bastante para vestir por cima num compromisso.\",\"ocasiao\":\"para trabalhar\",\"position\":6}]"
+  },
+  {
+   "ancora": "ctrl-shift-tote-bag",
+   "cidade": "Porto Alegre",
+   "regiao": "RS",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"retro-code-tee\",\"motivo\":\"Camiseta leve para vestir por baixo, com opções de cor disponíveis.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"cargo-jogger-pants\",\"motivo\":\"Calça confortável que equilibra o volume da tote no dia a dia.\",\"ocasiao\":\"dia a dia\",\"position\":1},{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Camada externa para o friozinho de agosto em Porto Alegre.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Mesmo universo code-culture da tote, fecha o visual pela cabeça.\",\"ocasiao\":\"code-culture\",\"position\":3},{\"handle\":\"high-top-canvas-shoes\",\"motivo\":\"Tênis casual que segue o clima despojado da tote.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"dad-hat\",\"motivo\":\"Boné simples que soma ao look sem competir com a tote.\",\"ocasiao\":\"dia a dia\",\"position\":5},{\"handle\":\"laptop-commuter-backpack\",\"motivo\":\"Se quiser levar mais notebook, essa mochila reforça a mesma rotina de carregar coisas.\",\"ocasiao\":\"para trabalhar\",\"position\":6}]"
+  },
+  {
+   "ancora": "ctrl-shift-tote-bag",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "O look pra levar o note junto",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"dev-mode-tee\",\"motivo\":\"Camiseta simples que veste por baixo sem competir com a tote.\",\"ocasiao\":\"para o dia a dia\",\"position\":0},{\"handle\":\"cargo-jogger-pants\",\"motivo\":\"Bolsos que seguram o que não cabe na tote, sem parecer pijama.\",\"ocasiao\":\"para o dia a dia\",\"position\":1},{\"handle\":\"high-top-canvas-shoes\",\"motivo\":\"Tênis casual que fecha o look sem pesar no calor de agosto.\",\"ocasiao\":\"para o dia a dia\",\"position\":2},{\"handle\":\"dad-hat\",\"motivo\":\"Boné leve, boa opção pro sol de São Paulo em agosto.\",\"ocasiao\":\"para o dia a dia\",\"position\":3},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Mesmo universo code-culture da tote, reforça a estampa.\",\"ocasiao\":\"code-culture\",\"position\":4},{\"handle\":\"minimalist-backpack\",\"motivo\":\"Alternativa de carregar mais volume nos dias de reunião com note.\",\"ocasiao\":\"para levar o note\",\"position\":5},{\"handle\":\"retro-code-tee\",\"motivo\":\"Camiseta que conversa com o mesmo código-fonte da tote.\",\"ocasiao\":\"code-culture\",\"position\":6}]"
+  },
+  {
+   "ancora": "dad-hat",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com o boné",
+   "confianca": 0.8,
+   "pecas": "[{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Base simples que deixa o boné ser o destaque do look.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"slim-stretch-jeans\",\"motivo\":\"Corte reto que fecha o conjunto sem competir com a camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":1},{\"handle\":\"zip-through-hoodie\",\"motivo\":\"Abre e fecha conforme a variação do dia de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para as manhãs mais frias sem pesar o look.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"canvas-low-sneakers\",\"motivo\":\"Tênis casual que combina com o corte reto do jeans.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"everyday-canvas-tote\",\"motivo\":\"Bolsa de lona que segue o tom despojado do resto do conjunto.\",\"ocasiao\":\"casual\",\"position\":5}]"
+  },
+  {
+   "ancora": "deco-cap",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com o boné",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"capybara-club-tee\",\"motivo\":\"Algodão leve para o calor de agosto em São Paulo, por baixo de uma camada extra.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para as variações de temperatura do dia paulistano.\",\"ocasiao\":\"camada extra\",\"position\":1},{\"handle\":\"faux-leather-biker\",\"motivo\":\"Camada externa para quando o frio pega nas noites de agosto.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"high-top-canvas-shoes\",\"motivo\":\"Tênis casual que segue o mesmo espírito despojado do boné.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Mesmo universo gráfico do boné, para carregar o essencial.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"laptop-commuter-backpack\",\"motivo\":\"Opção para quem precisa levar notebook além do essencial.\",\"ocasiao\":\"para trabalhar\",\"position\":5}]"
+  },
+  {
+   "ancora": "deco-sweatpants",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o frio de agosto",
+   "confianca": 0.62,
+   "pecas": "[{\"handle\":\"the-future-of-web-dev-sweatshirt\",\"motivo\":\"Camada quente por cima, o que o frio de agosto em SP pede.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para abrir e fechar conforme a temperatura do dia.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"capybara-club-tee\",\"motivo\":\"Camiseta de algodão para usar por baixo das camadas.\",\"ocasiao\":\"dia a dia\",\"position\":2},{\"handle\":\"dad-hat\",\"motivo\":\"Boné casual que fecha o visual sem pesar no look.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"Bolsa de algodão no mesmo espírito gráfico da jogger.\",\"ocasiao\":\"dia a dia\",\"position\":4}]"
+  },
+  {
+   "ancora": "deco-tee",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "O que fecha esse conjunto",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"straight-leg-jeans\",\"motivo\":\"Base neutra que deixa a camiseta oversized ser o destaque.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Camada externa para as manhãs mais frias de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Abre por cima da camiseta como sobrecamisa leve.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"high-top-canvas-shoes\",\"motivo\":\"Tênis casual que acompanha o caimento solto da camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório básico que completa o look sem disputar atenção.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"everyday-canvas-tote\",\"motivo\":\"Bolsa do mesmo espírito casual para levar o dia inteiro.\",\"ocasiao\":\"dia a dia\",\"position\":5}]"
+  },
+  {
+   "ancora": "denim-trucker-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com a trucker jacket",
+   "confianca": 0.8,
+   "pecas": "[{\"handle\":\"striped-breton-tee\",\"motivo\":\"Camiseta simples para vestir por baixo da jaqueta sem disputar atenção.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"straight-leg-jeans\",\"motivo\":\"Contraste de indigo com denim, sem repetir a jaqueta em cima e baixo.\",\"ocasiao\":\"dia a dia\",\"position\":1},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Camada intermediária leve entre a camiseta e a jaqueta em dias de agosto em SP.\",\"ocasiao\":\"dia a dia\",\"position\":2},{\"handle\":\"minimal-leather-sneakers\",\"motivo\":\"Tênis discreto que fecha o visual sem pesar o conjunto.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Camada extra para as manhãs mais frias de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"coach-jacket\",\"motivo\":\"Alternativa de corta-vento leve para dias de amplitude térmica maior.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"pleated-chino\",\"motivo\":\"Opção de calça mais seca para tirar o look do jeans em algum dia.\",\"ocasiao\":\"dia a dia\",\"position\":6},{\"handle\":\"canvas-messenger\",\"motivo\":\"Bolsa que acompanha o tom despojado da jaqueta no uso diário.\",\"ocasiao\":\"dia a dia\",\"position\":7}]"
+  },
+  {
+   "ancora": "denim-western-shirt",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "O conjunto em volta da camisa",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Fica por baixo da camisa jeans, leve e sem criar volume extra.\",\"ocasiao\":\"base do look\",\"position\":0},{\"handle\":\"relaxed-mom-jeans\",\"motivo\":\"Denim de cintura alta que equilibra o corte solto da camisa.\",\"ocasiao\":\"base do look\",\"position\":1},{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Camada extra por baixo da camisa nos dias mais frios de agosto.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"coach-jacket\",\"motivo\":\"Corta o vento de agosto em São Paulo por cima da camisa.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"canvas-low-sneakers\",\"motivo\":\"Tênis simples que não disputa atenção com a camisa jeans.\",\"ocasiao\":\"para os pés\",\"position\":4},{\"handle\":\"classic-trucker-cap\",\"motivo\":\"Fecha o visual casual sem pesar no conjunto.\",\"ocasiao\":\"acabamento\",\"position\":5}]"
+  },
+  {
+   "ancora": "dev-mode-tee",
+   "cidade": "Porto Alegre",
+   "regiao": "RS",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.7,
+   "pecas": "[{\"handle\":\"the-future-of-web-dev-sweatshirt\",\"motivo\":\"Camada externa pra cobrir a camiseta no frio de agosto em Porto Alegre.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve pra abrir por cima da camiseta em dias mais amenos.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Calça de moletom que segura o clima frio e mantém o visual despojado.\",\"ocasiao\":\"dia a dia\",\"position\":2},{\"handle\":\"minimal-leather-sneakers\",\"motivo\":\"Tênis discreto que fecha o pé sem disputar atenção com a camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro pra segurar o frio nos dias mais duros de agosto por aí.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Carrega o notebook com a mesma referência de código da camiseta.\",\"ocasiao\":\"clima code-culture\",\"position\":5},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Acessório que segue a mesma piada de programador da camiseta.\",\"ocasiao\":\"clima code-culture\",\"position\":6}]"
+  },
+  {
+   "ancora": "eco-raglan-hoodie",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look do hoodie",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"O par natural do hoodie, mesma pegada básica pro frio de agosto.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Camada do meio pra vestir por cima nas manhãs mais frias de agosto.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Alternativa mais leve pra hora em que o hoodie sozinho é pouco.\",\"ocasiao\":\"meio-termo\",\"position\":2},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro de algodão fecha o visual nos dias mais frios do inverno.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"Bolsa de algodão pra levar o essencial junto com o look.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"dad-hat\",\"motivo\":\"Boné básico deixa o conjunto mais leve nos dias amenos.\",\"ocasiao\":\"fim de semana\",\"position\":5}]"
+  },
+  {
+   "ancora": "essential-cotton-tee",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"slim-stretch-jeans\",\"motivo\":\"A calça neutra que deixa a camiseta branca ser o centro do look.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Camada externa leve, boa para as noites mais frescas de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Abre por cima da camiseta como sobrecamisa leve, sem pesar no calor do dia.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"canvas-low-sneakers\",\"motivo\":\"Tênis básico branco que segue o tom claro da camiseta sem repetir a peça.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório casual que completa o visual sem disputar espaço com a camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"eco-raglan-hoodie\",\"motivo\":\"Camada extra de algodão para as manhãs mais frias de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"Bolsa de algodão para o dia a dia, na mesma pegada despojada da camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":6}]"
+  },
+  {
+   "ancora": "faux-leather-biker",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"heavyweight-boxy-tee\",\"motivo\":\"Camiseta pesada por baixo, sem volume extra sob o couro sintético.\",\"ocasiao\":\"streetwear\",\"position\":0},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Base leve para os dias mais quentes de agosto em São Paulo.\",\"ocasiao\":\"streetwear\",\"position\":1},{\"handle\":\"baggy-carpenter-jeans\",\"motivo\":\"Corte largo equilibra o caimento estruturado da jaqueta.\",\"ocasiao\":\"streetwear\",\"position\":2},{\"handle\":\"cargo-jogger-pants\",\"motivo\":\"Silhueta descontraída para contrastar com o couro da jaqueta.\",\"ocasiao\":\"streetwear\",\"position\":3},{\"handle\":\"canvas-high-tops\",\"motivo\":\"Tênis casual que segue o tom despojado do conjunto.\",\"ocasiao\":\"streetwear\",\"position\":4},{\"handle\":\"leather-belt-bag\",\"motivo\":\"Acessório em couro que dialoga com o material da jaqueta.\",\"ocasiao\":\"acessório\",\"position\":5},{\"handle\":\"five-panel-cap\",\"motivo\":\"Fecha o visual streetwear sem pesar no conjunto.\",\"ocasiao\":\"acessório\",\"position\":6}]"
+  },
+  {
+   "ancora": "flannel-overshirt",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o frio de SP",
+   "confianca": 0.7,
+   "pecas": "[{\"handle\":\"wool-overcoat\",\"motivo\":\"Camada externa para o frio de agosto em SP, cabe por cima da flanela.\",\"ocasiao\":\"dias mais frios\",\"position\":0},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Base leve para vestir por baixo da flanela sem apertar no ombro.\",\"ocasiao\":\"camada base\",\"position\":1},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Fina o bastante para entrar por baixo do sobretudo em dias mais frios.\",\"ocasiao\":\"dias mais frios\",\"position\":2},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Cós com cordão e caimento solto para o dia a dia mais informal.\",\"ocasiao\":\"dia a dia\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Fecha o conjunto de frio sem disputar volume com as camadas de cima.\",\"ocasiao\":\"dias mais frios\",\"position\":4}]"
+  },
+  {
+   "ancora": "fringe-knit-poncho",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look de tricô",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"knit-tank-dress\",\"motivo\":\"Veste por baixo do poncho, mesma família de tons cream.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"knit-midi-dress\",\"motivo\":\"Base de tricô que aparece por baixo do poncho aberto.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"pleated-midi-skirt\",\"motivo\":\"Saia leve que equilibra o volume do poncho por cima.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"turtleneck-sweater\",\"motivo\":\"Gola alta que soma calor por baixo sem disputar volume.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"silk-touch-blouse\",\"motivo\":\"Caimento fluido que não pesa sob o volume do poncho.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"wool-overcoat\",\"motivo\":\"Camada externa para os dias mais frios de agosto em SP.\",\"ocasiao\":\"para sair\",\"position\":5},{\"handle\":\"tailored-blazer\",\"motivo\":\"Estrutura que contrasta com o caimento solto do poncho.\",\"ocasiao\":\"para trabalhar\",\"position\":6}]"
+  },
+  {
+   "ancora": "heavyweight-boxy-tee",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Composição streetwear de inverno",
+   "confianca": 0.78,
+   "pecas": "[{\"handle\":\"coach-jacket\",\"motivo\":\"Corta o vento das manhãs frias de agosto por cima da camiseta.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"cargo-jogger-pants\",\"motivo\":\"Baixo streetwear que segue o caimento largo da camiseta.\",\"ocasiao\":\"dia a dia streetwear\",\"position\":1},{\"handle\":\"canvas-high-tops\",\"motivo\":\"Tênis casual que sustenta o visual sem competir com a camiseta.\",\"ocasiao\":\"dia a dia streetwear\",\"position\":2},{\"handle\":\"faux-leather-biker\",\"motivo\":\"Camada externa no mesmo preto da camiseta, para os dias mais frios.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"baggy-carpenter-jeans\",\"motivo\":\"Alternativa de baixo largo que mantém a proporção oversized.\",\"ocasiao\":\"dia a dia streetwear\",\"position\":4},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório simples que fecha o visual sem disputar atenção.\",\"ocasiao\":\"detalhe do look\",\"position\":5},{\"handle\":\"leather-belt-bag\",\"motivo\":\"Pochete preta para levar o essencial sem quebrar o conjunto.\",\"ocasiao\":\"detalhe do look\",\"position\":6}]"
+  },
+  {
+   "ancora": "leather-belt-bag",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look com a pochete",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"linen-blend-shirt\",\"motivo\":\"Base leve para o dia ameno em SP, some por baixo da jaqueta.\",\"ocasiao\":\"fim de semana\",\"position\":0},{\"handle\":\"faux-leather-biker\",\"motivo\":\"Camada externa preta, no tom da pochete, para o friozinho de agosto.\",\"ocasiao\":\"fim de semana\",\"position\":1},{\"handle\":\"cargo-jogger-pants\",\"motivo\":\"Bolsos cargo dividem a função de carregar com a pochete.\",\"ocasiao\":\"fim de semana\",\"position\":2},{\"handle\":\"minimal-leather-sneakers\",\"motivo\":\"Linha minimalista que segue o desenho limpo da pochete.\",\"ocasiao\":\"fim de semana\",\"position\":3},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório despojado que fecha o conjunto do fim de semana.\",\"ocasiao\":\"fim de semana\",\"position\":4},{\"handle\":\"tailored-blazer\",\"motivo\":\"Estrutura preta que eleva a pochete para um dia de trabalho.\",\"ocasiao\":\"para trabalhar\",\"position\":5},{\"handle\":\"wide-leg-trousers\",\"motivo\":\"Calça preta alinhada ao tom da pochete, veste bem com tênis.\",\"ocasiao\":\"para trabalhar\",\"position\":6}]"
+  },
+  {
+   "ancora": "pleated-chino",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.85,
+   "pecas": "[{\"handle\":\"oxford-button-down\",\"motivo\":\"Colarinho estruturado que veste bem por dentro do chino de duas pregas.\",\"ocasiao\":\"para trabalhar\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para abrir por cima em dias mais frescos de agosto.\",\"ocasiao\":\"casual\",\"position\":1},{\"handle\":\"suede-desert-boots\",\"motivo\":\"O calçado de meia-estação que serve com o chino sem esforço.\",\"ocasiao\":\"casual\",\"position\":2},{\"handle\":\"tailored-blazer\",\"motivo\":\"Estrutura a calça para uma ocasião mais formal sem engessar.\",\"ocasiao\":\"para trabalhar\",\"position\":3},{\"handle\":\"cardigan-open-knit\",\"motivo\":\"Terceira peça leve para as variações de temperatura do dia em SP.\",\"ocasiao\":\"para trabalhar\",\"position\":4},{\"handle\":\"canvas-messenger\",\"motivo\":\"Bolsa estruturada que acompanha o caimento arrumado da calça.\",\"ocasiao\":\"para trabalhar\",\"position\":5},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Base descontraída para vestir o chino num fim de semana.\",\"ocasiao\":\"fim de semana\",\"position\":6},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Camada externa casual para as noites mais frias de agosto.\",\"ocasiao\":\"fim de semana\",\"position\":7}]"
+  },
+  {
+   "ancora": "quilted-liner-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o frio de SP",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"wool-overcoat\",\"motivo\":\"Veste por cima da matelassê nos dias mais frios de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"fine-merino-crewneck\",\"motivo\":\"Cabe por baixo da jaqueta sem estufar, forma a base do look.\",\"ocasiao\":\"camada base\",\"position\":1},{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Corte limpo por baixo da jaqueta, sem criar volume extra.\",\"ocasiao\":\"camada base\",\"position\":2},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Ocupa a faixa de temperatura entre a jaqueta e o dia mais ameno.\",\"ocasiao\":\"dia ameno\",\"position\":3},{\"handle\":\"classic-pullover-hoodie\",\"motivo\":\"Capuz forrado soma calor por dentro da jaqueta nos dias mais frios.\",\"ocasiao\":\"camada base\",\"position\":4},{\"handle\":\"winter-hat\",\"motivo\":\"Fecha o visual nos dias mais frios de agosto em São Paulo.\",\"ocasiao\":\"para o frio\",\"position\":5},{\"handle\":\"minimalist-backpack\",\"motivo\":\"Acompanha a linha minimalista da jaqueta no dia a dia.\",\"ocasiao\":\"dia a dia\",\"position\":6}]"
+  },
+  {
+   "ancora": "rain-jacket",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o frio de agosto",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"heavy-fleece-hoodie\",\"motivo\":\"Camada quente por baixo da jaqueta, ideal pro frio seco de agosto em SP.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"oxford-button-down\",\"motivo\":\"Colarinho estruturado que aparece por baixo do zíper aberto.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"pleated-chino\",\"motivo\":\"Caimento solto que acompanha o volume técnico da jaqueta.\",\"ocasiao\":\"parte de baixo\",\"position\":2},{\"handle\":\"trail-sneakers\",\"motivo\":\"Solado de tração pensado pra rua molhada, igual a jaqueta impermeável.\",\"ocasiao\":\"calçado\",\"position\":3},{\"handle\":\"suede-desert-boots\",\"motivo\":\"Alternativa de meia-estação pra dias secos entre chuvas.\",\"ocasiao\":\"calçado\",\"position\":4},{\"handle\":\"organic-bucket-hat\",\"motivo\":\"Fecha o visual outdoor sem competir com o capuz da jaqueta.\",\"ocasiao\":\"acessório\",\"position\":5}]"
+  },
+  {
+   "ancora": "retro-runner-sneakers",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Visual retrô para o frio de SP",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"vintage-wash-tee\",\"motivo\":\"Lavagem estonada acompanha a estética retrô do tênis.\",\"ocasiao\":\"base vintage\",\"position\":0},{\"handle\":\"denim-western-shirt\",\"motivo\":\"Camada leve por cima da camiseta, mesma linha vintage.\",\"ocasiao\":\"camada\",\"position\":1},{\"handle\":\"heavy-fleece-hoodie\",\"motivo\":\"Camada quente para o frio de agosto em São Paulo.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Fecha por fora nas manhãs frias, sobre a camisa ou o moletom.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"five-panel-cap\",\"motivo\":\"Acessório casual que segue a pegada outdoor do tênis.\",\"ocasiao\":\"acessório casual\",\"position\":4},{\"handle\":\"laptop-commuter-backpack\",\"motivo\":\"Mochila cinza para o dia a dia, combina com o tom do tênis.\",\"ocasiao\":\"dia a dia\",\"position\":5},{\"handle\":\"bucket-hat\",\"motivo\":\"Outra opção de cabeça, mesma vibe outdoor despretensiosa.\",\"ocasiao\":\"acessório casual\",\"position\":6}]"
+  },
+  {
+   "ancora": "the-future-of-web-dev-sweatshirt",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Fecha o look de dev pro frio de SP",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Calça de moletom que não compete com o sweatshirt, só fecha a base.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Camada externa gráfica pro frio de agosto em SP, sem esconder o estilo.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro de algodão segura o frio dos dias mais secos de agosto.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Reforça a estética code-culture do moletom pra levar notebook e livros.\",\"ocasiao\":\"estilo dev\",\"position\":3},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Acessório gráfico que conversa direto com o tema code-culture do moletom.\",\"ocasiao\":\"estilo dev\",\"position\":4}]"
+  },
+  {
+   "ancora": "the-future-of-web-dev-sweatshirt",
+   "cidade": "Porto Alegre",
+   "regiao": "RS",
+   "pais": "BR",
+   "titulo": "Complete o look para o frio de agosto",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"Calça de moletom que fecha o conjunto casual do sweatshirt.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Camada extra pro friozinho de Porto Alegre por cima do sweatshirt.\",\"ocasiao\":\"para o frio\",\"position\":1},{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Casaco por cima quando o vento de agosto apertar.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro de algodão pra fechar a cabeça nos dias mais frios.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"Mesma vibe code-culture do sweatshirt, pra carregar o notebook.\",\"ocasiao\":\"code-culture\",\"position\":4},{\"handle\":\"code-wizard-hat\",\"motivo\":\"Acessório que reforça o tema de programação do sweatshirt.\",\"ocasiao\":\"code-culture\",\"position\":5},{\"handle\":\"dad-hat\",\"motivo\":\"Boné casual que dá acabamento ao conjunto no dia a dia.\",\"ocasiao\":\"casual\",\"position\":6},{\"handle\":\"night-shift-graphic-tee\",\"motivo\":\"Camiseta pra usar por baixo do sweatshirt em dias menos frios.\",\"ocasiao\":\"para o frio\",\"position\":7}]"
+  },
+  {
+   "ancora": "vintage-wash-tee",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.78,
+   "pecas": "[{\"handle\":\"faux-leather-biker\",\"motivo\":\"Camada externa preta para o frio de agosto em São Paulo, sobre a camiseta.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"pleated-chino\",\"motivo\":\"Calça preta de caimento solto que ancora o look da camiseta vintage.\",\"ocasiao\":\"casual\",\"position\":1},{\"handle\":\"retro-runner-sneakers\",\"motivo\":\"O tênis de estética vintage que combina com a lavagem estonada da camiseta.\",\"ocasiao\":\"casual\",\"position\":2},{\"handle\":\"denim-western-shirt\",\"motivo\":\"Sobrecamisa vintage para abrir por cima nas horas mais frescas do dia.\",\"ocasiao\":\"para o frio\",\"position\":3},{\"handle\":\"leather-belt-bag\",\"motivo\":\"Acessório preto que segue a mesma cor da camiseta e da jaqueta.\",\"ocasiao\":\"acessórios\",\"position\":4},{\"handle\":\"dad-hat\",\"motivo\":\"Boné casual que fecha o visual sem pesar no conjunto.\",\"ocasiao\":\"acessórios\",\"position\":5},{\"handle\":\"canvas-messenger\",\"motivo\":\"Bolsa de uso diário que carrega o essencial sem fugir do tom despojado.\",\"ocasiao\":\"casual\",\"position\":6}]"
+  },
+  {
+   "ancora": "vintage-wash-tee",
+   "cidade": "Porto Alegre",
+   "regiao": "RS",
+   "pais": "BR",
+   "titulo": "Composição pro frio de Porto Alegre",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"pleated-chino\",\"motivo\":\"Calça preta de caimento solto, base neutra para a camiseta.\",\"ocasiao\":\"look casual\",\"position\":0},{\"handle\":\"denim-western-shirt\",\"motivo\":\"Abre por cima da camiseta como sobrecamisa vintage.\",\"ocasiao\":\"look casual\",\"position\":1},{\"handle\":\"classic-bomber-jacket\",\"motivo\":\"Camada externa que fecha o conjunto no frio de agosto aí.\",\"ocasiao\":\"para o frio\",\"position\":2},{\"handle\":\"retro-runner-sneakers\",\"motivo\":\"Tênis de pegada vintage que acompanha a lavagem da camiseta.\",\"ocasiao\":\"look casual\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Gorro de algodão para o frio de Porto Alegre em agosto.\",\"ocasiao\":\"para o frio\",\"position\":4},{\"handle\":\"canvas-messenger\",\"motivo\":\"Bolsa de lona que combina com o tom despojado do conjunto.\",\"ocasiao\":\"look casual\",\"position\":5}]"
+  },
+  {
+   "ancora": "vintage-wash-tee",
+   "cidade": "Lisboa",
+   "regiao": "",
+   "pais": "PT",
+   "titulo": "Look leve para o calor de Lisboa",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"pleated-chino\",\"motivo\":\"Caimento solto e cor preta seguem direto da camiseta.\",\"ocasiao\":\"para o dia\",\"position\":0},{\"handle\":\"retro-runner-sneakers\",\"motivo\":\"O tênis vintage que combina com o corte estonado da tee.\",\"ocasiao\":\"para o dia\",\"position\":1},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Abre por cima da camiseta se a noite em Lisboa esfriar.\",\"ocasiao\":\"fim de tarde\",\"position\":2},{\"handle\":\"dad-hat\",\"motivo\":\"Acessório simples que segue o espírito casual da camiseta.\",\"ocasiao\":\"para o dia\",\"position\":3},{\"handle\":\"everyday-canvas-tote\",\"motivo\":\"Bolsa leve para andar por Lisboa sem carregar peso.\",\"ocasiao\":\"para o dia\",\"position\":4},{\"handle\":\"leather-belt-bag\",\"motivo\":\"Alternativa mais prática à tote para dias de caminhada.\",\"ocasiao\":\"para o dia\",\"position\":5}]"
+  },
+  {
+   "ancora": "vintage-wash-tee",
+   "cidade": "Recife",
+   "regiao": "PE",
+   "pais": "BR",
+   "titulo": "Complete o look",
+   "confianca": 0.72,
+   "pecas": "[{\"handle\":\"pleated-chino\",\"motivo\":\"Calça reta que equilibra o corte solto da tee sem pesar no calor.\",\"ocasiao\":\"dia a dia\",\"position\":0},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Sobrecamisa leve para abrir por cima nas horas mais frescas do dia.\",\"ocasiao\":\"dia a dia\",\"position\":1},{\"handle\":\"retro-runner-sneakers\",\"motivo\":\"Tênis vintage que segue o mesmo tom despojado da camiseta.\",\"ocasiao\":\"dia a dia\",\"position\":2},{\"handle\":\"dad-hat\",\"motivo\":\"Boné leve que protege do sol forte de Recife sem esquentar a cabeça.\",\"ocasiao\":\"para o calor\",\"position\":3},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"Bolsa de algodão leve, tamanho certo para o dia a dia no calor.\",\"ocasiao\":\"dia a dia\",\"position\":4},{\"handle\":\"leather-belt-bag\",\"motivo\":\"Pochete prática para andar sem camada extra pesando no calor.\",\"ocasiao\":\"dia a dia\",\"position\":5},{\"handle\":\"denim-western-shirt\",\"motivo\":\"Sobrecamisa jeans leve para os fins de tarde mais frescos.\",\"ocasiao\":\"fim de tarde\",\"position\":6}]"
+  },
+  {
+   "ancora": "woman-sweatshirt",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Fechando o look para o frio de SP",
+   "confianca": 0.75,
+   "pecas": "[{\"handle\":\"fleece-sweatpants\",\"motivo\":\"A calça de moletom que fecha o conjunto casual por baixo.\",\"ocasiao\":\"para o frio\",\"position\":0},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Camada externa para os dias mais frios de agosto em SP.\",\"ocasiao\":\"camada extra\",\"position\":1},{\"handle\":\"cardigan-open-knit\",\"motivo\":\"Veste por cima como terceira peça sem pesar o conjunto.\",\"ocasiao\":\"camada extra\",\"position\":2},{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Outra opção de camada externa para variar o visual.\",\"ocasiao\":\"camada extra\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Acessório de algodão que completa o visual nos dias frios.\",\"ocasiao\":\"acessório\",\"position\":4},{\"handle\":\"knit-headband\",\"motivo\":\"Alternativa ao gorro, cobre a orelha sem esconder o cabelo.\",\"ocasiao\":\"acessório\",\"position\":5},{\"handle\":\"dad-hat\",\"motivo\":\"Boné leve para as horas mais quentes do dia em agosto.\",\"ocasiao\":\"acessório\",\"position\":6}]"
+  },
+  {
+   "ancora": "zip-through-hoodie",
+   "cidade": "São Paulo",
+   "regiao": "SP",
+   "pais": "BR",
+   "titulo": "Camadas para o frio de SP",
+   "confianca": 0.65,
+   "pecas": "[{\"handle\":\"long-sleeve-daily-tee\",\"motivo\":\"Veste por baixo do zíper aberto, segunda pele nos dias mais frios.\",\"ocasiao\":\"camada base\",\"position\":0},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"A calça de moletom que fecha o conjunto por baixo do hoodie.\",\"ocasiao\":\"parte de baixo\",\"position\":1},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Mesmo azul do hoodie, abre por cima quando o dia esquenta.\",\"ocasiao\":\"camada externa\",\"position\":2},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Camada do meio para o frio de agosto aí em São Paulo.\",\"ocasiao\":\"camada externa\",\"position\":3},{\"handle\":\"winter-hat\",\"motivo\":\"Fecha o visual de frio com um acessório básico na cabeça.\",\"ocasiao\":\"acessório\",\"position\":4},{\"handle\":\"dad-hat\",\"motivo\":\"Alternativa mais leve ao gorro para os dias menos frios.\",\"ocasiao\":\"acessório\",\"position\":5}]"
+  }
+ ],
+ "shelves": [
+  {
+   "email": "pessoa-1gjcb46@demo.local",
+   "title": "Enquanto o seu tamanho não volta",
+   "confidence": 0.75,
+   "items": "[{\"handle\":\"all-over-print-bomber-jacket\",\"motivo\":\"Mesmo tipo de bomber, e tem o L que faltou.\"},{\"handle\":\"denim-trucker-jacket\",\"motivo\":\"Outra jaqueta pra vestir no lugar da bomber, e tem o L.\"},{\"handle\":\"quilted-liner-jacket\",\"motivo\":\"Mesma cor marrom da bomber que você queria, com o L.\"},{\"handle\":\"faux-leather-biker\",\"motivo\":\"Jaqueta alternativa à bomber, com o L disponível.\"},{\"handle\":\"coach-jacket\",\"motivo\":\"Outra opção de jaqueta no lugar da bomber, com L disponível.\"},{\"handle\":\"zip-through-hoodie\",\"motivo\":\"Mesmo tipo de moletom com capuz, e tem o M que faltou.\"},{\"handle\":\"oversized-hoodie\",\"motivo\":\"Mesmo tipo de moletom com capuz, e tem o M disponível.\"},{\"handle\":\"heavy-fleece-hoodie\",\"motivo\":\"Também é moletom com capuz, e tem o M disponível.\"},{\"handle\":\"classic-pullover-hoodie\",\"motivo\":\"Mesmo tipo de moletom com capuz que você queria.\"}]",
+   "source": "agente",
+   "fallback_reason": null,
+   "anchor_variant_id": "gid://catalog/Variant/902203",
+   "generated_at": "2026-08-08T17:30:00Z",
+   "title_combina": "Para vestir com o que você queria",
+   "items_combina": "[{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Veste por baixo da jaqueta que você queria sem pesar.\"},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"Camada leve por baixo da jaqueta que você esperava.\"},{\"handle\":\"striped-breton-tee\",\"motivo\":\"Outra camiseta pra usar sob a jaqueta que faltou.\"},{\"handle\":\"winter-hat\",\"motivo\":\"Fecha o look de frio junto com o moletom que você queria.\"},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"A calça que veste bem com o moletom que você esperava.\"},{\"handle\":\"hoodie\",\"motivo\":\"Camada extra por baixo da jaqueta que você queria.\"},{\"handle\":\"woman-sweatshirt\",\"motivo\":\"Outra camada pra usar sob a jaqueta que faltou.\"}]"
+  },
+  {
+   "email": "pessoa-fgavb2@demo.local",
+   "title": "Disponíveis agora, perto do que você queria",
+   "confidence": 0,
+   "items": "[{\"handle\":\"denim-jacket-sherpa\",\"motivo\":\"\"},{\"handle\":\"classic-bomber-jacket\",\"motivo\":\"\"},{\"handle\":\"tailored-blazer\",\"motivo\":\"\"},{\"handle\":\"chambray-work-shirt\",\"motivo\":\"\"},{\"handle\":\"straight-leg-jeans\",\"motivo\":\"\"},{\"handle\":\"striped-breton-tee\",\"motivo\":\"\"},{\"handle\":\"denim-western-shirt\",\"motivo\":\"\"},{\"handle\":\"flannel-overshirt\",\"motivo\":\"\"},{\"handle\":\"faux-leather-biker\",\"motivo\":\"\"},{\"handle\":\"wool-overcoat\",\"motivo\":\"\"}]",
+   "source": "sql",
+   "fallback_reason": "modelo indisponível ou com erro",
+   "anchor_variant_id": "gid://catalog/Variant/902402",
+   "generated_at": "2026-08-08T20:04:22Z",
+   "title_combina": "Para usar com o que você queria",
+   "items_combina": "[{\"handle\":\"coach-jacket\",\"motivo\":\"\"}]"
+  },
+  {
+   "email": "pessoa-1dxekw1@demo.local",
+   "title": "Disponíveis agora, perto do que você queria",
+   "confidence": 0,
+   "items": "[{\"handle\":\"dev-mode-tee\",\"motivo\":\"\"},{\"handle\":\"vintage-wash-tee\",\"motivo\":\"\"},{\"handle\":\"ringer-contrast-tee\",\"motivo\":\"\"},{\"handle\":\"essential-cotton-tee\",\"motivo\":\"\"},{\"handle\":\"heavyweight-boxy-tee\",\"motivo\":\"\"},{\"handle\":\"studio-pocket-tee\",\"motivo\":\"\"},{\"handle\":\"night-shift-graphic-tee\",\"motivo\":\"\"},{\"handle\":\"capybara-club-tee\",\"motivo\":\"\"},{\"handle\":\"striped-breton-tee\",\"motivo\":\"\"},{\"handle\":\"t-shirt\",\"motivo\":\"\"}]",
+   "source": "sql",
+   "fallback_reason": "modelo indisponível ou com erro",
+   "anchor_variant_id": "gid://shopify/ProductVariant/44380863037617",
+   "generated_at": "2026-08-08T04:04:49Z",
+   "title_combina": "Para usar com o que você queria",
+   "items_combina": "[{\"handle\":\"chambray-work-shirt\",\"motivo\":\"\"},{\"handle\":\"denim-western-shirt\",\"motivo\":\"\"},{\"handle\":\"the-future-of-web-dev-sweatshirt\",\"motivo\":\"\"},{\"handle\":\"ctrl-shift-tote-bag\",\"motivo\":\"\"},{\"handle\":\"code-wizard-hat\",\"motivo\":\"\"},{\"handle\":\"all-over-print-tote-bag\",\"motivo\":\"\"},{\"handle\":\"dad-hat\",\"motivo\":\"\"},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"\"}]"
+  },
+  {
+   "email": "pessoa-1fam2yh@demo.local",
+   "title": "Enquanto o M não volta",
+   "confidence": 0.8,
+   "items": "[{\"handle\":\"zip-through-hoodie\",\"motivo\":\"Zíper no lugar do capuz fechado, e tem o M que faltou.\"},{\"handle\":\"oversized-hoodie\",\"motivo\":\"Capuz duplo e caimento solto, com o M disponível.\"},{\"handle\":\"heavy-fleece-hoodie\",\"motivo\":\"Felpa mais grossa para o mesmo tipo de moletom, com M.\"},{\"handle\":\"raglan-sweatshirt\",\"motivo\":\"Mesmo corte de manga raglan do moletom, com M disponível.\"},{\"handle\":\"crewneck-sweatshirt\",\"motivo\":\"Ocupa o mesmo lugar do moletom no guarda-roupa, com M.\"},{\"handle\":\"half-zip-sweatshirt\",\"motivo\":\"Gola alta fecha o pescoço como alternativa ao capuz, com M.\"},{\"handle\":\"woman-sweatshirt\",\"motivo\":\"Alternativa de moletom para o mesmo uso, com M disponível.\"},{\"handle\":\"classic-pullover-hoodie\",\"motivo\":\"Mesmo fechamento com capuz e cordão que você queria.\"},{\"handle\":\"sherpa-lined-hoodie\",\"motivo\":\"Forro pensado para substituir a camada do moletom fechado.\"}]",
+   "source": "agente",
+   "fallback_reason": null,
+   "anchor_variant_id": "gid://shopify/ProductVariant/44253778903217",
+   "generated_at": "2026-08-07T22:06:14Z",
+   "title_combina": "Para completar o look do moletom",
+   "items_combina": "[{\"handle\":\"essential-cotton-tee\",\"motivo\":\"Veste por baixo do moletom sem apertar.\"},{\"handle\":\"long-sleeve-daily-tee\",\"motivo\":\"Camada fina por baixo do moletom em dias mais frios.\"},{\"handle\":\"flannel-overshirt\",\"motivo\":\"Fecha por cima quando o moletom não é suficiente.\"},{\"handle\":\"fleece-sweatpants\",\"motivo\":\"A calça que combina com o moletom fechado.\"},{\"handle\":\"winter-hat\",\"motivo\":\"Fecha o look no frio junto com o moletom.\"}]"
+  }
+ ],
+ "stockAlerts": [
+  {
+   "variant_id": "gid://catalog/Variant/902402",
+   "email": "pessoa-fgavb2@demo.local",
+   "name": "Demo",
+   "created_at": "2026-08-08T20:02:19Z"
+  },
+  {
+   "variant_id": "gid://shopify/ProductVariant/44380863037617",
+   "email": "pessoa-1dxekw1@demo.local",
+   "name": "Demo",
+   "created_at": "2026-08-08T04:04:46Z"
+  },
+  {
+   "variant_id": "gid://shopify/ProductVariant/44253778903217",
+   "email": "pessoa-1fam2yh@demo.local",
+   "name": "Demo",
+   "created_at": "2026-08-07T21:28:38Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/900100",
+   "email": "ana.escura@demo.local",
+   "name": "Demo",
+   "created_at": "2026-05-30T17:43:56Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/906300",
+   "email": "ana.escura@demo.local",
+   "name": "Demo",
+   "created_at": "2026-05-28T17:43:56Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/901400",
+   "email": "bruno.solto@demo.local",
+   "name": "Demo",
+   "created_at": "2026-06-18T17:43:59Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/903100",
+   "email": "bruno.solto@demo.local",
+   "name": "Demo",
+   "created_at": "2026-06-16T17:43:59Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/906900",
+   "email": "carla.tecnica@demo.local",
+   "name": "Demo",
+   "created_at": "2026-07-05T17:44:02Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/907700",
+   "email": "carla.tecnica@demo.local",
+   "name": "Demo",
+   "created_at": "2026-07-07T17:44:02Z"
+  },
+  {
+   "variant_id": "gid://catalog/Variant/907700",
+   "email": "diego.disperso@demo.local",
+   "name": "Demo",
+   "created_at": "2026-07-24T17:44:05Z"
+  }
+ ],
+ "orders": [
+  {
+   "id": "demo-ana.escura-leather-belt-bag",
+   "email": "ana.escura@demo.local",
+   "created_at": "2026-05-23T17:43:55Z",
+   "status": "paid",
+   "total": 289
+  },
+  {
+   "id": "demo-ana.escura-long-sleeve-daily-tee",
+   "email": "ana.escura@demo.local",
+   "created_at": "2026-05-26T17:43:55Z",
+   "status": "paid",
+   "total": 129
+  },
+  {
+   "id": "demo-ana.escura-pleated-chino",
+   "email": "ana.escura@demo.local",
+   "created_at": "2026-05-20T17:43:54Z",
+   "status": "paid",
+   "total": 299
+  },
+  {
+   "id": "demo-ana.escura-tailored-blazer",
+   "email": "ana.escura@demo.local",
+   "created_at": "2026-05-14T17:43:53Z",
+   "status": "paid",
+   "total": 689
+  },
+  {
+   "id": "demo-ana.escura-wide-leg-trousers",
+   "email": "ana.escura@demo.local",
+   "created_at": "2026-05-17T17:43:54Z",
+   "status": "paid",
+   "total": 359
+  },
+  {
+   "id": "demo-bruno.solto-baggy-carpenter-jeans",
+   "email": "bruno.solto@demo.local",
+   "created_at": "2026-06-05T17:43:57Z",
+   "status": "paid",
+   "total": 359
+  },
+  {
+   "id": "demo-bruno.solto-canvas-high-tops",
+   "email": "bruno.solto@demo.local",
+   "created_at": "2026-06-08T17:43:58Z",
+   "status": "paid",
+   "total": 349
+  },
+  {
+   "id": "demo-bruno.solto-five-panel-cap",
+   "email": "bruno.solto@demo.local",
+   "created_at": "2026-06-11T17:43:58Z",
+   "status": "paid",
+   "total": 139
+  },
+  {
+   "id": "demo-bruno.solto-oversize-t-shirt",
+   "email": "bruno.solto@demo.local",
+   "created_at": "2026-06-14T17:43:59Z",
+   "status": "paid",
+   "total": 35
+  },
+  {
+   "id": "demo-bruno.solto-oversized-hoodie",
+   "email": "bruno.solto@demo.local",
+   "created_at": "2026-06-02T17:43:57Z",
+   "status": "paid",
+   "total": 279
+  },
+  {
+   "id": "demo-carla.tecnica-cargo-pants",
+   "email": "carla.tecnica@demo.local",
+   "created_at": "2026-06-30T17:44:01Z",
+   "status": "paid",
+   "total": 319
+  },
+  {
+   "id": "demo-carla.tecnica-heavy-fleece-hoodie",
+   "email": "carla.tecnica@demo.local",
+   "created_at": "2026-06-24T17:44:00Z",
+   "status": "paid",
+   "total": 319
+  },
+  {
+   "id": "demo-carla.tecnica-laptop-commuter-backpack",
+   "email": "carla.tecnica@demo.local",
+   "created_at": "2026-07-03T17:44:02Z",
+   "status": "paid",
+   "total": 449
+  },
+  {
+   "id": "demo-carla.tecnica-puffer-jacket",
+   "email": "carla.tecnica@demo.local",
+   "created_at": "2026-06-21T17:44:00Z",
+   "status": "paid",
+   "total": 649
+  },
+  {
+   "id": "demo-carla.tecnica-trail-sneakers",
+   "email": "carla.tecnica@demo.local",
+   "created_at": "2026-06-27T17:44:01Z",
+   "status": "paid",
+   "total": 559
+  },
+  {
+   "id": "demo-diego.disperso-code-wizard-hat",
+   "email": "diego.disperso@demo.local",
+   "created_at": "2026-07-16T17:44:04Z",
+   "status": "paid",
+   "total": 99
+  },
+  {
+   "id": "demo-diego.disperso-flowing-maxi-dress",
+   "email": "diego.disperso@demo.local",
+   "created_at": "2026-07-10T17:44:03Z",
+   "status": "paid",
+   "total": 529
+  },
+  {
+   "id": "demo-diego.disperso-kids-hoodie",
+   "email": "diego.disperso@demo.local",
+   "created_at": "2026-07-19T17:44:04Z",
+   "status": "paid",
+   "total": 149
+  },
+  {
+   "id": "demo-diego.disperso-sublimation-flip-flops",
+   "email": "diego.disperso@demo.local",
+   "created_at": "2026-07-22T17:44:05Z",
+   "status": "paid",
+   "total": 10
+  },
+  {
+   "id": "demo-diego.disperso-trail-sneakers",
+   "email": "diego.disperso@demo.local",
+   "created_at": "2026-07-13T17:44:03Z",
+   "status": "paid",
+   "total": 559
+  },
+  {
+   "id": "ord_mskyhw6f_cwcjf8",
+   "email": "pessoa-1gjcb46@demo.local",
+   "created_at": "2026-08-08T22:39:43Z",
+   "status": "paid",
+   "total": 44
+  },
+  {
+   "id": "ord_msl9rq0m_vjlz0q",
+   "email": "pessoa-fgavb2@demo.local",
+   "created_at": "2026-08-09T03:55:15Z",
+   "status": "paid",
+   "total": 35
+  }
+ ],
+ "orderItems": [
+  {
+   "order_id": "demo-ana.escura-leather-belt-bag",
+   "variant_id": "gid://catalog/Variant/909300",
+   "quantity": 1,
+   "unit_price": 289,
+   "title_snapshot": "Leather Belt Bag"
+  },
+  {
+   "order_id": "demo-ana.escura-long-sleeve-daily-tee",
+   "variant_id": "gid://catalog/Variant/900500",
+   "quantity": 1,
+   "unit_price": 129,
+   "title_snapshot": "Long Sleeve Daily Tee"
+  },
+  {
+   "order_id": "demo-ana.escura-pleated-chino",
+   "variant_id": "gid://catalog/Variant/908300",
+   "quantity": 1,
+   "unit_price": 299,
+   "title_snapshot": "Pleated Chino"
+  },
+  {
+   "order_id": "demo-ana.escura-tailored-blazer",
+   "variant_id": "gid://catalog/Variant/902600",
+   "quantity": 1,
+   "unit_price": 689,
+   "title_snapshot": "Tailored Blazer"
+  },
+  {
+   "order_id": "demo-ana.escura-wide-leg-trousers",
+   "variant_id": "gid://catalog/Variant/903300",
+   "quantity": 1,
+   "unit_price": 359,
+   "title_snapshot": "Wide Leg Trousers"
+  },
+  {
+   "order_id": "demo-bruno.solto-baggy-carpenter-jeans",
+   "variant_id": "gid://catalog/Variant/908000",
+   "quantity": 1,
+   "unit_price": 359,
+   "title_snapshot": "Baggy Carpenter Jeans"
+  },
+  {
+   "order_id": "demo-bruno.solto-canvas-high-tops",
+   "variant_id": "gid://catalog/Variant/910200",
+   "quantity": 1,
+   "unit_price": 349,
+   "title_snapshot": "Canvas High Tops"
+  },
+  {
+   "order_id": "demo-bruno.solto-five-panel-cap",
+   "variant_id": "gid://catalog/Variant/909900",
+   "quantity": 1,
+   "unit_price": 139,
+   "title_snapshot": "Five Panel Cap"
+  },
+  {
+   "order_id": "demo-bruno.solto-oversize-t-shirt",
+   "variant_id": "gid://shopify/ProductVariant/44377571623089",
+   "quantity": 1,
+   "unit_price": 35,
+   "title_snapshot": "Oversize T-shirt"
+  },
+  {
+   "order_id": "demo-bruno.solto-oversized-hoodie",
+   "variant_id": "gid://catalog/Variant/901100",
+   "quantity": 1,
+   "unit_price": 279,
+   "title_snapshot": "Oversized Hoodie"
+  },
+  {
+   "order_id": "demo-carla.tecnica-cargo-pants",
+   "variant_id": "gid://catalog/Variant/908200",
+   "quantity": 1,
+   "unit_price": 319,
+   "title_snapshot": "Cargo Pants"
+  },
+  {
+   "order_id": "demo-carla.tecnica-heavy-fleece-hoodie",
+   "variant_id": "gid://catalog/Variant/901500",
+   "quantity": 1,
+   "unit_price": 319,
+   "title_snapshot": "Heavy Fleece Hoodie"
+  },
+  {
+   "order_id": "demo-carla.tecnica-laptop-commuter-backpack",
+   "variant_id": "gid://catalog/Variant/904700",
+   "quantity": 1,
+   "unit_price": 449,
+   "title_snapshot": "Laptop Commuter Backpack"
+  },
+  {
+   "order_id": "demo-carla.tecnica-puffer-jacket",
+   "variant_id": "gid://catalog/Variant/907600",
+   "quantity": 1,
+   "unit_price": 649,
+   "title_snapshot": "Puffer Jacket"
+  },
+  {
+   "order_id": "demo-carla.tecnica-trail-sneakers",
+   "variant_id": "gid://catalog/Variant/906000",
+   "quantity": 1,
+   "unit_price": 559,
+   "title_snapshot": "Trail Sneakers"
+  },
+  {
+   "order_id": "demo-diego.disperso-code-wizard-hat",
+   "variant_id": "gid://shopify/ProductVariant/44073366290609",
+   "quantity": 1,
+   "unit_price": 99,
+   "title_snapshot": "Code Wizard Hat"
+  },
+  {
+   "order_id": "demo-diego.disperso-flowing-maxi-dress",
+   "variant_id": "gid://catalog/Variant/903800",
+   "quantity": 1,
+   "unit_price": 529,
+   "title_snapshot": "Flowing Maxi Dress"
+  },
+  {
+   "order_id": "demo-diego.disperso-kids-hoodie",
+   "variant_id": "gid://catalog/Variant/901600",
+   "quantity": 1,
+   "unit_price": 149,
+   "title_snapshot": "Kids Hoodie"
+  },
+  {
+   "order_id": "demo-diego.disperso-sublimation-flip-flops",
+   "variant_id": "gid://shopify/ProductVariant/44387155345585",
+   "quantity": 1,
+   "unit_price": 10,
+   "title_snapshot": "Sublimation Flip Flops"
+  },
+  {
+   "order_id": "demo-diego.disperso-trail-sneakers",
+   "variant_id": "gid://catalog/Variant/906000",
+   "quantity": 1,
+   "unit_price": 559,
+   "title_snapshot": "Trail Sneakers"
+  },
+  {
+   "order_id": "ord_mskyhw6f_cwcjf8",
+   "variant_id": "gid://shopify/ProductVariant/44073362063537",
+   "quantity": 1,
+   "unit_price": 44,
+   "title_snapshot": "Ctrl+Shift+Tote Bag (Default Title)"
+  },
+  {
+   "order_id": "ord_msl9rq0m_vjlz0q",
+   "variant_id": "gid://shopify/ProductVariant/44358659965105",
+   "quantity": 1,
+   "unit_price": 35,
+   "title_snapshot": "Winter Hat (White)"
+  }
+ ],
+ "wishlist": [
+  {
+   "user_id": "pessoa-1gjcb46@demo.local",
+   "product_id": "gid://catalog/Variant/900000",
+   "product_group_id": "",
+   "created_at": "2026-08-09T04:08:42.374Z"
+  },
+  {
+   "user_id": "pessoa-1gjcb46@demo.local",
+   "product_id": "gid://shopify/ProductVariant/44073362063537",
+   "product_group_id": "",
+   "created_at": "2026-08-09T04:15:37.315Z"
+  },
+  {
+   "user_id": "pessoa-1gjcb46@demo.local",
+   "product_id": "gid://shopify/ProductVariant/44073366290609",
+   "product_group_id": "",
+   "created_at": "2026-08-09T04:08:03.666Z"
+  },
+  {
+   "user_id": "pessoa-1dxekw1@demo.local",
+   "product_id": "gid://catalog/Variant/907300",
+   "product_group_id": "",
+   "created_at": "2026-08-09T03:37:17.146Z"
+  },
+  {
+   "user_id": "pessoa-1dxekw1@demo.local",
+   "product_id": "gid://shopify/ProductVariant/44073330344113",
+   "product_group_id": "",
+   "created_at": "2026-08-09T03:38:42.576Z"
+  },
+  {
+   "user_id": "pessoa-d76jh8@demo.local",
+   "product_id": "gid://shopify/ProductVariant/44073330344113",
+   "product_group_id": "",
+   "created_at": "2026-08-09T03:59:48.979Z"
+  }
+ ]
+}
