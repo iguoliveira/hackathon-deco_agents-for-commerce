@@ -16,13 +16,14 @@ export type {
   SeedKind,
 } from "./look.types";
 
-export { lookDaPeca } from "./look.actions";
+export { aquecerLook, lookDaPeca } from "./look.actions";
 export type { BlocoDoLook, LookPersonalizado, PecaRenderizavel } from "./look.actions";
 
 export { comporLook, gerarLook, validar } from "./look.agent";
 export { montarCandidatos } from "./look.candidates";
 export { colherSementes } from "./look.seeds";
 export { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
+export { LOCAL_QUERY_KEY, useLocalAtual, useTrocarLocal } from "./look.hooks";
 export { acharAncora } from "./look.d1";
 export {
   LOCAL_COOKIE,

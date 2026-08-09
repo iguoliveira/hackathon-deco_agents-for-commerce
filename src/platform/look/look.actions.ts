@@ -2,13 +2,17 @@
  * O que a section consome. Nada acima daqui sabe que existe banco ou modelo.
  *
  * É aqui que mora a decisão de latência da feature: o Decopilot leva 35-60s e
- * uma PDP não segura isso. No cache miss a pessoa recebe **na hora** a
- * ordenação do SQL, sem motivos, e o agente é disparado sem `await` para o
- * próximo carregamento ter o look explicado.
+ * uma PDP não segura isso. No cache miss a pessoa recebe **`null` na hora** e a
+ * section não aparece; o agente é disparado sem `await` e o próximo
+ * carregamento daquele par (peça, contexto) já vem explicado.
  *
- * O produto degrada de **look explicado** para **look sem texto** — nunca para
- * vazio, nunca para erro. Mesmo padrão de `notifyMe/subscribe.ts`, que dispara
- * `gerarVitrine` sem esperar.
+ * **A degradação é para nada, não para uma lista sem motivos.** É a decisão de
+ * `look.types.ts` → `Look`, e ela tem um preço que precisa ficar dito onde
+ * alguém vá ler: a primeira visita a um contexto novo não mostra look nenhum.
+ * Isso torna `npm run look:warm` parte do roteiro da demo, não um enfeite —
+ * quem chega pelo link do pitch sem contexto aquecido vê a PDP sem a feature.
+ *
+ * O disparo sem `await` segue o padrão de `notifyMe/subscribe.ts`.
  */
 
 import type { Product } from "@decocms/apps-commerce/types";
@@ -16,17 +20,22 @@ import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { findAvailableCatalogRecordsByHandles } from "../catalog/catalog.d1";
 import { recordToProduct } from "../catalog/catalog.mapper";
 import { donoDaVitrine } from "../shelf/shelf.identity";
-import { gerarLook, jaComprados, lookDoSql, MIN_PECAS } from "./look.agent";
+import { gerarLook, jaComprados, MIN_PECAS } from "./look.agent";
 import { montarCandidatos } from "./look.candidates";
 import { acharAncora, lerLook } from "./look.d1";
 import { localDaRequisicao, localEmTexto, mesAtual } from "./look.local";
 import { colherSementes } from "./look.seeds";
 import type { Contexto, Look } from "./look.types";
 
-/** Uma peça pronta para a tela: o produto e a linha que o justifica. */
+/**
+ * Uma peça pronta para a tela: o produto e a linha que o justifica.
+ *
+ * `motivo` nunca é vazio. `validar` descarta peça sem motivo, e não existe mais
+ * caminho que produza look sem texto — se chegou até aqui, foi escolhida e
+ * explicada pelo agente.
+ */
 export interface PecaRenderizavel {
   product: Product;
-  /** Vazio quando o look veio do fallback por SQL. */
   motivo: string;
 }
 
@@ -45,8 +54,6 @@ export interface BlocoDoLook {
 export interface LookPersonalizado {
   titulo: string;
   blocos: BlocoDoLook[];
-  /** Para a section decidir se mostra os motivos. */
-  origem: "agente" | "sql";
   /** "Porto Alegre, RS, BR" — a section mostra de onde o agente partiu. */
   lugar: string;
   mes: string;
@@ -139,10 +146,17 @@ const montarBlocos = async (look: Look): Promise<BlocoDoLook[]> => {
 /**
  * O look de uma peça para quem está olhando.
  *
- * `null` quando a peça não existe, quando não há candidatos suficientes para
- * compor, ou quando tudo o que o agente escolheu esgotou desde a geração. A
- * section some nos três casos, que é o comportamento certo — um "complete o
- * look" com duas peças é pior que nenhum.
+ * `null` — e a section some — em quatro casos:
+ *
+ *   1. a peça não existe;
+ *   2. não há candidatos suficientes para compor;
+ *   3. **o agente ainda não compôs este par (peça, contexto)**;
+ *   4. tudo o que ele escolheu esgotou desde a geração.
+ *
+ * O caso 3 é o novo, e é o que faz esta função ter dois estados em vez de três:
+ * ou existe um look do agente, ou não existe look. Um "complete o look" que é
+ * só uma lista ordenada não é uma versão mais fraca da feature — é outra coisa,
+ * e ela mente sobre a procedência justamente quando o agente falhou.
  */
 export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | null> => {
   const alvo = await acharAncora(handle);
@@ -159,20 +173,26 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   };
   const hash = hashDoContexto(contexto);
 
+  // HIT: o caminho quente, uma leitura indexada e nada mais. Só existe linha
+  // gravada quando o agente compôs — `gerarLook` não persiste falha.
   const cacheado = await lerLook(alvo.ancora.productGroupId, hash);
+  if (cacheado) return montar(cacheado, contexto);
 
-  // HIT do agente: o caminho quente, uma leitura indexada e nada mais.
-  // Um hit de origem `sql` NÃO curto-circuita — ele significa que a geração
-  // anterior caiu, e tentar de novo é o certo. Sem isto, uma única falha do
-  // provedor congelaria aquele par em "sem motivos" para sempre.
-  if (cacheado?.origem === "agente") {
-    return montar(cacheado, contexto);
-  }
-
-  // O MESMO conjunto de exclusão que `gerarLook` usa. Divergir aqui faria o
-  // look do fallback mostrar uma peça que o do agente nunca mostraria — e ela
-  // sumiria sozinha no reload seguinte, sem explicação.
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
+  // MISS. Antes de gastar um minuto de modelo, confere se há com o que compor —
+  // e usa o MESMO conjunto de exclusão que `gerarLook` vai usar. Divergir aqui
+  // faria a PDP disparar o agente para um pool que ele recusaria por pequeno,
+  // repetindo o gasto a cada visita sem nunca produzir look.
+  //
+  // O terceiro argumento é o guarda-roupa. Ele não filtra nada — só acrescenta
+  // `combinaComOGuardaRoupa` e `jaTemDesteTipo` a cada candidato. Passá-lo aqui
+  // e em `gerarLook` é obrigatório pelo mesmo motivo que `jaComprados`: os dois
+  // caminhos precisam produzir o MESMO pool, senão o que a PDP mede para decidir
+  // se vale chamar o modelo não é o que o modelo recebe.
+  const candidatos = await montarCandidatos(
+    alvo.variantId,
+    jaComprados(contexto),
+    contexto.sementes,
+  );
   if (candidatos.length < MIN_PECAS) return null;
 
   // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem
@@ -184,7 +204,43 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
     console.error(`[look] geração em background falhou para ${handle}`, erro),
   );
 
-  return montar(lookDoSql(candidatos, "geração em andamento"), contexto);
+  // A section some nesta visita. É o custo aceito ao remover o fallback: sem
+  // motivos não há o que mostrar, e mostrar a lista crua seria mostrar o
+  // carrossel que qualquer loja tem no lugar da prova de que houve composição.
+  return null;
+};
+
+/**
+ * Compõe o look de uma peça **esperando o agente terminar**, e grava.
+ *
+ * É o passo 7 do plano (docs/agente-de-combinacoes.md §8), e desde que o
+ * fallback por SQL caiu ele deixou de ser otimização: sem cache quente a
+ * section **não aparece** na primeira visita de um contexto, então pré-aquecer
+ * os produtos do roteiro é o que garante que exista feature no palco.
+ *
+ * A diferença para o `--gravar` do dry run é a única que importa: aquele grava
+ * sob `contexto_hash = 'dryrun'`, que a PDP **nunca lê**. Aqui o contexto e o
+ * hash são os mesmos que `lookDaPeca` calcularia — é por isso que isto vive
+ * aqui, ao lado de `hashDoContexto`, e não no script.
+ *
+ * O contexto é o de quem chama. Rodado do terminal, é "visitante sem histórico
+ * em São Paulo"; rodado dentro de uma request, é o de quem está pedindo. Para
+ * pré-aquecer a persona da demo, abrir a PDP como ela continua sendo o caminho.
+ *
+ * **Não use no caminho de uma request que alguém esteja esperando** — leva os
+ * mesmos 22-41s do agente.
+ */
+export const aquecerLook = async (handle: string): Promise<Look | null> => {
+  const alvo = await acharAncora(handle);
+  if (!alvo) return null;
+
+  const contexto: Contexto = {
+    sementes: await colherSementes(await donoDaVitrine()),
+    local: localDaRequisicao(),
+    mes: mesAtual(),
+  };
+
+  return gerarLook(alvo.ancora.handle, contexto, hashDoContexto(contexto));
 };
 
 const montar = async (look: Look, contexto: Contexto): Promise<LookPersonalizado | null> => {
@@ -198,7 +254,6 @@ const montar = async (look: Look, contexto: Contexto): Promise<LookPersonalizado
   return {
     titulo: look.titulo,
     blocos,
-    origem: look.origem,
     lugar: localEmTexto(contexto.local),
     mes: contexto.mes,
     sementes: contexto.sementes.length,
