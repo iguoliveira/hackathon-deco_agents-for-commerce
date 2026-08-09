@@ -15,7 +15,7 @@
 
 import { findComplementsAvailable } from "../catalog/catalog.d1";
 import type { SimilarCandidate } from "../catalog/catalog.d1";
-import type { Candidato } from "./look.types";
+import type { Candidato, SeedKind } from "./look.types";
 
 /**
  * Quantos pedir ao SQL. Folgado de propósito: o teto e o equilíbrio por tipo
@@ -146,7 +146,7 @@ const equilibrarPorTipo = (candidatos: Candidato[], teto: number): Candidato[] =
 export const montarCandidatos = async (
   variantId: string,
   jaComprados: ReadonlySet<string> = new Set(),
-  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }> = [],
+  guardaRoupa: readonly PecaDaPessoa[] = [],
 ): Promise<Candidato[]> => {
   const complementos = await findComplementsAvailable(variantId, DO_BANCO);
 
@@ -234,28 +234,65 @@ const tagsDoProduto = (similar: SimilarCandidate): string[] =>
  * recalculá-los, e cruzar N candidatos contra M peças possuídas é exatamente o
  * tipo de trabalho em que um modelo erra em silêncio.
  */
-const comOGuardaRoupa = (
+/**
+ * O recorte de uma semente que este arquivo precisa. **`kinds` e obrigatorio**,
+ * e essa e a correcao inteira em uma linha.
+ *
+ * O tipo anterior era `{ titulo, tipo, tags }` — sem `kinds`. A informacao de
+ * ORIGEM era apagada na fronteira da funcao, entao "comprou" e "viu numa PDP"
+ * chegavam indistinguiveis e a unica leitura possivel era tratar as duas como
+ * posse. O bug nao estava na logica: estava na assinatura, que tornava a logica
+ * correta impossivel de escrever.
+ */
+export interface PecaDaPessoa {
+  titulo: string;
+  tipo: string;
+  tags: string[];
+  kinds: readonly SeedKind[];
+}
+
+export const comOGuardaRoupa = (
   candidato: Candidato,
   tagsDoCandidato: string[],
-  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }>,
+  guardaRoupa: readonly PecaDaPessoa[],
 ): Candidato => {
   if (guardaRoupa.length === 0) return candidato;
 
-  // Cruza as tags COMPLETAS do candidato com as do armário — ver `tagsDoProduto`
-  // para por que não pode partir de `tagsEmComum`.
-  const minhasTags = new Set(guardaRoupa.flatMap((peca) => peca.tags));
-  const combina = tagsDoCandidato.filter((tag) => minhasTags.has(tag));
+  // **Posse e desejo sao coisas diferentes, e so uma das quatro origens e
+  // posse.** Comprar significa ter; favoritar, pedir avise-me e ver numa PDP
+  // significam querer, esperar e olhar.
+  //
+  // `recent` fica de fora dos DOIS: um cookie de trinta minutos com oito peças
+  // vistas marcaria meio pool como afinidade, e o proprio prompt proibe
+  // nominalmente ("nao e parece com o que ela olha"). Nada se perde — as quatro
+  // origens continuam chegando ao modelo pelas sementes e pela persona. O que
+  // muda e quais delas podem AFIRMAR afinidade candidato a candidato.
+  const possui = guardaRoupa.filter((p) => p.kinds.includes("purchased"));
+  const quer = guardaRoupa.filter(
+    (p) => p.kinds.includes("wishlist") || p.kinds.includes("waited"),
+  );
 
-  // As peças que a pessoa já tem DO MESMO TIPO do candidato. É o que permite ao
-  // modelo ver saturação — três casacos no armário desqualificam o quarto — sem
-  // que o código decida por ele o que é demais.
-  const jaTemDoTipo = guardaRoupa
+  // Uma peca comprada E favoritada conta nos dois, e isso e verdade, nao dupla
+  // contagem: ela e posse e e desejo declarado.
+  const cruzar = (pecas: readonly PecaDaPessoa[]): string[] => {
+    const tags = new Set(pecas.flatMap((peca) => peca.tags));
+    return tagsDoCandidato.filter((tag) => tags.has(tag));
+  };
+
+  const combinaComTem = cruzar(possui);
+  const combinaComQuer = cruzar(quer);
+
+  // As pecas que a pessoa REALMENTE tem, do mesmo tipo do candidato. Deixa o
+  // modelo ver saturacao sem que o codigo decida o que e demais — e agora sem
+  // contar como posse o gorro que ela so olhou.
+  const jaTemDoTipo = possui
     .filter((peca) => peca.tipo === candidato.tipo)
     .map((peca) => peca.titulo);
 
   return {
     ...candidato,
-    ...(combina.length > 0 ? { combinaComOGuardaRoupa: combina } : {}),
+    ...(combinaComTem.length > 0 ? { combinaComOGuardaRoupa: combinaComTem } : {}),
+    ...(combinaComQuer.length > 0 ? { combinaComOQueQuer: combinaComQuer } : {}),
     ...(jaTemDoTipo.length > 0 ? { jaTemDesteTipo: jaTemDoTipo } : {}),
   };
 };

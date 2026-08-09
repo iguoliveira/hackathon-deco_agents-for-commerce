@@ -153,6 +153,22 @@ export interface Candidato {
    */
   combinaComOGuardaRoupa?: string[];
   /**
+   * Tags que este candidato divide com o que a pessoa **QUER** — favoritou ou
+   * pediu "avise-me". Ausente quando não há interseção.
+   *
+   * Separado de `combinaComOGuardaRoupa` porque **não é a mesma afirmação**.
+   * Aquele diz "funciona com o que ela possui"; este diz "é do território do que
+   * ela vem pedindo". Somar os dois num campo só foi o defeito que a #24
+   * documentou: o prompt descrevia posse e o código entregava posse ∪ desejo ∪
+   * "viu numa PDP".
+   *
+   * Para uma recomendação de compra o desejo pode valer MAIS que a posse — quem
+   * favoritou três jaquetas está dizendo o que quer comprar, enquanto quem já
+   * comprou uma talvez não precise da segunda. Quem decide é o modelo; o código
+   * só para de misturar as duas coisas.
+   */
+  combinaComOQueQuer?: string[];
+  /**
    * Peças do MESMO tipo que a pessoa já possui.
    *
    * É o que deixa o modelo enxergar saturação — quem já tem duas calças não

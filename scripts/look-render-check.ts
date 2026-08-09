@@ -30,7 +30,7 @@ try {
 import completeTheLookLoader from "../src/loaders/completeTheLook";
 import { lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
-import { montarCandidatos } from "../src/platform/look/look.candidates";
+import { montarCandidatos, comOGuardaRoupa } from "../src/platform/look/look.candidates";
 import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
@@ -78,6 +78,55 @@ const main = async (): Promise<void> => {
   titulo(`Âncora: ${ancora.ancora.titulo}`);
   console.log(`  handle:  ${handle}`);
   console.log(`  slug PDP: ${slugDaPdp}   (é este que chega pela URL)`);
+
+  // ------------------------------------------------------------------
+  titulo("0. Posse e desejo nao sao a mesma coisa");
+  // ------------------------------------------------------------------
+  //
+  // `comOGuardaRoupa` anexa `combinaComOGuardaRoupa` e `jaTemDesteTipo`, e o
+  // prompt descreve os dois ao modelo como POSSE — "o que a pessoa JA TEM",
+  // "nao e parece com o que ela olha". Das quatro origens de semente, so
+  // `purchased` e posse.
+  //
+  // O defeito e silencioso: nao lanca, nao aparece no typecheck, e so se
+  // manifesta num prompt que ninguem le. Por isso vive aqui.
+  const cand: Candidato = {
+    handle: "gorro-novo", titulo: "Gorro Novo", tipo: "Beanie", preco: 99,
+    mesmaColecao: false, tagsEmComum: [], opcoesDisponiveis: ["U"], descricao: "",
+  };
+  const tagsDoCand = ["winter", "basic"];
+
+  const soOlhou = [{ titulo: "Ribbed Beanie", tipo: "Beanie", tags: ["winter", "basic"], kinds: ["recent"] as const }];
+  const soQuis  = [{ titulo: "Puffer Jacket", tipo: "Beanie", tags: ["winter"], kinds: ["wishlist"] as const }];
+  const comprou = [{ titulo: "Winter Hat", tipo: "Beanie", tags: ["winter"], kinds: ["purchased"] as const }];
+
+  const r1 = comOGuardaRoupa(cand, tagsDoCand, soOlhou);
+  ok("ver numa PDP nao vira \"ja tem deste tipo\"", r1.jaTemDesteTipo === undefined,
+     JSON.stringify(r1.jaTemDesteTipo));
+  ok("ver numa PDP nao vira \"combina com o que ela tem\"", r1.combinaComOGuardaRoupa === undefined,
+     JSON.stringify(r1.combinaComOGuardaRoupa));
+
+  const r2 = comOGuardaRoupa(cand, tagsDoCand, soQuis);
+  ok("favoritar nao vira \"ja tem deste tipo\"", r2.jaTemDesteTipo === undefined,
+     JSON.stringify(r2.jaTemDesteTipo));
+
+  const r3 = comOGuardaRoupa(cand, tagsDoCand, comprou);
+  ok("comprar VIRA \"ja tem deste tipo\"", r3.jaTemDesteTipo?.[0] === "Winter Hat");
+  ok("comprar VIRA \"combina com o que ela tem\"", (r3.combinaComOGuardaRoupa ?? []).includes("winter"));
+
+  // O desejo nao e descartado — ele muda de campo. Sem isto, consertar o bug
+  // teria custado o sinal de quem favorita e nao compra, que e a maioria.
+  ok("favoritar VIRA \"combina com o que ela quer\"", (r2.combinaComOQueQuer ?? []).includes("winter"));
+  ok("e ver numa PDP nao vira nem isso", r1.combinaComOQueQuer === undefined,
+     JSON.stringify(r1.combinaComOQueQuer));
+
+  // Comprada E favoritada conta nos dois: e posse e e desejo declarado.
+  const ambos = comOGuardaRoupa(cand, tagsDoCand, [
+    { titulo: "Winter Hat", tipo: "Beanie", tags: ["winter"], kinds: ["purchased", "wishlist"] as const },
+  ]);
+  ok("comprada E favoritada conta nos dois campos",
+     (ambos.combinaComOGuardaRoupa ?? []).includes("winter") &&
+       (ambos.combinaComOQueQuer ?? []).includes("winter"));
 
   // ------------------------------------------------------------------
   titulo("1. acharAncora aceita o slug que o site realmente gera");

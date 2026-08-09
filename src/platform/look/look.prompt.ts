@@ -114,14 +114,23 @@ Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
   mesmaColecao       -> mesmo território da loja. Sinal fraco sozinho; nunca use
                         isso como único motivo.
   opcoesDisponiveis  -> o que dá para comprar hoje.
-  combinaComOGuardaRoupa -> tags que esta peça divide com o que a pessoa JÁ TEM.
-                        É o sinal mais forte que existe aqui: não é "parece com
-                        o que ela olha", é "funciona com o que ela possui".
-                        Quando aparecer, prefira o candidato e diga isso no
-                        motivo, nomeando a peça dela.
-  jaTemDesteTipo     -> peças do MESMO tipo que ela já possui. Quem já tem duas
+  combinaComOGuardaRoupa -> tags que esta peça divide com o que a pessoa
+                        COMPROU. Não é "parece com o que ela olha": é "funciona
+                        com o que ela possui". Quando aparecer, prefira o
+                        candidato e diga isso no motivo, nomeando a peça dela.
+  combinaComOQueQuer -> tags que esta peça divide com o que ela FAVORITOU ou
+                        pediu "avise-me". Desejo declarado, não posse. Também é
+                        forte, e às vezes mais: quem favoritou e não comprou
+                        continua querendo. Mas no motivo diga a coisa certa —
+                        "do território do que você vem procurando", nunca
+                        "combina com o que você já tem".
+  jaTemDesteTipo     -> peças do MESMO tipo que ela COMPROU. Quem já tem duas
                         calças raramente precisa da terceira: só ofereça mais
                         uma se ela cumprir função diferente, e explique qual.
+
+  Os três acima contam só compra e desejo. O que ela apenas VIU numa PDP não
+  entra em nenhum deles — olhar não é ter nem pedir, e um cookie de meia hora
+  marcaria meio catálogo como afinidade.
 
 ## NÃO EMPILHE PEÇAS INTERCAMBIÁVEIS
 
