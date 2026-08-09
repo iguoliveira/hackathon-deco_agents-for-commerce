@@ -187,6 +187,9 @@ const replay = async (sql: postgres.Sql): Promise<number> => {
 `);
 
   try {
+    // O CASCADE emite um NOTICE por objeto derrubado — doze linhas de ruído no
+    // fim de um relatório que a pessoa está lendo para achar um ✗.
+    await sql.unsafe(`SET client_min_messages TO WARNING`);
     await sql.unsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
     await sql.unsafe(`CREATE SCHEMA ${SCHEMA}`);
 
@@ -308,7 +311,7 @@ const replay = async (sql: postgres.Sql): Promise<number> => {
         `
   [32mUm banco novo nasce igual a este.[0m
 ` +
-          `  As 20 migrations executam na ordem, e o resultado bate em contagem,
+          `  As ${arquivos.length} migrations executam na ordem, e o resultado bate em contagem,
 ` +
           `  coluna, tipo, nulabilidade, default e índice.
 `,

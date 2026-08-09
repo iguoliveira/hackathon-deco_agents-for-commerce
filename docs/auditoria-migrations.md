@@ -3,9 +3,13 @@
 > **Faltava uma migration, e ela está aqui. O replay foi feito.** Medido em
 > 2026-08-09 contra o Supabase de produção, com `main` em `ca3d8f3`.
 >
-> Resposta curta: as migrations **executam limpas e produzem o schema exato de
-> produção**. A única divergência é de dado — um produto que produção apagou à
-> mão e que um banco novo traria de volta (§4b).
+> **Resposta: sim, agora estão.** O replay das 21 migrations num schema limpo
+> produz exatamente o banco de hoje — 135 produtos, 83 colunas, 30 índices,
+> zero diferença.
+>
+> Duas correções foram precisas para chegar aí: a `0015_wishlist` que faltava
+> (§2) e a `0020_remove_snap_case`, que escreve uma decisão que só existia como
+> um `DELETE` feito à mão em produção (§4b).
 >
 > A pergunta veio de uma decisão concreta: vamos criar um projeto novo do
 > Supabase, e precisamos saber se `npm run db:migrate` nele reproduz o banco de
@@ -295,7 +299,7 @@ Três coisas foram conferidas antes de considerar isto seguro em produção:
 
 ### O veredito
 
-**As 20 migrations executam, na ordem, sem erro.** ~560ms cada.
+**As 21 migrations executam, na ordem, sem erro.** ~530ms cada.
 
 **O schema é idêntico**: mesmas tabelas, colunas, tipos, nulabilidade, defaults e
 índices. Zero diferença.
@@ -313,7 +317,7 @@ Três coisas foram conferidas antes de considerar isto seguro em produção:
 
 As quatro últimas são consequência da primeira — são as linhas daquele produto.
 
-### A capa de celular: a produção contradiz a migration
+### A capa de celular: a produção contradizia a migration
 
 Não foi descuido das migrations. A cadeia decide por ela três vezes:
 
@@ -328,9 +332,38 @@ Líquido: **as migrations querem a capa no catálogo.** Produção não tem. Alg
 apagou à mão depois da `0010`, contra o que está escrito ali — e sem deixar
 rastro em migration, commit ou doc.
 
-**Um projeto novo ressuscita a capa.** É a única divergência de dado, e ela é uma
-decisão de produto, não um defeito técnico: ou a `0010` está certa e produção é
-que está errada, ou alguém mudou de ideia e não registrou.
+**Um projeto novo ressuscitaria a capa.** Era a única divergência de dado, e uma
+decisão de produto, não um defeito técnico.
+
+**Decidido: produção está certa.** A `0020_remove_snap_case.sql` escreve isso
+onde deveria ter sido escrito. Ela é **no-op em produção** (as linhas já não
+existem, os `DELETE` não casam nada — conferido: 135 produtos antes e depois de
+aplicá-la) e remove a capa num banco novo. Não muda o banco de hoje; faz o de
+amanhã nascer igual a ele.
+
+O comentário da `0010` fica superado neste ponto e **não foi editado**: migration
+aplicada não deve mudar de texto. A versão vigente mora no cabeçalho da `0020`.
+
+Conferido antes de escrever: `stock_alerts`, `order_items`, `wishlist_items`,
+`looks.pecas`, `shelves.items` e o `snapshot.json` — **nenhum** referencia a
+capa. Não há órfã a criar.
+
+### Depois das duas correções
+
+```
+✓ products         replay= 135  produção= 135
+✓ variants         replay= 700  produção= 700
+✓ product_images   replay= 228  produção= 228
+✓ product_props    replay= 829  produção= 829
+✓ variant_options  replay= 892  produção= 892
+
+✓ 83 colunas e 30 índices, idênticos
+
+Um banco novo nasce igual a este.
+```
+
+E o `db:audit`: 21 arquivos × 21 registradas, listas idênticas, nenhum objeto
+órfão.
 
 ### O falso positivo que o replay tem, e como ele é tratado
 
