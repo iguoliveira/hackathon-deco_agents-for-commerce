@@ -172,7 +172,7 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   // O MESMO conjunto de exclusão que `gerarLook` usa. Divergir aqui faria o
   // look do fallback mostrar uma peça que o do agente nunca mostraria — e ela
   // sumiria sozinha no reload seguinte, sem explicação.
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
   if (candidatos.length < MIN_PECAS) return null;
 
   // Dispara e NÃO espera. É melhor esforço, e é honesto dizer por quê: sem

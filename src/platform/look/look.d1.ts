@@ -16,7 +16,19 @@ interface SementeRow {
   product_group_id: string;
   title: string;
   product_type: string;
+  tags: string[] | null;
 }
+
+/**
+ * As tags do produto, no mesmo formato que `acharAncora` já usa.
+ *
+ * Repetido como fragmento em vez de virar JOIN porque as três consultas de
+ * semente partem de tabelas diferentes (variante, handle, pedido) e só
+ * compartilham o `product_group_id` no fim.
+ */
+const TAGS_DO_PRODUTO = `COALESCE((SELECT ARRAY_AGG(pp.value) FROM product_props pp
+                                    WHERE pp.product_group_id = p.product_group_id
+                                      AND pp.name = 'TAG'), '{}') AS tags`;
 
 /**
  * Resolve variantes em produtos. É como favoritos e compras viram semente: os
@@ -35,7 +47,7 @@ export const sementesPorVariante = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT DISTINCT p.product_group_id, p.title, p.product_type
+        `SELECT DISTINCT p.product_group_id, p.title, p.product_type, ${TAGS_DO_PRODUTO}
            FROM products p
            JOIN variants v ON v.product_group_id = p.product_group_id
           WHERE v.variant_id = ANY(?)`,
@@ -47,6 +59,7 @@ export const sementesPorVariante = async (
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
+      tags: linha.tags ?? [],
       kind,
       em,
     }));
@@ -68,7 +81,7 @@ export const sementesPorHandle = async (
   try {
     const { results } = await db
       .prepare(
-        `SELECT p.product_group_id, p.handle, p.title, p.product_type
+        `SELECT p.product_group_id, p.handle, p.title, p.product_type, ${TAGS_DO_PRODUTO}
            FROM products p
           WHERE p.handle = ANY(?)`,
       )
@@ -85,6 +98,7 @@ export const sementesPorHandle = async (
         productGroupId: linha.product_group_id,
         titulo: linha.title,
         tipo: linha.product_type ?? "",
+        tags: linha.tags ?? [],
         kind,
         em,
         _pos: posicaoNoCookie.get(linha.handle) ?? Number.MAX_SAFE_INTEGER,
@@ -124,7 +138,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
     const { results } = await db
       .prepare(
         `SELECT DISTINCT ON (p.product_group_id)
-                p.product_group_id, p.title, p.product_type, o.created_at
+                p.product_group_id, p.title, p.product_type, o.created_at, ${TAGS_DO_PRODUTO}
            FROM orders o
            JOIN order_items oi ON oi.order_id = o.id
            JOIN variants v ON v.variant_id = oi.variant_id
@@ -139,6 +153,7 @@ export const comprasDe = async (email: string): Promise<Semente[]> => {
       productGroupId: linha.product_group_id,
       titulo: linha.title,
       tipo: linha.product_type ?? "",
+      tags: linha.tags ?? [],
       kind: "purchased" as const,
       em: linha.created_at,
     }));

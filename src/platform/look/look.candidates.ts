@@ -146,6 +146,7 @@ const equilibrarPorTipo = (candidatos: Candidato[], teto: number): Candidato[] =
 export const montarCandidatos = async (
   variantId: string,
   jaComprados: ReadonlySet<string> = new Set(),
+  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }> = [],
 ): Promise<Candidato[]> => {
   const complementos = await findComplementsAvailable(variantId, DO_BANCO);
 
@@ -153,5 +154,44 @@ export const montarCandidatos = async (
     (candidato) => !jaComprados.has(candidato.record.product.product_group_id),
   );
 
-  return equilibrarPorTipo(disponiveis.map(paraCandidato), TETO);
+  return equilibrarPorTipo(
+    disponiveis.map((similar) => comOGuardaRoupa(paraCandidato(similar), guardaRoupa)),
+    TETO,
+  );
+};
+
+/**
+ * Acrescenta ao candidato a afinidade com o que a pessoa **já tem**.
+ *
+ * Simétrico ao `tagsEmComum`, que mede afinidade com a peça aberta. Aquele
+ * responde "isto combina com o que ela está olhando?"; este responde "isto
+ * combina com o guarda-roupa dela?" — e sem ele a compra chegava ao modelo como
+ * rótulo, não como dado: só título e tipo, sem nada calculado em cima.
+ *
+ * Calculado em CÓDIGO, e não deixado para o modelo cruzar de cabeça, pela mesma
+ * razão que `tagsEmComum` é: o prompt manda usar os sinais prontos em vez de
+ * recalculá-los, e cruzar N candidatos contra M peças possuídas é exatamente o
+ * tipo de trabalho em que um modelo erra em silêncio.
+ */
+const comOGuardaRoupa = (
+  candidato: Candidato,
+  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }>,
+): Candidato => {
+  if (guardaRoupa.length === 0) return candidato;
+
+  const minhasTags = new Set(guardaRoupa.flatMap((peca) => peca.tags));
+  const combina = candidato.tagsEmComum.filter((tag) => minhasTags.has(tag));
+
+  // As peças que a pessoa já tem DO MESMO TIPO do candidato. É o que permite ao
+  // modelo ver saturação — três casacos no armário desqualificam o quarto — sem
+  // que o código decida por ele o que é demais.
+  const jaTemDoTipo = guardaRoupa
+    .filter((peca) => peca.tipo === candidato.tipo)
+    .map((peca) => peca.titulo);
+
+  return {
+    ...candidato,
+    ...(combina.length > 0 ? { combinaComOGuardaRoupa: combina } : {}),
+    ...(jaTemDoTipo.length > 0 ? { jaTemDesteTipo: jaTemDoTipo } : {}),
+  };
 };

@@ -35,6 +35,19 @@ export interface Semente {
   titulo: string;
   /** `products.product_type`. */
   tipo: string;
+  /**
+   * As tags da peça (`product_props` com `name = 'TAG'`).
+   *
+   * Sem elas a semente chegava ao modelo como **rótulo, não como dado**: só
+   * título e tipo. Ele conseguia dizer "combina com o tênis branco que você
+   * comprou" porque leu "White" da string do título — e era a única inferência
+   * que o dado permitia. Todo candidato já vinha com `tagsEmComum`; o que a
+   * pessoa possui, não. A assimetria é que tornava a compra decorativa.
+   *
+   * É delas que sai `combinaComOGuardaRoupa` em `look.candidates.ts`, calculado
+   * em código, do mesmo jeito que `tagsEmComum` é calculado contra a âncora.
+   */
+  tags: string[];
   kind: SeedKind;
   /** ISO 8601. Semente recente pesa mais no desempate. */
   em: string;
@@ -97,6 +110,21 @@ export interface Candidato {
   /** Só as opções com variante disponível AGORA (tamanhos, cores…). */
   opcoesDisponiveis: string[];
   descricao: string;
+  /**
+   * Tags que este candidato divide com o que a pessoa **já tem**.
+   *
+   * Simétrico a `tagsEmComum`, que é contra a peça aberta. Ausente quando não há
+   * interseção — omitir é mais barato que mandar `[]` em 18 candidatos, e o
+   * campo ausente lê-se como "nada a dizer" em vez de "medido e deu zero".
+   */
+  combinaComOGuardaRoupa?: string[];
+  /**
+   * Peças do MESMO tipo que a pessoa já possui.
+   *
+   * É o que deixa o modelo enxergar saturação — quem já tem duas calças não
+   * precisa da terceira — sem que o código decida por ele quantas são demais.
+   */
+  jaTemDesteTipo?: string[];
 }
 
 /** A peça aberta na PDP, na forma que vai para o prompt. */

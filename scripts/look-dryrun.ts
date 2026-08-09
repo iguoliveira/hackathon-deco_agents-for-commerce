@@ -95,6 +95,10 @@ const lerSementes = async (handles: string[]): Promise<Semente[]> => {
       productGroupId: alvo.ancora.productGroupId,
       titulo: alvo.ancora.titulo,
       tipo: alvo.ancora.tipo,
+      // `acharAncora` já traz as tags, e a semente do dry run precisa delas
+      // pelo mesmo motivo que a real: sem tags não há `combinaComOGuardaRoupa`,
+      // e o `--semente` deixaria de reproduzir o que acontece em produção.
+      tags: alvo.ancora.tags,
       kind: "purchased",
       em: agora,
     });
@@ -161,7 +165,7 @@ const main = async (): Promise<void> => {
     }
   }
 
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
   console.log(`\n=== ${candidatos.length} CANDIDATOS ===`);
   if (args.includes("--candidatos")) {
     // O tipo de cada candidato é o que se olha aqui: se a lista tiver seis
