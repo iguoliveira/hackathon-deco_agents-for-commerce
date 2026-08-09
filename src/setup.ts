@@ -214,16 +214,25 @@ registerCommerceLoaders({
 import { registerInvokeHandlers } from "@decocms/blocks-admin";
 
 registerInvokeHandlers({
-  "site/actions/wishlist/submit.ts": async (props, req) =>
-    (await import("./actions/wishlist/submit")).default(props, req),
-  "site/actions/wishlist/submit": async (props, req) =>
-    (await import("./actions/wishlist/submit")).default(props, req),
+  // Sem `req`: a action passou a delegar para `toggleWishlistItemServerFn`, que
+  // resolve a sessão por dentro. Passar a requisição aqui virou erro de tipo no
+  // merge — é o sinal de que a identidade deixou de vir por parâmetro, que é a
+  // mesma regra que `notifyMe/subscribe.ts` já seguia.
+  "site/actions/wishlist/submit.ts": async (props) =>
+    (await import("./actions/wishlist/submit")).default(props as never),
+  "site/actions/wishlist/submit": async (props) =>
+    (await import("./actions/wishlist/submit")).default(props as never),
   // O seletor de cidade. Vence o geo por IP, e é o que torna a feature
   // observável em `vite dev`, onde os headers da Vercel não existem.
   "site/actions/look/setLocal.ts": async (props, req) =>
     (await import("./actions/look/setLocal")).default(props as any, req),
   "site/actions/look/setLocal": async (props, req) =>
     (await import("./actions/look/setLocal")).default(props as any, req),
+  // O outro lado do seletor: qual local está em vigor agora. Lido pelo cliente
+  // porque o Header é `layout` e tem cache compartilhado entre visitantes —
+  // ver o comentário em `src/loaders/lookLocal.ts`.
+  "site/loaders/lookLocal.ts": async () => (await import("./loaders/lookLocal")).default(),
+  "site/loaders/lookLocal": async () => (await import("./loaders/lookLocal")).default(),
   "site/actions/shipping/simulate.ts": async (props, req) =>
     (await import("./actions/shipping/simulate")).default(props, req),
   "site/actions/shipping/simulate": async (props, req) =>

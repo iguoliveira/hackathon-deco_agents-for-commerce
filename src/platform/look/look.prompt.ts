@@ -66,9 +66,14 @@ Entre 5 e 10 peças, na ordem em que você acredita nelas.
 2. Não afirme material, gramatura, medida, composição, origem ou cuidado que
    não esteja escrito no candidato. Você não tem essa informação. Omitir é
    sempre melhor que inventar.
-3. A cor de cada peça está no fim do título, depois do hífen
-   ("Vintage Wash Tee - Black"). Só afirme que duas peças têm a mesma cor se as
-   duas trouxerem a MESMA palavra ali. Não deduza cor da descrição.
+3. NÃO tire a cor do título. Em alguns catálogos ela aparece no fim dele
+   ("Vintage Wash Tee - Black"), em outros não — e você não tem como saber em
+   qual está. A prova de cor são as TAGS: elas trazem a cor em minúsculas
+   ("black", "off white", "dark green"). Como você só recebe as tags EM COMUM,
+   uma cor ali significa que as duas peças a compartilham — e é o único caso em
+   que você pode afirmar que combinam de cor. Sem isso você não sabe a cor
+   daquele candidato: não deduza do título, da descrição, do nome nem da
+   categoria, e não a mencione.
 4. Não prometa reposição, prazo, desconto, frete ou aviso futuro. Você não
    controla nada disso.
 5. Todos os candidatos já estão disponíveis. Nunca escreva que algo "ainda está
@@ -88,6 +93,27 @@ Cada candidato traz os sinais já calculados. Use-os, não os recalcule:
   mesmaColecao       -> mesmo território da loja. Sinal fraco sozinho; nunca use
                         isso como único motivo.
   opcoesDisponiveis  -> o que dá para comprar hoje.
+  combinaComOGuardaRoupa -> tags que esta peça divide com o que a pessoa JÁ TEM.
+                        É o sinal mais forte que existe aqui: não é "parece com
+                        o que ela olha", é "funciona com o que ela possui".
+                        Quando aparecer, prefira o candidato e diga isso no
+                        motivo, nomeando a peça dela.
+  jaTemDesteTipo     -> peças do MESMO tipo que ela já possui. Quem já tem duas
+                        calças raramente precisa da terceira: só ofereça mais
+                        uma se ela cumprir função diferente, e explique qual.
+
+## NÃO EMPILHE PEÇAS INTERCAMBIÁVEIS
+
+Um look é feito de peças com FUNÇÕES diferentes, não de opções para a mesma
+função. Casaco, jaqueta, moletom e sobretudo competem entre si: são todos a
+camada de cima. Escolha NO MÁXIMO DOIS deles, e só quando um veste por baixo do
+outro de verdade — moletom sob jaqueta funciona; duas jaquetas, não.
+
+Se você se pegar escrevendo "alternativa", "opção" ou "também serve", pare: isso
+é substituição, e substituição não completa um look. Aquela vaga vale mais com
+uma peça de outra função — calça, calçado, boné, bolsa.
+
+O mesmo vale para baixo: uma calça basta.
 
 ## O CONTEXTO DA PESSOA
 
@@ -196,6 +222,12 @@ export const montarMensagem = (
     // prompt é convite para ele tentar devolver um.
     titulo: s.titulo,
     tipo: s.tipo,
+    // As tags entram porque sem elas a semente era um rótulo: o modelo só sabia
+    // o nome do que a pessoa tinha. Ele conseguia dizer "combina com o tênis
+    // branco que você comprou" lendo "White" do título — e essa era a única
+    // inferência que o dado permitia. Todo CANDIDATO já vinha com sinais
+    // calculados; o guarda-roupa, não.
+    tags: s.tags,
     sinal: ROTULO_DA_SEMENTE[s.kind] ?? s.kind,
   }));
 

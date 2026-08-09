@@ -1,6 +1,7 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useSignOut, useUser } from "../platform/user";
 import AddressBook from "../components/account/AddressBook";
+import BackButton from "../components/ui/BackButton";
 
 export const Route = createFileRoute("/account")({
   component: AccountPage,
@@ -35,6 +36,7 @@ function AccountPage() {
 
   return (
     <div className="container mx-auto px-4 py-10">
+      <BackButton />
       <h1 className="text-3xl font-semibold mb-2">My account</h1>
       <p className="text-base-content/70 mb-8">
         Welcome back{user?.givenName ? `, ${user.givenName}` : ""}.

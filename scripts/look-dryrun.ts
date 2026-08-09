@@ -29,7 +29,12 @@
  * não dá para automatizar.
  */
 
-process.loadEnvFile(".env");
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // Sem .env: o erro de "DATABASE_URL não definida" que vem depois é o útil,
+  // não um ENOENT com stack trace antes de qualquer diagnóstico.
+}
 
 import { readFileSync } from "node:fs";
 import { comporLook, jaComprados } from "../src/platform/look/look.agent";
@@ -95,6 +100,10 @@ const lerSementes = async (handles: string[]): Promise<Semente[]> => {
       productGroupId: alvo.ancora.productGroupId,
       titulo: alvo.ancora.titulo,
       tipo: alvo.ancora.tipo,
+      // `acharAncora` já traz as tags, e a semente do dry run precisa delas
+      // pelo mesmo motivo que a real: sem tags não há `combinaComOGuardaRoupa`,
+      // e o `--semente` deixaria de reproduzir o que acontece em produção.
+      tags: alvo.ancora.tags,
       kind: "purchased",
       em: agora,
     });
@@ -161,7 +170,7 @@ const main = async (): Promise<void> => {
     }
   }
 
-  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto));
+  const candidatos = await montarCandidatos(alvo.variantId, jaComprados(contexto), contexto.sementes);
   console.log(`\n=== ${candidatos.length} CANDIDATOS ===`);
   if (args.includes("--candidatos")) {
     // O tipo de cada candidato é o que se olha aqui: se a lista tiver seis
@@ -185,10 +194,17 @@ const main = async (): Promise<void> => {
   const look = await comporLook(alvo.ancora, contexto, candidatos);
   const decorrido = ((Date.now() - inicio) / 1000).toFixed(1);
 
+  // Não existe mais look de consolação: ou o agente compôs, ou não há nada a
+  // imprimir. `comporLook` já escreveu no log qual caminho de falha foi, e essa
+  // linha é a resposta inteira — na PDP, este mesmo caso é a section sumindo.
+  if (!look) {
+    console.error(`\n=== SEM LOOK (${decorrido}s) — o motivo está na linha acima ===\n`);
+    process.exit(1);
+  }
+
   const rotulo = new Map(candidatos.map((c) => [c.handle, `${c.titulo}  [${c.tipo}]`]));
 
-  console.log(`\n=== O LOOK (${look.origem}, ${decorrido}s) ===`);
-  if (look.motivoDoFallback) console.log(`fallback: ${look.motivoDoFallback}`);
+  console.log(`\n=== O LOOK (${decorrido}s) ===`);
   console.log(`\n"${look.titulo}"   confiança ${look.confianca}\n`);
 
   // Agrupa por ocasião do MESMO jeito que `montarBlocos` faz — com um Map, que
@@ -209,7 +225,7 @@ const main = async (): Promise<void> => {
     console.log(`  ┌─ ${ocasiao}`);
     for (const peca of pecas) {
       console.log(`  │  ${rotulo.get(peca.handle)}`);
-      console.log(`  │    ${peca.motivo || "(sem motivo — look do SQL)"}`);
+      console.log(`  │    ${peca.motivo}`);
     }
   }
 

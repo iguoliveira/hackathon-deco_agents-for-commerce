@@ -8,65 +8,71 @@
       "__resolveType": "Header"
     },
     {
-      "__resolveType": "site/sections/Content/Hero.tsx",
-      "slides": [
-        {
-          "image": "https://decoims.com/demo-storefront/2026/07/57440993-8c68-4943-9084-1c947c1d0fd5-banner1.png?quality=original",
-          "mobileImage": "https://decoims.com/demo-storefront/2026/07/611a7feb-6906-4d6e-9965-ca2bcf0e7081-banner1-mob.png",
-          "headline": "NEW SEASON, UP TO 60% OFF",
-          "href": "/products/deco-tee",
-          "product": {
-            "__resolveType": "site/loaders/catalogProductByHandle.ts",
-            "handle": "deco-tee"
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Content/Hero.tsx",
+        "slides": [
+          {
+            "image": "https://decoims.com/demo-storefront/2026/07/57440993-8c68-4943-9084-1c947c1d0fd5-banner1.png?quality=original",
+            "mobileImage": "https://decoims.com/demo-storefront/2026/07/611a7feb-6906-4d6e-9965-ca2bcf0e7081-banner1-mob.png",
+            "headline": "NEW SEASON, UP TO 60% OFF",
+            "href": "/products/deco-tee",
+            "product": {
+              "__resolveType": "site/loaders/catalogProductByHandle.ts",
+              "handle": "deco-tee"
+            }
+          },
+          {
+            "image": "https://decoims.com/demo-storefront/2026/07/ba0261c3-bee6-40bd-b7a4-ce12083c7be5-banner2.png",
+            "mobileImage": "https://decoims.com/demo-storefront/2026/07/9b92f808-9ae1-40ed-8a88-8a9929347647-banner2-mob.png",
+            "headline": "ACCESSORIES THAT FINISH THE LOOK",
+            "href": "/products/deco-cap",
+            "product": {
+              "__resolveType": "site/loaders/catalogProductByHandle.ts",
+              "handle": "deco-cap"
+            }
+          },
+          {
+            "image": "https://decoims.com/demo-storefront/2026/07/5a5dbcb8-eaaa-494f-8476-f32a029facf3-banner3.png",
+            "mobileImage": "https://decoims.com/demo-storefront/2026/07/62941bd2-b774-4445-8533-2ca6db199f15-banner3-mob.png",
+            "headline": "BUILT FOR COMFORT, CUT FOR STYLE",
+            "href": "/products/deco-sweatpants",
+            "product": {
+              "__resolveType": "site/loaders/catalogProductByHandle.ts",
+              "handle": "deco-sweatpants"
+            }
           }
-        },
-        {
-          "image": "https://decoims.com/demo-storefront/2026/07/ba0261c3-bee6-40bd-b7a4-ce12083c7be5-banner2.png",
-          "mobileImage": "https://decoims.com/demo-storefront/2026/07/9b92f808-9ae1-40ed-8a88-8a9929347647-banner2-mob.png",
-          "headline": "ACCESSORIES THAT FINISH THE LOOK",
-          "href": "/products/deco-cap",
-          "product": {
-            "__resolveType": "site/loaders/catalogProductByHandle.ts",
-            "handle": "deco-cap"
+        ],
+        "interval": 6,
+        "categories": [
+          {
+            "label": "Shirts",
+            "href": "/shirts",
+            "image": "https://decoims.com/demo-storefront/2026/07/dcd77bbd-4969-4186-aaaa-d8bc9e4b84c1-chatgpt-image-jul-27-2026-06_54_44-pm.png"
+          },
+          {
+            "label": "Accessories",
+            "href": "/accessories",
+            "image": "https://decoims.com/demo-storefront/2026/07/543e04d2-011d-4cc2-8875-46a1a08bef3d-accessories.png"
           }
-        },
-        {
-          "image": "https://decoims.com/demo-storefront/2026/07/5a5dbcb8-eaaa-494f-8476-f32a029facf3-banner3.png",
-          "mobileImage": "https://decoims.com/demo-storefront/2026/07/62941bd2-b774-4445-8533-2ca6db199f15-banner3-mob.png",
-          "headline": "BUILT FOR COMFORT, CUT FOR STYLE",
-          "href": "/products/deco-sweatpants",
-          "product": {
-            "__resolveType": "site/loaders/catalogProductByHandle.ts",
-            "handle": "deco-sweatpants"
-          }
-        }
-      ],
-      "interval": 6,
-      "categories": [
-        {
-          "label": "Shirts",
-          "href": "/shirts",
-          "image": "https://decoims.com/demo-storefront/2026/07/dcd77bbd-4969-4186-aaaa-d8bc9e4b84c1-chatgpt-image-jul-27-2026-06_54_44-pm.png"
-        },
-        {
-          "label": "Accessories",
-          "href": "/accessories",
-          "image": "https://decoims.com/demo-storefront/2026/07/543e04d2-011d-4cc2-8875-46a1a08bef3d-accessories.png"
-        }
-      ],
-      "infoBullets": [
-        "Free shipping on orders over $50",
-        "Up to $40 off your first order",
-        "Interest-free installments",
-        "Up to 15% off paying cash"
-      ]
+        ],
+        "infoBullets": [
+          "Free shipping on orders over $50",
+          "Up to $40 off your first order",
+          "Interest-free installments",
+          "Up to 15% off paying cash"
+        ]
+      }
     },
     {
-      "__resolveType": "site/sections/Product/ProductShelf.tsx",
-      "title": "Discover Our Featured Picks",
-      "cta": "/mono",
-      "products": {
-        "__resolveType": "Product List Loader"
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Product/ProductShelf.tsx",
+        "title": "Discover Our Featured Picks",
+        "cta": "/mono",
+        "products": {
+          "__resolveType": "Product List Loader"
+        }
       }
     },
     {
@@ -149,6 +155,17 @@
         "maxItens": 6,
         "formato": "carrossel",
         "verMais": "/minha-vitrine/combina"
+      }
+    },
+    {
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Product/CompleteTheLook.tsx",
+        "mostrarProcedencia": true,
+        "look": {
+          "__resolveType": "site/loaders/completeTheLook.ts",
+          "handle": "vintage-wash-tee"
+        }
       }
     },
     {

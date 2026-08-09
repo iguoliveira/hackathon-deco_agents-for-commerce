@@ -3,7 +3,9 @@ import type { SiteNavigationElement } from "@decocms/apps-commerce/types";
 import Alert from "../../components/header/Alert";
 import Bag from "../../components/header/Bag";
 import HeaderNav from "../../components/header/HeaderNav";
+import LocalPicker from "../../components/header/LocalPicker";
 import Menu from "../../components/header/Menu";
+import Orders from "../../components/header/Orders";
 import SignIn from "../../components/header/SignIn";
 import { type SearchbarProps } from "../../components/search/Searchbar/Form";
 import Drawer from "../../components/ui/Drawer";
@@ -40,6 +42,11 @@ export interface SectionProps {
    */
   shippingNote?: string;
   /**
+   * @title Cidades do seletor
+   * @description Atalhos oferecidos no seletor de local, como "Porto Alegre,RS,BR". É de onde o agente parte para compor o look. Lista vazia usa o padrão da demo.
+   */
+  cidades?: string[];
+  /**
    * @description Usefull for lazy loading hidden elements, like hamburguer menus etc
    * @hide true */
   loading?: "eager" | "lazy";
@@ -50,7 +57,7 @@ type Props = SectionProps;
 const MOBILE_ICON_LABEL_CLASS =
   "tap-scale flex size-10 items-center justify-center rounded-sm text-ink transition-colors duration-(--duration-fast) hover:bg-white/60";
 
-const Desktop = ({ navItems, logo, shippingNote }: Props) => (
+const Desktop = ({ navItems, logo, shippingNote, cidades }: Props) => (
   <>
     <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-2">
       <label
@@ -68,6 +75,12 @@ const Desktop = ({ navItems, logo, shippingNote }: Props) => (
       />
 
       <div className="flex items-center gap-1.5">
+        {/* Ordem: contexto, depois conta, depois sacola. `LocalPicker` diz ONDE
+            a pessoa está e alimenta o agente; `Orders` e `SignIn` são a conta e
+            ficam juntos. Separá-los deixaria o seletor de cidade no meio de
+            duas ações de conta, que não têm relação com ele. */}
+        <LocalPicker cidades={cidades?.length ? cidades : undefined} />
+        <Orders variant="desktop" />
         <SignIn variant="desktop" />
         <Bag />
       </div>
@@ -75,7 +88,7 @@ const Desktop = ({ navItems, logo, shippingNote }: Props) => (
   </>
 );
 
-const Mobile = ({ logo }: Props) => (
+const Mobile = ({ logo, cidades }: Props) => (
   <>
     <div className="frost mx-3 mt-3 flex h-14 items-center justify-between gap-2 rounded-sm px-2">
       <label
@@ -99,6 +112,8 @@ const Mobile = ({ logo }: Props) => (
       )}
 
       <div className="flex items-center gap-1">
+        <LocalPicker cidades={cidades?.length ? cidades : undefined} compacto />
+        <Orders variant="mobile" />
         <SignIn variant="mobile" />
         <Bag size="sm" />
       </div>

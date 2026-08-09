@@ -35,6 +35,19 @@ export interface Semente {
   titulo: string;
   /** `products.product_type`. */
   tipo: string;
+  /**
+   * As tags da peça (`product_props` com `name = 'TAG'`).
+   *
+   * Sem elas a semente chegava ao modelo como **rótulo, não como dado**: só
+   * título e tipo. Ele conseguia dizer "combina com o tênis branco que você
+   * comprou" porque leu "White" da string do título — e era a única inferência
+   * que o dado permitia. Todo candidato já vinha com `tagsEmComum`; o que a
+   * pessoa possui, não. A assimetria é que tornava a compra decorativa.
+   *
+   * É delas que sai `combinaComOGuardaRoupa` em `look.candidates.ts`, calculado
+   * em código, do mesmo jeito que `tagsEmComum` é calculado contra a âncora.
+   */
+  tags: string[];
   kind: SeedKind;
   /** ISO 8601. Semente recente pesa mais no desempate. */
   em: string;
@@ -97,6 +110,21 @@ export interface Candidato {
   /** Só as opções com variante disponível AGORA (tamanhos, cores…). */
   opcoesDisponiveis: string[];
   descricao: string;
+  /**
+   * Tags que este candidato divide com o que a pessoa **já tem**.
+   *
+   * Simétrico a `tagsEmComum`, que é contra a peça aberta. Ausente quando não há
+   * interseção — omitir é mais barato que mandar `[]` em 18 candidatos, e o
+   * campo ausente lê-se como "nada a dizer" em vez de "medido e deu zero".
+   */
+  combinaComOGuardaRoupa?: string[];
+  /**
+   * Peças do MESMO tipo que a pessoa já possui.
+   *
+   * É o que deixa o modelo enxergar saturação — quem já tem duas calças não
+   * precisa da terceira — sem que o código decida por ele quantas são demais.
+   */
+  jaTemDesteTipo?: string[];
 }
 
 /** A peça aberta na PDP, na forma que vai para o prompt. */
@@ -127,20 +155,28 @@ export interface PecaDoLook {
 }
 
 /**
- * O look pronto.
+ * O look pronto. **Se existe um `Look`, ele é do agente** — não há outra forma
+ * de produzir um.
  *
- * `origem` não é telemetria decorativa: é o que permite responder "por que este
- * look está sem texto?" sem reabrir o log. `sql` significa que o modelo falhou,
- * recusou-se (confiança baixa) ou devolveu lixo, e o que está na tela é a
- * ordenação determinística de `findComplementsAvailable`.
+ * Já houve: até esta versão, quando o modelo falhava, recusava-se (confiança
+ * baixa) ou devolvia lixo, o código montava um look com os candidatos na ordem
+ * que o SQL já dava, sem motivos, e a section renderizava assim. A degradação
+ * era de "look explicado" para "look sem texto".
+ *
+ * Isso caiu, e o motivo é de produto, não de código: sem os motivos e sem o
+ * agrupamento por ocasião, o que sobra na tela é indistinguível de um carrossel
+ * de "produtos relacionados", que toda loja já tem. A feature inteira existe
+ * para provar que a composição é raciocinada — e uma versão dela que não prova
+ * nada, mostrada exatamente no momento em que o agente falhou, é pior que a
+ * ausência: ela ocupa o lugar onde a prova deveria estar.
+ *
+ * A degradação agora é para **nada**. Quem consome trata `null` como "a section
+ * some", e o próximo carregamento tenta de novo.
  */
 export interface Look {
   titulo: string;
   confianca: number;
   pecas: PecaDoLook[];
-  origem: "agente" | "sql";
-  /** Preenchido quando `origem === "sql"` — a razão exata da queda. */
-  motivoDoFallback?: string;
 }
 
 /** O que o modelo devolve, antes de qualquer validação. Nada aqui é confiável. */

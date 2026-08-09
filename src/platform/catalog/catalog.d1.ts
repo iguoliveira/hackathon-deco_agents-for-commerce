@@ -664,3 +664,86 @@ export const findSimilarAvailable = async (
     };
   });
 };
+
+/** Uma linha de carrinho já resolvida contra o catálogo. */
+export interface CartLineRecord {
+  variantId: string;
+  productHandle: string;
+  productTitle: string;
+  /** O rótulo da variante — o tamanho, ou a cor quando não há tamanho. */
+  variantTitle: string;
+  price: number;
+  compareAtPrice: number | null;
+  imageUrl: string | null;
+  imageAlt: string;
+  available: boolean;
+  currencyCode: string;
+}
+
+/**
+ * Resolve variantes de carrinho pelo id, com o produto junto.
+ *
+ * O carrinho guarda **só** `variant_id` e quantidade (num cookie); tudo o que
+ * aparece na sacola sai daqui, a cada leitura. É o que faz o preço e a foto na
+ * sacola serem os de agora, e não os de quando o item foi adicionado — troquei
+ * 47 fotos e 9 cores numa tarde, e um carrinho com snapshot teria ficado
+ * mostrando o catálogo de ontem.
+ *
+ * **Não filtra por disponibilidade**, e isso é deliberado: um item que esgotou
+ * depois de entrar no carrinho precisa APARECER, marcado como indisponível,
+ * para a pessoa entender por que não consegue finalizar. Sumir em silêncio é o
+ * comportamento que faz alguém achar que o site comeu o pedido. Quem decide o
+ * que fazer com `available` é quem monta a tela.
+ *
+ * Preserva a ordem pedida — a ordem do cookie é a ordem em que a pessoa
+ * adicionou, e é a que ela espera ver.
+ */
+export const findCartLines = async (variantIds: string[]): Promise<CartLineRecord[]> => {
+  const db = getDb();
+  if (!db || variantIds.length === 0) return [];
+
+  const { results } = await db
+    .prepare(
+      `SELECT v.variant_id, v.title AS variant_title, v.price, v.compare_at_price,
+              v.available, v.image_url, v.image_alt,
+              p.handle AS product_handle, p.title AS product_title, p.currency_code
+         FROM variants v
+         JOIN products p ON p.product_group_id = v.product_group_id
+        WHERE v.variant_id IN (${placeholders(variantIds.length)})`,
+    )
+    .bind(...variantIds)
+    .all<{
+      variant_id: string;
+      variant_title: string;
+      price: number;
+      compare_at_price: number | null;
+      available: number;
+      image_url: string | null;
+      image_alt: string;
+      product_handle: string;
+      product_title: string;
+      currency_code: string;
+    }>();
+
+  const porId = new Map(
+    results.map((row) => [
+      row.variant_id,
+      {
+        variantId: row.variant_id,
+        productHandle: row.product_handle,
+        productTitle: row.product_title,
+        variantTitle: row.variant_title,
+        price: row.price,
+        compareAtPrice: row.compare_at_price,
+        imageUrl: row.image_url,
+        imageAlt: row.image_alt,
+        available: row.available === 1,
+        currencyCode: row.currency_code,
+      },
+    ]),
+  );
+
+  return variantIds
+    .map((id) => porId.get(id))
+    .filter((linha): linha is CartLineRecord => !!linha);
+};

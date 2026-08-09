@@ -146,6 +146,7 @@ const equilibrarPorTipo = (candidatos: Candidato[], teto: number): Candidato[] =
 export const montarCandidatos = async (
   variantId: string,
   jaComprados: ReadonlySet<string> = new Set(),
+  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }> = [],
 ): Promise<Candidato[]> => {
   const complementos = await findComplementsAvailable(variantId, DO_BANCO);
 
@@ -153,5 +154,108 @@ export const montarCandidatos = async (
     (candidato) => !jaComprados.has(candidato.record.product.product_group_id),
   );
 
-  return equilibrarPorTipo(disponiveis.map(paraCandidato), TETO);
+  const banais = tagsBanais(disponiveis);
+
+  return equilibrarPorTipo(
+    disponiveis.map((similar) =>
+      comOGuardaRoupa(
+        paraCandidato(similar),
+        tagsDoProduto(similar).filter((tag) => !banais.has(tag)),
+        guardaRoupa,
+      ),
+    ),
+    TETO,
+  );
+};
+
+/**
+ * As tags comuns demais para distinguir qualquer coisa NESTE pool.
+ *
+ * Cruzar as tags completas com o armário fez o sinal disparar para **18 de 18**
+ * candidatos — e um sinal que vale para todo mundo não ordena nada, só ocupa
+ * lugar no prompt. A causa está nos dados: `everyday` está em 65% do catálogo e
+ * `unisex` em 61%. Compartilhar `everyday` com o armário não é afinidade, é
+ * coincidência estatística.
+ *
+ * O corte é a **metade do pool**, e é medido aqui e agora em vez de vir de uma
+ * lista: um `["everyday", "unisex"]` no código seria literal de catálogo, que a
+ * regra 4 de docs/agente-de-combinacoes.md proíbe — e travaria o domínio neste
+ * catálogo. Num de vinho as tags banais seriam outras, e esta função as acha
+ * sozinha.
+ *
+ * Frequência local, e não global, de propósito: o que importa é distinguir
+ * DENTRO do espaço de escolha. Uma tag rara na loja inteira mas presente em
+ * todos os complementos desta peça também não separa nada aqui.
+ */
+const tagsBanais = (pool: SimilarCandidate[]): Set<string> => {
+  if (pool.length < 4) return new Set(); // pool pequeno: tudo é informativo
+
+  const frequencia = new Map<string, number>();
+  for (const similar of pool) {
+    for (const tag of new Set(tagsDoProduto(similar))) {
+      frequencia.set(tag, (frequencia.get(tag) ?? 0) + 1);
+    }
+  }
+
+  const metade = pool.length / 2;
+  return new Set([...frequencia].filter(([, n]) => n > metade).map(([tag]) => tag));
+};
+
+/**
+ * TODAS as tags do candidato, e não só as que ele divide com a âncora.
+ *
+ * `tagsEmComum` é a interseção com a peça aberta, e usá-la para cruzar com o
+ * guarda-roupa produzia **(candidato ∩ âncora) ∩ armário** — um subconjunto,
+ * não o cruzamento que o nome promete. Uma tag que o candidato divide com o
+ * armário mas não com a peça aberta nunca aparecia.
+ *
+ * O caso em que isso era certeza, não hipótese: `findComplementsAvailable`
+ * admite candidato por tag **ou** coleção. Quem entra só por coleção tem
+ * `sharedTags = []`, logo `tagsEmComum = []` — e o sinal não podia disparar
+ * para ele por construção, por mais que o armário combinasse.
+ *
+ * Não vira campo do `Candidato`: as tags completas iriam para o prompt e
+ * inflariam o token count de 18 candidatos sem mudar escolha nenhuma. O que o
+ * modelo precisa ver é a interseção, que é o que ele recebe.
+ */
+const tagsDoProduto = (similar: SimilarCandidate): string[] =>
+  similar.record.props.filter((prop) => prop.name === "TAG").map((prop) => prop.value);
+
+/**
+ * Acrescenta ao candidato a afinidade com o que a pessoa **já tem**.
+ *
+ * Simétrico ao `tagsEmComum`, que mede afinidade com a peça aberta. Aquele
+ * responde "isto combina com o que ela está olhando?"; este responde "isto
+ * combina com o guarda-roupa dela?" — e sem ele a compra chegava ao modelo como
+ * rótulo, não como dado: só título e tipo, sem nada calculado em cima.
+ *
+ * Calculado em CÓDIGO, e não deixado para o modelo cruzar de cabeça, pela mesma
+ * razão que `tagsEmComum` é: o prompt manda usar os sinais prontos em vez de
+ * recalculá-los, e cruzar N candidatos contra M peças possuídas é exatamente o
+ * tipo de trabalho em que um modelo erra em silêncio.
+ */
+const comOGuardaRoupa = (
+  candidato: Candidato,
+  tagsDoCandidato: string[],
+  guardaRoupa: ReadonlyArray<{ titulo: string; tipo: string; tags: string[] }>,
+): Candidato => {
+  if (guardaRoupa.length === 0) return candidato;
+
+  // Cruza as tags COMPLETAS do candidato com as do armário — ver `tagsDoProduto`
+  // para por que não pode partir de `tagsEmComum`.
+  const minhasTags = new Set(guardaRoupa.flatMap((peca) => peca.tags));
+  const combina = tagsDoCandidato.filter((tag) => minhasTags.has(tag));
+
+  // As peças que a pessoa já tem DO MESMO TIPO do candidato. É o que permite ao
+  // modelo ver saturação — três casacos no armário desqualificam o quarto — sem
+  // que o código decida por ele o que é demais.
+  const jaTemDoTipo = guardaRoupa
+    .filter((peca) => peca.tipo === candidato.tipo)
+    .map((peca) => peca.titulo);
+
+  return {
+    ...candidato,
+    ...(combina.length > 0 ? { combinaComOGuardaRoupa: combina } : {}),
+    ...(jaTemDoTipo.length > 0 ? { jaTemDesteTipo: jaTemDoTipo } : {}),
+  };
 };
