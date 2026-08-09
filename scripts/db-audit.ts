@@ -151,6 +151,183 @@ const comparar = (arqA: string, arqB: string): number => {
   return problemas.length;
 };
 
+/**
+ * Roda as 20 migrations num schema temporário e compara com o `public`.
+ * **É a única prova de que um banco novo nasce igual.**
+ *
+ *   npx tsx scripts/db-audit.ts --replay
+ *
+ * Os outros modos leem. Este ESCREVE — num schema próprio, `_replay_audit`, que
+ * é criado no começo e destruído no fim, inclusive quando algo falha no meio.
+ * O `public` não é tocado em momento nenhum.
+ *
+ * Três coisas tornaram isto seguro de fazer no banco de produção, e todas foram
+ * conferidas antes:
+ *
+ *   1. **Nenhuma migration qualifica schema.** Nada de `public.products` — então
+ *      um `search_path` apontando para o schema temporário manda todo
+ *      `CREATE TABLE`, `INSERT` e `UPDATE` para lá.
+ *   2. **Nada de `random()`, `gen_random_uuid()` nem `uuid_generate`.** O
+ *      resultado é determinístico, então divergência é defeito, não sorte.
+ *   3. **Índices e constraints moram no schema da tabela**, então os nomes não
+ *      colidem com os do `public`.
+ *
+ * O que ele responde e nenhum outro modo responde: as migrations **executam**?
+ * Na ordem? Produzindo as mesmas colunas, os mesmos tipos e as mesmas contagens?
+ */
+const SCHEMA = "_replay_audit";
+
+const replay = async (sql: postgres.Sql): Promise<number> => {
+  const arquivos = readdirSync(join(process.cwd(), "db", "migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  console.log(`
+[1mreplay de ${arquivos.length} migrations em ${SCHEMA}[0m
+`);
+
+  try {
+    await sql.unsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
+    await sql.unsafe(`CREATE SCHEMA ${SCHEMA}`);
+
+    for (const f of arquivos) {
+      const corpo = readFileSync(join(process.cwd(), "db", "migrations", f), "utf8");
+      const inicio = Date.now();
+      try {
+        // `search_path` com `public` no fim porque o tipo `vector` e as funções
+        // das extensões moram lá. As tabelas vêm primeiro, então tudo que a
+        // migration cria ou toca resolve no schema temporário.
+        await sql.begin(async (tx) => {
+          await tx.unsafe(`SET LOCAL search_path TO ${SCHEMA}, public`);
+          await tx.unsafe(corpo);
+        });
+        console.log(`  [32m✓[0m ${f.padEnd(34)} ${Date.now() - inicio}ms`);
+      } catch (erro) {
+        console.log(`  [31m✗ ${f}[0m`);
+        console.log(`    ${(erro as Error).message}`);
+        return 1;
+      }
+    }
+
+    // --- as contagens do catálogo -----------------------------------------
+    console.log(`
+[1mcontagens: replay × produção[0m
+`);
+    const tabelas = ["products", "variants", "product_images", "product_props", "variant_options"];
+    let difs = 0;
+
+    for (const t of tabelas) {
+      const [a] = await sql.unsafe<{ c: number }[]>(`SELECT count(*)::int AS c FROM ${SCHEMA}.${t}`);
+      const [b] = await sql.unsafe<{ c: number }[]>(`SELECT count(*)::int AS c FROM public.${t}`);
+      const bate = a!.c === b!.c;
+      if (!bate) difs++;
+      console.log(
+        `  ${bate ? "[32m✓[0m" : "[31m✗[0m"} ${t.padEnd(18)} replay=${String(a!.c).padStart(4)}  produção=${String(b!.c).padStart(4)}`,
+      );
+
+      // Contagem diferente sem dizer QUAL linha é um alarme sem endereço. Só
+      // `products` tem `handle`, que é o identificador legível — nas outras a
+      // diferença é consequência desta, e listá-las seria repetir o mesmo achado
+      // quatro vezes com id opaco.
+      if (!bate && t === "products") {
+        const faltando = await sql.unsafe<{ handle: string; title: string }[]>(
+          `SELECT handle, title FROM ${SCHEMA}.products
+            WHERE handle NOT IN (SELECT handle FROM public.products) ORDER BY handle`,
+        );
+        const sobrando = await sql.unsafe<{ handle: string; title: string }[]>(
+          `SELECT handle, title FROM public.products
+            WHERE handle NOT IN (SELECT handle FROM ${SCHEMA}.products) ORDER BY handle`,
+        );
+        for (const x of faltando) {
+          console.log(`      [31mfalta em produção:[0m ${x.handle}  (${x.title})`);
+        }
+        for (const x of sobrando) {
+          console.log(`      [31msó em produção:[0m   ${x.handle}  (${x.title})`);
+        }
+      }
+    }
+
+    // --- o schema, coluna a coluna ----------------------------------------
+    const dump = async (schema: string) => {
+      const colunas = await sql.unsafe<
+        { tabela: string; coluna: string; tipo: string; nulo: string; padrao: string | null }[]
+      >(`SELECT c.table_name AS tabela, c.column_name AS coluna, c.data_type AS tipo,
+                c.is_nullable AS nulo, c.column_default AS padrao
+           FROM information_schema.columns c
+           JOIN information_schema.tables t
+             ON t.table_name = c.table_name AND t.table_schema = c.table_schema
+          WHERE c.table_schema = '${schema}' AND t.table_type = 'BASE TABLE'
+            AND c.table_name <> 'schema_migrations'
+          ORDER BY c.table_name, c.column_name`);
+      const indices = await sql.unsafe<{ tabela: string; nome: string }[]>(
+        `SELECT tablename AS tabela, indexname AS nome FROM pg_indexes
+          WHERE schemaname = '${schema}' AND tablename <> 'schema_migrations'
+          ORDER BY tablename, indexname`,
+      );
+      return { colunas, indices };
+    };
+
+    const r = await dump(SCHEMA);
+    const p = await dump("public");
+
+    console.log(`
+[1mschema: replay × produção[0m
+`);
+
+    // O default de uma coluna serial carrega o nome do schema
+    // (`nextval('_replay_audit.wishlist_items_id_seq')`), então comparar cru
+    // acusaria diferença em toda tabela com BIGSERIAL. É artefato da técnica,
+    // não do banco — some junto com o schema temporário.
+    const chave = (c: (typeof r.colunas)[number]) =>
+      `${c.tabela}.${c.coluna} ${c.tipo} nulo=${c.nulo} default=${(c.padrao ?? "").replace(`${SCHEMA}.`, "")}`;
+    const cr = new Set(r.colunas.map(chave));
+    const cp = new Set(p.colunas.map(chave));
+    const ir = new Set(r.indices.map((i) => `${i.tabela}.${i.nome}`));
+    const ip = new Set(p.indices.map((i) => `${i.tabela}.${i.nome}`));
+
+    for (const x of [...cp].filter((y) => !cr.has(y))) {
+      difs++;
+      console.log(`  [31m✗[0m só em produção: ${x}`);
+    }
+    for (const x of [...cr].filter((y) => !cp.has(y))) {
+      difs++;
+      console.log(`  [31m✗[0m só no replay:   ${x}`);
+    }
+    for (const x of [...ip].filter((y) => !ir.has(y))) {
+      difs++;
+      console.log(`  [31m✗[0m índice só em produção: ${x}`);
+    }
+    for (const x of [...ir].filter((y) => !ip.has(y))) {
+      difs++;
+      console.log(`  [31m✗[0m índice só no replay:   ${x}`);
+    }
+
+    if (difs === 0) {
+      console.log(`  [32m✓ ${cp.size} colunas e ${ip.size} índices, idênticos[0m`);
+      console.log(
+        `
+  [32mUm banco novo nasce igual a este.[0m
+` +
+          `  As 20 migrations executam na ordem, e o resultado bate em contagem,
+` +
+          `  coluna, tipo, nulabilidade, default e índice.
+`,
+      );
+    } else {
+      console.log(`
+  [31m${difs} diferença(s)[0m
+`);
+    }
+    return difs;
+  } finally {
+    // Incondicional: um replay que falha no meio não pode deixar o schema para
+    // trás, ou a próxima execução começa suja e mede outra coisa.
+    await sql.unsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
+    console.log(`  (${SCHEMA} removido)
+`);
+  }
+};
+
 const argComparar = process.argv.indexOf("--comparar");
 if (argComparar !== -1) {
   const [x, y] = [process.argv[argComparar + 1], process.argv[argComparar + 2]];
@@ -183,6 +360,12 @@ const main = async () => {
   if (!process.env.DATABASE_URL) {
     console.error("DATABASE_URL não definida.");
     process.exit(1);
+  }
+
+  if (process.argv.includes("--replay")) {
+    const difs = await replay(sql);
+    await sql.end();
+    process.exit(difs === 0 ? 0 : 1);
   }
 
   // --- 1. o registro contra o disco ---------------------------------------

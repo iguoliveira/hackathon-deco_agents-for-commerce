@@ -1,7 +1,11 @@
 # As migrations descrevem o banco que temos?
 
-> **Faltava uma. Esta branch a traz.** Medido em 2026-08-09 contra o Supabase de
-> produção, com `main` em `ca3d8f3`.
+> **Faltava uma migration, e ela está aqui. O replay foi feito.** Medido em
+> 2026-08-09 contra o Supabase de produção, com `main` em `ca3d8f3`.
+>
+> Resposta curta: as migrations **executam limpas e produzem o schema exato de
+> produção**. A única divergência é de dado — um produto que produção apagou à
+> mão e que um banco novo traria de volta (§4b).
 >
 > A pergunta veio de uma decisão concreta: vamos criar um projeto novo do
 > Supabase, e precisamos saber se `npm run db:migrate` nele reproduz o banco de
@@ -268,6 +272,78 @@ Ela acha objeto **a mais** no banco. Não vê tipo trocado, `NOT NULL` que virou
 nulo, default diferente nem índice ausente — porque não tem com o que comparar:
 derivar o schema esperado parseando 20 arquivos de SQL seria construir meio
 Postgres para responder a uma pergunta que o Postgres responde de graça.
+
+---
+
+## 4b. O replay: a prova, e ela foi feita
+
+```bash
+npx tsx scripts/db-audit.ts --replay
+```
+
+Roda as 20 migrations num schema temporário (`_replay_audit`) **no mesmo banco**
+e compara com o `public`. Cria no começo, destrói no fim, inclusive se falhar no
+meio. O `public` não é tocado.
+
+Três coisas foram conferidas antes de considerar isto seguro em produção:
+
+1. **Nenhuma migration qualifica schema** — nada de `public.products`, então o
+   `search_path` manda tudo para o schema temporário.
+2. **Nada de `random()`, `gen_random_uuid()` ou `uuid_generate`** — o resultado é
+   determinístico, então divergência é defeito, não sorte.
+3. **Índices e constraints moram no schema da tabela** — os nomes não colidem.
+
+### O veredito
+
+**As 20 migrations executam, na ordem, sem erro.** ~560ms cada.
+
+**O schema é idêntico**: mesmas tabelas, colunas, tipos, nulabilidade, defaults e
+índices. Zero diferença.
+
+**Os dados divergem em um produto:**
+
+```
+✗ products         replay= 136  produção= 135
+    falta em produção: snap-case-for-iphone®  (Snap Case for iPhone®)
+✗ variants         replay= 701  produção= 700
+✗ product_images   replay= 231  produção= 228
+✗ product_props    replay= 833  produção= 829
+✗ variant_options  replay= 893  produção= 892
+```
+
+As quatro últimas são consequência da primeira — são as linhas daquele produto.
+
+### A capa de celular: a produção contradiz a migration
+
+Não foi descuido das migrations. A cadeia decide por ela três vezes:
+
+| | |
+|---|---|
+| `0004_apparel_only` | *"capinha de iPhone **SAI**"* — apaga |
+| `0007_restore_lifestyle_products` | traz **de volta** |
+| `0008_enrich_catalog_attributes` | enriquece (`product_type = 'Phone Case'`) |
+| `0010_remove_non_apparel` | *"O que fica de não-vestuário: bolsas, chapéus e **a capa de celular**"* — mantém |
+
+Líquido: **as migrations querem a capa no catálogo.** Produção não tem. Alguém a
+apagou à mão depois da `0010`, contra o que está escrito ali — e sem deixar
+rastro em migration, commit ou doc.
+
+**Um projeto novo ressuscita a capa.** É a única divergência de dado, e ela é uma
+decisão de produto, não um defeito técnico: ou a `0010` está certa e produção é
+que está errada, ou alguém mudou de ideia e não registrou.
+
+### O falso positivo que o replay tem, e como ele é tratado
+
+O default de coluna serial carrega o nome do schema:
+
+```
+produção  nextval('wishlist_items_id_seq'::regclass)
+replay    nextval('_replay_audit.wishlist_items_id_seq'::regclass)
+```
+
+É artefato da técnica, não do banco — some junto com o schema temporário. A
+comparação remove o prefixo antes de comparar. Sem isso, toda tabela com
+`BIGSERIAL` apareceria como diferente.
 
 ---
 
