@@ -4,4 +4,8 @@ export type { CreateStockAlertInput, CreateStockAlertOutcome } from "./alerts.d1
 export { readShopperIdentity } from "./alerts.session";
 export type { ShopperIdentity } from "./alerts.session";
 export { hasStockAlertServerFn } from "./alerts.actions";
-export { STOCK_ALERT_QUERY_KEY, useHasStockAlert } from "./alerts.hooks";
+export {
+  STOCK_ALERT_QUERY_KEY,
+  useHasStockAlert,
+  useHasStockAlertAfterHydration,
+} from "./alerts.hooks";

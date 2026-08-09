@@ -9,7 +9,7 @@ import React from "react";
 import {
   CART_QUERY_KEY,
   EMPTY_CART,
-  useCart,
+  useCartAfterHydration,
   useRemoveCartItem,
   useUpdateCartItem,
   type CartItem,
@@ -218,7 +218,9 @@ function Footer({ cart }: { cart: CartState }) {
 }
 
 export default function Minicart() {
-  const { cart, isFetching } = useCart();
+  // `useCartAfterHydration`: `EmptyState` contra a lista e o `disabled` do
+  // finalizar sao markup decidido pelo estado da query. Ver o hook.
+  const { cart, isFetching } = useCartAfterHydration();
   const currency = cart.subtotal.currencyCode;
 
   // Avoid hydration mismatch: isFetching is client-only, don't use it for SSR-rendered classes

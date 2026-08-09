@@ -8,5 +8,6 @@ export {
 export {
   WISHLIST_QUERY_KEY,
   useWishlist,
+  useIsInWishlistAfterHydration,
   useToggleWishlist,
 } from "./wishlist.hooks";

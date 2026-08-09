@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getWishlistStateServerFn,
@@ -23,6 +24,33 @@ export function useWishlist() {
     error: query.error,
     isInWishlist: (productId: string) => wishlist.items.some((i) => i.productId === productId),
   };
+}
+
+/**
+ * `isInWishlist`, mas seguro para decidir **o que é renderizado**.
+ *
+ * `useWishlist()` responde diferente no servidor e na primeira renderização do
+ * cliente: no servidor a lista resolve (logado, com itens), no cliente a query
+ * começa em `placeholderData: EMPTY_WISHLIST`. Quem ramifica markup nisso
+ * produz HTML divergente, e o React não conserta — **descarta a árvore inteira
+ * e a página fica em branco**.
+ *
+ * No `WishlistButton` a ramificação é tripla e fácil de não enxergar como
+ * markup: `aria-label`, `aria-pressed` e o `fill` do SVG.
+ *
+ * É o mesmo defeito que `useUserAfterHydration` resolve para a sessão, e pelo
+ * mesmo motivo — ver `platform/user/user.hooks.ts`. Servidor e primeira
+ * renderização sempre veem `false`; o estado real entra depois da montagem.
+ *
+ * **Use este para renderizar; use `useWishlist()` para ler a lista.**
+ */
+export function useIsInWishlistAfterHydration(): (productId: string) => boolean {
+  const { isInWishlist } = useWishlist();
+  const [hidratado, setHidratado] = useState(false);
+
+  useEffect(() => setHidratado(true), []);
+
+  return (productId: string) => hidratado && isInWishlist(productId);
 }
 
 export function useToggleWishlist() {
