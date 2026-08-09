@@ -169,6 +169,16 @@
       }
     },
     {
+      "__resolveType": "website/sections/Rendering/Lazy.tsx",
+      "section": {
+        "__resolveType": "site/sections/Product/VitrineRecomendada.tsx",
+        "mostrarProcedencia": true,
+        "vitrine": {
+          "__resolveType": "site/loaders/vitrineRecomendada.ts"
+        }
+      }
+    },
+    {
       "__resolveType": "site/sections/Content/PromoGrid.tsx",
       "title": "Peças que combinam entre si",
       "tabs": [

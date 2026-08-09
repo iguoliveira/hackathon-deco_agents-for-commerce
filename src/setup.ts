@@ -217,6 +217,15 @@ registerCommerceLoaders({
     (await import("./loaders/completeTheLook")).default(props),
   "site/loaders/completeTheLook": async (props: any) =>
     (await import("./loaders/completeTheLook")).default(props),
+
+  // A vitrine recomendada não recebe props: não há handle, não há âncora, e a
+  // identidade sai de `donoDaVitrine()` dentro do loader. As duas chaves —
+  // com e sem `.ts` — porque o decofile pode gravar qualquer uma das duas, e
+  // uma chave ausente vira "Unknown handler" com a section sumindo em silêncio.
+  "site/loaders/vitrineRecomendada.ts": async () =>
+    (await import("./loaders/vitrineRecomendada")).default(),
+  "site/loaders/vitrineRecomendada": async () =>
+    (await import("./loaders/vitrineRecomendada")).default(),
 });
 
 // -- Site-local actions (registered via additive invoke handler registry) --

@@ -34,9 +34,10 @@ import { LoadingFallback as _fb15 } from "../src/sections/Product/ProductDetails
 import { LoadingFallback as _fb16 } from "../src/sections/Product/ProductShelf";
 import { LoadingFallback as _fb17 } from "../src/sections/Product/ProductShelfTabbed";
 import { LoadingFallback as _fb18 } from "../src/sections/Product/ShelfWithImage";
-import { LoadingFallback as _fb19 } from "../src/sections/Product/Wishlist";
-import { LoadingFallback as _fb20 } from "../src/sections/Social/InstagramPosts";
-import { LoadingFallback as _fb21 } from "../src/sections/Social/WhatsApp";
+import { LoadingFallback as _fb19 } from "../src/sections/Product/VitrineRecomendada";
+import { LoadingFallback as _fb20 } from "../src/sections/Product/Wishlist";
+import { LoadingFallback as _fb21 } from "../src/sections/Social/InstagramPosts";
+import { LoadingFallback as _fb22 } from "../src/sections/Social/WhatsApp";
 
 export interface SectionMetaEntry {
   eager?: boolean;
@@ -72,6 +73,7 @@ export const sectionMeta: Record<string, SectionMetaEntry> = {
   "site/sections/Product/ProductShelfTabbed.tsx": { hasLoadingFallback: true },
   "site/sections/Product/SearchResult.tsx": { eager: true, sync: true, hasLoadingFallback: true },
   "site/sections/Product/ShelfWithImage.tsx": { hasLoadingFallback: true },
+  "site/sections/Product/VitrineRecomendada.tsx": { hasLoadingFallback: true },
   "site/sections/Product/Wishlist.tsx": { hasLoadingFallback: true },
   "site/sections/Social/InstagramPosts.tsx": { hasLoadingFallback: true },
   "site/sections/Social/WhatsApp.tsx": { hasLoadingFallback: true },
@@ -108,8 +110,9 @@ export const loadingFallbacks: Record<string, React.ComponentType<any>> = {
   "site/sections/Product/ProductShelfTabbed.tsx": _fb17,
   "site/sections/Product/SearchResult.tsx": _sync2.LoadingFallback,
   "site/sections/Product/ShelfWithImage.tsx": _fb18,
-  "site/sections/Product/Wishlist.tsx": _fb19,
-  "site/sections/Social/InstagramPosts.tsx": _fb20,
-  "site/sections/Social/WhatsApp.tsx": _fb21,
+  "site/sections/Product/VitrineRecomendada.tsx": _fb19,
+  "site/sections/Product/Wishlist.tsx": _fb20,
+  "site/sections/Social/InstagramPosts.tsx": _fb21,
+  "site/sections/Social/WhatsApp.tsx": _fb22,
   "site/sections/Theme/Theme.tsx": _sync3.LoadingFallback,
 };
