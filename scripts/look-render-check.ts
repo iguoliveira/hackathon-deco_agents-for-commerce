@@ -27,20 +27,17 @@ try {
   // Sem .env: o erro de "DATABASE_URL não definida" que vem depois é o útil.
 }
 
-import completeTheLookLoader from "../src/loaders/completeTheLook";
-import { lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
-import { montarCandidatos, comOGuardaRoupa } from "../src/platform/look/look.candidates";
+import { comOGuardaRoupa } from "../src/platform/vitrine/vitrine.candidates";
 import { validar as validarVitrine, MAX_PECAS as VITRINE_MAX } from "../src/platform/vitrine/vitrine.agent";
 import type { Candidato as ProdutoDaVitrine } from "../src/platform/vitrine/vitrine.types";
 import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
-import { validar } from "../src/platform/look/look.agent";
 import { validarPersona } from "../src/platform/look/persona.agent";
 import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
 import { hashDosSinais } from "../src/platform/look/look.hash";
-import type { Candidato, Semente } from "../src/platform/look/look.types";
+import type { Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
 const falhas: string[] = [];
@@ -107,9 +104,9 @@ const main = async (): Promise<void> => {
   //
   // O defeito e silencioso: nao lanca, nao aparece no typecheck, e so se
   // manifesta num prompt que ninguem le. Por isso vive aqui.
-  const cand: Candidato = {
+  const cand: ProdutoDaVitrine = {
     handle: "gorro-novo", titulo: "Gorro Novo", tipo: "Beanie", preco: 99,
-    mesmaColecao: false, tagsEmComum: [], opcoesDisponiveis: ["U"], descricao: "",
+    tags: ["winter", "basic"], opcoesDisponiveis: ["U"],
   };
   const tagsDoCand = ["winter", "basic"];
 
@@ -222,107 +219,6 @@ const main = async (): Promise<void> => {
   }
 
   // ------------------------------------------------------------------
-  titulo("3. O loader lê o slug de __pageUrl, não da requisição corrente");
-  // ------------------------------------------------------------------
-  // Este é o teste que encena o caminho diferido: fora de um RequestContext,
-  // a ÚNICA coisa que o loader tem é `__pageUrl`. Se ele dependesse de
-  // `RequestContext.request.url`, tudo abaixo voltaria null.
-  const pelaPagina = await completeTheLookLoader({
-    __pageUrl: `https://loja.exemplo.com/products/${slugDaPdp}`,
-  });
-
-  // Sem o fallback por SQL, `null` aqui tem DUAS causas possíveis, e confundi-las
-  // manda consertar o arquivo errado: ou o slug não resolveu (o bug que este
-  // script existe para pegar), ou o par (peça, contexto) simplesmente não está
-  // no cache. Este script roda do terminal, então o contexto é sempre
-  // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
-  if (pelaPagina === null) {
-    pular(
-      "3 e 4 (renderizacao da PDP)",
-      `sem look aquecido para \`${handle}\` neste contexto. Aqueca com \`npm run look:warm -- ${handle}\``,
-    );
-  } else {
-
-    ok(
-      "PDP via __pageUrl devolve look",
-      pelaPagina !== null,
-      "o loader não recuperou o slug — voltou ao bug do `_serverFn`",
-    );
-    ok("o look tem blocos", (pelaPagina?.blocos.length ?? 0) > 0);
-    ok(
-      "o look tem pelo menos 4 peças",
-      (pelaPagina?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
-    );
-    ok(
-      "cada peça carrega um produto renderizável (url + preço)",
-      (pelaPagina?.blocos ?? []).every((bloco) =>
-        bloco.pecas.every((peca) => !!peca.product.url && !!peca.product.offers),
-      ),
-    );
-    ok(
-      "a procedência vem preenchida",
-      !!pelaPagina?.lugar && !!pelaPagina?.mes,
-      `lugar="${pelaPagina?.lugar}" mes="${pelaPagina?.mes}"`,
-    );
-
-    // Uma URL que NÃO é de produto não pode virar look.
-    ok(
-      "URL de PLP não vira look",
-      (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/s?q=tee" })) === null,
-    );
-    ok("sem __pageUrl e sem RequestContext devolve null", (await completeTheLookLoader({})) === null);
-
-    // A prop fixa continua servindo para fixar uma peça fora da PDP.
-    ok(
-      "prop `handle` explícita continua funcionando",
-      (await completeTheLookLoader({ handle })) !== null,
-    );
-
-    // ------------------------------------------------------------------
-    titulo("4. O que a section vai desenhar");
-    // ------------------------------------------------------------------
-    const look = pelaPagina!;
-    console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
-    console.log(`  procedência: ${look.lugar} em ${look.mes}`);
-    for (const bloco of look.blocos) {
-      console.log(`  ┌─ ${bloco.ocasiao}`);
-      for (const peca of bloco.pecas) {
-        // A MESMA precedência de `ProductCard.tsx:52` (`isVariantOf?.name ??
-        // product.name`). Imprimir `product.name` cru mostraria "XS" e "White",
-        // que são títulos de variante — o script diria que a tela está quebrada
-        // quando ela não está. Mesmo erro que o agrupamento do dry run cometia.
-        console.log(`  │  ${peca.product.isVariantOf?.name ?? peca.product.name}`);
-        if (peca.motivo) console.log(`  │    ${peca.motivo}`);
-      }
-    }
-
-    ok(
-      "nenhum bloco vazio chega à tela",
-      look.blocos.every((bloco) => bloco.pecas.length > 0),
-    );
-    ok(
-      "as ocasiões não se repetem entre blocos",
-      new Set(look.blocos.map((b) => b.ocasiao)).size === look.blocos.length,
-      "duas entradas com o mesmo rótulo viram dois cabeçalhos iguais na tela",
-    );
-    ok(
-      "nenhuma peça duplicada no look inteiro",
-      (() => {
-        const ids = look.blocos.flatMap((b) => b.pecas.map((p) => p.product.productID));
-        return new Set(ids).size === ids.length;
-      })(),
-    );
-    // A invariante que substituiu o fallback: se chegou look, TODA peça tem
-    // motivo. Não há mais o estado "look sem texto" — ver look.types.ts → `Look`.
-    ok(
-      "toda peça na tela carrega um motivo",
-      look.blocos.every((bloco) => bloco.pecas.every((peca) => peca.motivo.trim().length > 0)),
-      "peça sem motivo é o carrossel genérico que esta feature existe para não ser",
-    );
-
-  }
-
-  // ------------------------------------------------------------------
   titulo("5. O cookie de vistos guarda handle, não slug");
   // ------------------------------------------------------------------
   // Se o loader gravasse o slug da URL, `sementesPorHandle` (que casa
@@ -380,26 +276,8 @@ const main = async (): Promise<void> => {
   ok("mês sai por extenso, em português", /^[a-zç]+$/.test(mesAtual()), mesAtual());
 
   // ------------------------------------------------------------------
-  titulo("7. Invariantes que a renderização não pode quebrar");
+  titulo("7. As sementes: consolidação e herança de data");
   // ------------------------------------------------------------------
-  const candidatos = await montarCandidatos(ancora.variantId);
-  ok("o pool tem candidatos", candidatos.length > 0, `${candidatos.length}`);
-  ok(
-    "nenhum candidato é a própria âncora",
-    candidatos.every((c: Candidato) => c.handle !== handle),
-  );
-
-  // A validação continua descartando, nunca corrigindo — o contrato do agente
-  // não pode afrouxar por causa da tela.
-  const forjado = [
-    { handle: candidatos[0]!.handle, motivo: "combina", ocasiao: "para o frio" },
-    { handle: `${candidatos[0]!.handle}x`, motivo: "quase certo", ocasiao: "x" },
-    { handle: candidatos[1]?.handle, motivo: "   ", ocasiao: "y" },
-  ];
-  const validadas = validar(forjado, candidatos);
-  ok("handle inventado é descartado", !validadas.some((p) => p.handle.endsWith("x")));
-  ok("peça sem motivo é descartada", validadas.length === 1);
-
   // As tags participam agora: `consolidar` as une, porque um "avise-me" chega
   // sem tags e a mesma peça vinda de uma compra chega com elas. Ficar com a
   // lista vazia por ordem de chegada empobreceria `combinaComOGuardaRoupa`.

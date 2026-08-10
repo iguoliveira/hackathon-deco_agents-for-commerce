@@ -213,11 +213,6 @@ registerCommerceLoaders({
   // `catalogProductDetailsPage.ts` quando a section saiu da PDP. Passar `req`
   // aqui seria ilusão de qualquer forma — `resolve.ts:911` chama o commerce
   // loader com um argumento só, então o segundo chegava `undefined`.
-  "site/loaders/completeTheLook.ts": async (props: any) =>
-    (await import("./loaders/completeTheLook")).default(props),
-  "site/loaders/completeTheLook": async (props: any) =>
-    (await import("./loaders/completeTheLook")).default(props),
-
   // A vitrine recomendada não recebe props: não há handle, não há âncora, e a
   // identidade sai de `donoDaVitrine()` dentro do loader. As duas chaves —
   // com e sem `.ts` — porque o decofile pode gravar qualquer uma das duas, e

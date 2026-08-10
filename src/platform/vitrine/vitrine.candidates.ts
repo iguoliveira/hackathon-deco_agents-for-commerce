@@ -12,9 +12,75 @@
  * tipo de trabalho em que um modelo erra em silêncio.
  */
 
-import { comOGuardaRoupa, type PecaDaPessoa } from "../look/look.candidates";
 import { catalogoDisponivel } from "./vitrine.d1";
 import type { Candidato } from "./vitrine.types";
+import type { SeedKind } from "../look/look.types";
+
+/**
+ * O recorte de uma semente que este arquivo precisa. **`kinds` e obrigatorio**,
+ * e essa e a correcao inteira em uma linha.
+ *
+ * O tipo anterior era `{ titulo, tipo, tags }` — sem `kinds`. A informacao de
+ * ORIGEM era apagada na fronteira da funcao, entao "comprou" e "viu numa PDP"
+ * chegavam indistinguiveis e a unica leitura possivel era tratar as duas como
+ * posse. O bug nao estava na logica: estava na assinatura, que tornava a logica
+ * correta impossivel de escrever.
+ *
+ * Nasceu em `look.candidates.ts` e veio para ca quando o look foi aposentado —
+ * era a unica parte daquele arquivo que nao dependia de ancora.
+ */
+export interface PecaDaPessoa {
+  titulo: string;
+  tipo: string;
+  tags: string[];
+  kinds: readonly SeedKind[];
+}
+
+export const comOGuardaRoupa = (
+  candidato: Candidato,
+  tagsDoCandidato: string[],
+  guardaRoupa: readonly PecaDaPessoa[],
+): Candidato => {
+  if (guardaRoupa.length === 0) return candidato;
+
+  // **Posse e desejo sao coisas diferentes, e so uma das quatro origens e
+  // posse.** Comprar significa ter; favoritar, pedir avise-me e ver numa PDP
+  // significam querer, esperar e olhar.
+  //
+  // `recent` fica de fora dos DOIS: um cookie de trinta minutos com oito peças
+  // vistas marcaria meio pool como afinidade, e o proprio prompt proibe
+  // nominalmente ("nao e parece com o que ela olha"). Nada se perde — as quatro
+  // origens continuam chegando ao modelo pelas sementes e pela persona. O que
+  // muda e quais delas podem AFIRMAR afinidade candidato a candidato.
+  const possui = guardaRoupa.filter((p) => p.kinds.includes("purchased"));
+  const quer = guardaRoupa.filter(
+    (p) => p.kinds.includes("wishlist") || p.kinds.includes("waited"),
+  );
+
+  // Uma peca comprada E favoritada conta nos dois, e isso e verdade, nao dupla
+  // contagem: ela e posse e e desejo declarado.
+  const cruzar = (pecas: readonly PecaDaPessoa[]): string[] => {
+    const tags = new Set(pecas.flatMap((peca) => peca.tags));
+    return tagsDoCandidato.filter((tag) => tags.has(tag));
+  };
+
+  const combinaComTem = cruzar(possui);
+  const combinaComQuer = cruzar(quer);
+
+  // As pecas que a pessoa REALMENTE tem, do mesmo tipo do candidato. Deixa o
+  // modelo ver saturacao sem que o codigo decida o que e demais — e agora sem
+  // contar como posse o gorro que ela so olhou.
+  const jaTemDoTipo = possui
+    .filter((peca) => peca.tipo === candidato.tipo)
+    .map((peca) => peca.titulo);
+
+  return {
+    ...candidato,
+    ...(combinaComTem.length > 0 ? { combinaComOGuardaRoupa: combinaComTem } : {}),
+    ...(combinaComQuer.length > 0 ? { combinaComOQueQuer: combinaComQuer } : {}),
+    ...(jaTemDoTipo.length > 0 ? { jaTemDesteTipo: jaTemDoTipo } : {}),
+  };
+};
 
 /**
  * Uma tag que quase todo produto tem não distingue nada — só ocupa prompt.
@@ -92,34 +158,12 @@ export const montarCandidatos = async (
 
   const banais = tagsBanais(disponiveis);
 
-  return disponiveis.map((produto) => {
-    const anotado = comOGuardaRoupa(
-      // `comOGuardaRoupa` recebe o `Candidato` do `look`, que tem campos de
-      // âncora. `anotavel` os preenche vazios — não há âncora contra a qual
-      // medir — e a adaptação fica nesta fronteira, sumindo no passo 8, quando
-      // a função mudar de casa junto com o resto.
-      anotavel(produto),
-      produto.tags.filter((tag) => !banais.has(tag)),
-      guardaRoupa,
-    );
-
-    return {
-      ...produto,
-      ...(anotado.combinaComOGuardaRoupa ? { combinaComOGuardaRoupa: anotado.combinaComOGuardaRoupa } : {}),
-      ...(anotado.combinaComOQueQuer ? { combinaComOQueQuer: anotado.combinaComOQueQuer } : {}),
-      ...(anotado.jaTemDesteTipo ? { jaTemDesteTipo: anotado.jaTemDesteTipo } : {}),
-    };
-  });
+  // Direto, sem adaptação. Enquanto o `look` existia, esta linha passava por um
+  // `anotavel()` que preenchia `mesmaColecao` e `tagsEmComum` com vazio, porque
+  // `comOGuardaRoupa` tipava o candidato daquele domínio. Com o look aposentado
+  // a função mudou de casa e os campos de âncora sumiram do tipo — a camada de
+  // tradução deixou de ter o que traduzir.
+  return disponiveis.map((produto) =>
+    comOGuardaRoupa(produto, produto.tags.filter((tag) => !banais.has(tag)), guardaRoupa),
+  );
 };
-
-/** O mínimo que `comOGuardaRoupa` lê. Os campos de âncora vão vazios: não há. */
-const anotavel = (produto: Candidato) => ({
-  handle: produto.handle,
-  titulo: produto.titulo,
-  tipo: produto.tipo,
-  preco: produto.preco,
-  mesmaColecao: false,
-  tagsEmComum: [],
-  opcoesDisponiveis: produto.opcoesDisponiveis,
-  descricao: "",
-});
