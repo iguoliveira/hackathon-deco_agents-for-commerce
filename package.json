@@ -43,7 +43,8 @@
     "look:wishlist:e2e": "tsx scripts/look-wishlist-e2e.ts",
     "look:eval": "tsx scripts/look-eval.ts",
     "look:warm": "tsx scripts/look-warm.ts",
-    "look:armarios": "tsx scripts/look-armarios.ts"
+    "look:armarios": "tsx scripts/look-armarios.ts",
+    "vitrine:refresh": "tsx scripts/vitrine-refresh.ts"
   },
   "author": "deco.cx",
   "license": "MIT",

@@ -26,15 +26,18 @@ A consequência é que **nada hoje responde "o que ESTA pessoa deveria ver?"**.
 Todo caminho responde "o que combina com ISTO?". A pergunta da loja
 personalizada nunca foi feita.
 
-### E o cron já decidiu por nós
+### E o argumento que fechou, mesmo tendo mudado de forma
 
-Este é o argumento que fecha. Um job que roda às 3h **não tem PDP aberta**. Não
-existe âncora para ancorar. Rodar o agente atual por cron exigiria inventar uma
-peça — escolher uma do histórico e fingir que a pessoa está olhando para ela —,
-e aí a recomendação inteira passa a depender de um palpite que ninguém tomou.
+Este desenho nasceu quando a geração seria por **cron**, e o argumento era: um
+job das 3h não tem PDP aberta, então não existe âncora para ancorar — rodar o
+agente atual por cron exigiria escolher uma peça do histórico e fingir que a
+pessoa está olhando para ela.
 
-Não é preferência de produto. **A decisão de rodar por cron é incompatível com
-âncora**, e a arquitetura tem de acompanhar.
+**O cron caiu** (a #30 mostrou que o problema não era falta de relógio, era a
+chave do cache mudando a cada pageview), mas o argumento sobrevive intacto numa
+forma mais forte: se a recomendação é sobre a PESSOA, ela não pode depender de
+qual peça ela abriu por último. A âncora era um acidente do caminho, não um
+requisito da pergunta.
 
 ---
 
@@ -47,7 +50,7 @@ look e servem melhor aqui:
 - **É por pessoa, não por peça aberta.** A chave é `hashDosSinais` — o hash não
   tem âncora dentro. Já é a chave certa para uma vitrine.
 - **Não tem identidade.** Duas pessoas com o mesmo armário compartilham o
-  retrato. Num cron que varre gente, isso é economia direta.
+  retrato. Duas pessoas com o mesmo armário pagam uma síntese só.
 - **Carrega `evidencia`** — os títulos das peças que sustentam cada eixo. É o que
   vai permitir o motivo continuar concreto **sem âncora para citar**.
 
@@ -235,13 +238,33 @@ disser que a pessoa acumula camisetas, acumular mais uma e a recomendacao certa.
 deliberado. O que resta contra uma vitrine ruim e a persona; nao ha regra de
 composicao para se apoiar.
 
-**A chave de cache perde a âncora e ganha nada:** `hashDosSinais` sozinho. É a
-mesma chave da persona, o que significa que persona e vitrine se invalidam
-juntas — quando um sinal muda, as duas são refeitas, e nunca há vitrine composta
-a partir de um retrato velho.
+### A chave: uma pessoa, um dia
 
-Isso também é o que torna o cron simples: varrer `personas` e gerar a vitrine de
-cada hash é um `SELECT` e um laço, sem precisar saber quem é ninguém.
+```ts
+export const chaveDoDia = (email: string, dia = diaDeHoje()): string =>
+  fnv1a([email, dia].join("|"));
+```
+
+**Esta seção dizia `hashDosSinais(sementes)`, e estava errada.** A #30 achou o
+defeito no `look` e ele valia aqui igual: as sementes incluem `recent`, que sai
+do cookie `deco_recent` gravado a cada PDP aberta — então **abrir qualquer peça
+mudava a chave da vitrine**, e a gravada virava inalcançável. A section apareceria
+uma vez e sumiria.
+
+Com cron seria pior: o job calcularia o hash de madrugada e a pessoa chegaria de
+manhã com outro. A vitrine existiria no banco e nunca na tela.
+
+**Sem cidade nem mês**, ao contrário da chave do look. Aquele compõe a partir do
+clima; esta recomenda a partir de quem a pessoa é, e o prompt daqui não recebe
+lugar nenhum — pôr cidade na chave recomporia por nada.
+
+**Sem `"anon"`.** O look usa `email ?? "anon"` porque a âncora também está na
+chave dele. Aqui não há âncora: um `"anon"` faria todos os visitantes deslogados
+dividirem uma vitrine só — a recomendação de uma pessoa mostrada a outra, numa
+feature cujo ponto é ser de alguém. **Sem sessão, o agente não é acionado.**
+
+As sementes seguem indo ao prompt e à persona. O que mudou é *quando* a vitrine é
+recomposta, não *com o quê*.
 
 ---
 
@@ -336,17 +359,27 @@ O **passo 8 fica por último** de propósito. Enquanto os dois convivem, dá par
 comparar as saídas lado a lado com os mesmos sinais — que é a única forma de
 saber se a troca melhorou alguma coisa antes de não haver mais volta.
 
-### O que o cron precisa de nós
+### Não há cron
 
-```ts
-import { gerarVitrine } from "~/platform/vitrine/vitrine.actions";
-await gerarVitrine(email);   // 60-120s, grava, nunca lança
+A geração é disparada pela própria requisição, sem `await`, e o que a torna
+barata é a chave — uma por pessoa por dia. É a solução da #30.
+
+```
+vitrineDaPessoa(email)   lê pela chave do dia. No miss, dispara e devolve `null`
+                         — a section aparece no carregamento seguinte.
+gerarVitrine(email)      compõe e grava. 60-150s.
 ```
 
-O cron varre **identidades** — de `orders`, `stock_alerts`, `wishlist_items` — e
-passa o e-mail. Tudo o mais é derivado lá dentro: sementes, hash, persona,
-candidatos, recomendação, gravação. `gerarVitrine` já traz cache e quarentena, e
-devolve `null` em todo caminho de falha, então o laço pode ser um `for` simples.
+O `Set` de dedupe em voo e a quarentena **voltaram**, e vale dizer que voltaram:
+o desenho anterior os dispensava porque o cron era o único a gerar. Sem cron, a
+home volta a ser a origem das chamadas, e a chave diária reduz o volume — não a
+concorrência dentro do mesmo dia.
+
+A válvula, para quando a demo não puder esperar o dia virar:
+
+```bash
+npm run vitrine:refresh -- ana.escura@demo.local
+```
 
 > **Correção.** Uma versão anterior desta seção dizia para varrer
 > `SELECT sinais_hash FROM personas` e passar o hash. **Não funciona:** o hash é
