@@ -72,7 +72,9 @@ não consulte nada: tudo de que você precisa está nesta mensagem.
   ]
 }
 
-Entre 4 e 12 peças, na ordem em que você acredita nelas.
+Entre 4 e 5 peças, na ordem em que você acredita nelas. **Cinco é o teto,
+e ele é rígido** — a vitrine é uma faixa na home, não um catálogo. Escolher
+menos e explicar bem vale mais que preencher.
 
 ## REGRAS RÍGIDAS
 
@@ -152,6 +154,43 @@ E não confunda os dois campos no texto: "combina com o que você já tem" só v
 para \`combinaComOGuardaRoupa\`. Para \`combinaComOQueQuer\`, diga "do que você vem
 procurando" — ela ainda não tem aquilo.
 
+## SÓ CITE PEÇA PELO NOME. NUNCA POR CATEGORIA.
+
+Esta é a regra que mais é quebrada, e ela tem um caso real:
+
+  ruim  "como nas jaquetas favoritadas"
+
+A pessoa não tinha jaqueta nenhuma. O que ela tinha era \`combinaComOQueQuer\`
+com as tags \`streetwear, layering, black\` — e "jaquetas favoritadas" foi
+inventado para preencher a frase.
+
+**Uma tag não é uma peça.** Ver \`layering\` no campo autoriza dizer "camada", não
+autoriza dizer QUAL peça dela é de camada. Se você quiser nomear, o nome tem de
+estar escrito na \`evidencia\` de algum eixo do retrato — é o único lugar onde há
+nome de peça dela nesta mensagem.
+
+  bom   "Fecha com a Tailored Blazer que você comprou."     (nome na evidência)
+  bom   "Do território dos básicos que você vem esperando."  (sem nome, sem invenção)
+  ruim  "como nas suas jaquetas"                             (categoria inventada)
+  ruim  "combina com os seus tênis brancos"                  (idem, mesmo que soe bem)
+
+**Nunca diga quantas peças ela tem de algo**, a menos que esteja contando os
+títulos de \`jaTemDesteTipo\`. "As suas três jaquetas" com duas jaquetas é uma
+mentira que a pessoa percebe na hora.
+
+## E NÃO CHUTE A ORIGEM DO DESEJO
+
+\`combinaComOQueQuer\` junta duas coisas: o que ela FAVORITOU e o que ela pediu
+"avise-me". **Aquele campo não diz qual das duas foi**, e você não tem como
+saber olhando as tags.
+
+Então: só use as palavras "favoritou" ou "avise-me" quando a peça aparecer
+nomeada na \`evidencia\` do retrato, que é onde a origem está dita. Sem isso, use
+palavra neutra — "que você vem procurando", "do que você anda buscando".
+
+  ruim  "como nas jaquetas favoritadas"      (ela não favoritou nada; era avise-me)
+  bom   "do que você vem procurando"
+
 ## A CONFIANÇA
 
 Um número de 0 a 1: quanto esta vitrine é realmente sobre esta pessoa.
@@ -201,5 +240,15 @@ export const PISO_DE_CONFIANCA = 0.5;
 /** Menos que isto não é vitrine, é sobra. */
 export const MIN_PECAS = 4;
 
-/** Teto do que chega à tela. Acima disso a home vira catálogo. */
-export const MAX_PECAS = 12;
+/**
+ * Teto do que chega à tela.
+ *
+ * **Cinco**, e é decisão de produto, não de custo: a vitrine é uma faixa na
+ * home, entre outras sections, e não a página inteira. Um teto alto faria a
+ * recomendação competir com o catálogo em vez de destacar-se dele.
+ *
+ * O piso continua em quatro. A faixa é estreita de propósito — se só quatro
+ * produtos merecem a vaga, a vitrine sai com quatro, e o prompt diz isso com
+ * todas as letras ("escolher menos e explicar bem vale mais que preencher").
+ */
+export const MAX_PECAS = 5;

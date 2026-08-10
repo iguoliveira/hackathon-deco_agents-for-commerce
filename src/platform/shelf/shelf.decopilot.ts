@@ -10,7 +10,21 @@
  * fallback determinístico.
  */
 
-const TIMEOUT_MS = 120_000;
+/**
+ * Teto padrão de uma chamada.
+ *
+ * Era 120s, medido quando o provedor respondia em ~33s. **Não é tamanho de
+ * prompt: é latência do provedor, e ela varia muito.** No dia em que isto subiu,
+ * a mesma chamada da vitrine levou 91,5s numa execução e foi abortada aos 120s
+ * na seguinte — e a da PERSONA, cujo prompt é uma fração do tamanho, também
+ * estourou. Um teto calibrado no dia bom transforma lentidão do provedor em
+ * "modelo indisponível" e gasta uma linha de quarentena por isso.
+ *
+ * Cinco minutos, e o custo é zero: **todo consumidor daqui roda em background**
+ * — vitrine e look por cron ou disparo sem `await`, shelf idem. Ninguém está
+ * esperando na tela, e o que protege contra laço é a quarentena, não o teto.
+ */
+const TIMEOUT_MS = 300_000;
 
 interface Config {
   root: string;
@@ -101,13 +115,15 @@ export interface RespostaDoModelo {
 export const perguntar = async (
   mensagem: string,
   rotulo: string,
+  /** Teto desta chamada. Só passe se o prompt for maior que o do look. */
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<RespostaDoModelo | null> => {
   const config = lerConfig();
   if (!config) return null;
 
   const inicio = Date.now();
   const abortar = new AbortController();
-  const relogio = setTimeout(() => abortar.abort(), TIMEOUT_MS);
+  const relogio = setTimeout(() => abortar.abort(), timeoutMs);
 
   try {
     const thread = await criarThread(config, rotulo);
