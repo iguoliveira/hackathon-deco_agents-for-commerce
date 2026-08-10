@@ -19,6 +19,7 @@ import { readShopperIdentity } from "../alerts";
 import { lerCarrinho, limparCarrinho, serializarCarrinho } from "../cart/cart.cookie";
 import { findCartLines } from "../catalog/catalog.d1";
 import { criarPedido, pedidosDe } from "./orders.d1";
+import { diaDeHoje, gerarVitrine } from "../vitrine/vitrine.actions";
 import type { Pedido } from "./orders.types";
 
 export type ResultadoDaCompra =
@@ -107,6 +108,11 @@ export const checkoutServerFn = createServerFn({ method: "POST" }).handler(
       naoEntraram.length > 0 ? serializarCarrinho(naoEntraram) : limparCarrinho(),
     );
 
+    // A compra é o sinal mais forte que existe, e o único que muda o armário de
+    // POSSE. Recompor aqui é o que impede a vitrine de recomendar, pelo resto do
+    // dia, a partir de um armário que a pessoa acabou de deixar para trás.
+    recomporVitrine(identidade.email);
+
     return {
       ok: true,
       pedidoId,
@@ -116,6 +122,41 @@ export const checkoutServerFn = createServerFn({ method: "POST" }).handler(
     };
   },
 );
+
+/**
+ * Recompõe a vitrine depois de uma compra. **Sem `await`, e forçando.**
+ *
+ * Mesmo padrão de `notifyMe/subscribe.ts`, com o mesmo argumento e o mesmo
+ * preço — mas por um gatilho mais forte. Lá a pessoa declarou que **quer** uma
+ * peça; aqui ela **passou a ter** uma, e `purchased` é a única origem que
+ * significa posse. `comprasDe` já lê `order_items`, então o pedido gravado
+ * acima muda as sementes na próxima leitura, e a persona é re-sintetizada por
+ * consequência (`obterPersona` cacheia por hash dos sinais).
+ *
+ * **`forcar = true`, e isto merece defesa** porque o comentário de `gerarVitrine`
+ * diz que só o `vitrine:refresh` deveria passar `true`. Sem forçar, a chamada
+ * encontraria a vitrine de hoje no cache e devolveria a antiga — que é
+ * exatamente a que acabou de ficar obsoleta. A regra existe para o disparo da
+ * home, que roda a cada pageview e faria a chave diária perder o sentido; uma
+ * compra acontece poucas vezes por dia e **é o evento que justifica recompor**.
+ * Não fura o teto por acidente: fura pelo motivo pelo qual o teto tem exceção.
+ *
+ * **Deliberadamente sem `await`.** São ~90s em duas passadas de modelo, e quem
+ * clicou está esperando "pedido confirmado", não vitrine nenhuma.
+ *
+ * Melhor esforço, e vale dizer o que se perde: sem `waitUntil` a plataforma pode
+ * congelar a invocação quando a resposta sai, matando a geração no meio. O custo
+ * disso aqui é menor que no `notifyMe` — a vitrine do dia continua servindo, só
+ * sem refletir a compra até a próxima recomposição. Nada quebra; fica velha.
+ *
+ * Nunca lança: o pedido já está gravado e a pessoa já recebeu o sucesso dela.
+ * Uma falha de telemetria não pode derrubar um checkout que deu certo.
+ */
+function recomporVitrine(email: string): void {
+  void gerarVitrine(email, diaDeHoje(), true).catch((erro) => {
+    console.error(`[orders] falha ao recompor a vitrine de ${email}:`, erro);
+  });
+}
 
 /** Os pedidos de quem está logado. Lista vazia para quem não está. */
 export const listarPedidosServerFn = createServerFn({ method: "GET" }).handler(
