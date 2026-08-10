@@ -134,32 +134,6 @@
     {
       "__resolveType": "website/sections/Rendering/Lazy.tsx",
       "section": {
-        "__resolveType": "site/sections/Product/PersonalShelf.tsx",
-        "vitrine": {
-          "__resolveType": "site/loaders/personalShelf.ts",
-          "lista": "alternativas"
-        },
-        "maxItens": 6,
-        "formato": "carrossel",
-        "verMais": "/minha-vitrine"
-      }
-    },
-    {
-      "__resolveType": "website/sections/Rendering/Lazy.tsx",
-      "section": {
-        "__resolveType": "site/sections/Product/PersonalShelf.tsx",
-        "vitrine": {
-          "__resolveType": "site/loaders/personalShelf.ts",
-          "lista": "combinam"
-        },
-        "maxItens": 6,
-        "formato": "carrossel",
-        "verMais": "/minha-vitrine/combina"
-      }
-    },
-    {
-      "__resolveType": "website/sections/Rendering/Lazy.tsx",
-      "section": {
         "__resolveType": "site/sections/Product/CompleteTheLook.tsx",
         "mostrarProcedencia": true,
         "look": {

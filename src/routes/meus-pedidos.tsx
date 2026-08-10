@@ -13,7 +13,7 @@ export const Route = createFileRoute("/meus-pedidos")({
 });
 
 /**
- * Rota de arquivo, e não página do CMS como `/minha-vitrine`.
+ * Rota de arquivo, e não página do CMS como as de catálogo.
  *
  * A diferença é o que a página mostra: uma vitrine é conteúdo, e faz sentido
  * alguém reposicioná-la no admin. Um extrato de pedidos não é conteúdo — é
