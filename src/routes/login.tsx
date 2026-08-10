@@ -23,7 +23,10 @@ function LoginPage() {
         <div className="card bg-base-100 shadow w-full max-w-md p-8 text-center">
           <h1 className="text-2xl font-semibold mb-2">You're signed in</h1>
           <p className="text-base-content/70 mb-6">Head to your account dashboard to keep going.</p>
-          <Link to="/account" preload="intent" className="btn btn-primary">
+          {/* `replace` pelo mesmo motivo do `onSignUp`: sem ele esta página
+              volta a ser a entrada anterior de `/account`, e o "Voltar" de lá
+              cai de novo neste mesmo cartão. */}
+          <Link to="/account" replace preload="intent" className="btn btn-primary">
             Go to my account
           </Link>
         </div>
@@ -39,7 +42,8 @@ function LoginPage() {
         email: `${data.get("email") ?? ""}`.trim(),
         password: `${data.get("password") ?? ""}`,
       },
-      { onSuccess: () => navigate({ to: "/account" }) },
+      // `replace` e não push: ver o comentário em `onSignUp`.
+      { onSuccess: () => navigate({ to: "/account", replace: true }) },
     );
   };
 
@@ -53,7 +57,24 @@ function LoginPage() {
         firstName: `${data.get("firstName") ?? ""}`.trim() || undefined,
         lastName: `${data.get("lastName") ?? ""}`.trim() || undefined,
       },
-      { onSuccess: () => navigate({ to: "/account" }) },
+      /**
+       * **`replace: true` é o que conserta o "Voltar" da conta.**
+       *
+       * Com `push`, o histórico fica `… → / → /login → /account`. O botão de
+       * voltar da conta chama `history.back()`, cai em `/login`, e como a pessoa
+       * já está autenticada esta rota renderiza *"You're signed in — Go to my
+       * account"*. Ou seja: voltar levava a um beco cuja única saída era
+       * exatamente a página de onde se veio.
+       *
+       * Substituindo a entrada, o histórico vira `… → / → /account`, e voltar
+       * leva ao lugar de onde a pessoa clicou em "Login" — a home, na maioria
+       * das vezes, porque o link vive no header.
+       *
+       * Consertar aqui e não no botão é de propósito: um `to="/"` fixo na conta
+       * mascararia o mesmo beco, que continuaria valendo para o botão do
+       * navegador e para qualquer página que venha a navegar para `/account`.
+       */
+      { onSuccess: () => navigate({ to: "/account", replace: true }) },
     );
   };
 
