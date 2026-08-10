@@ -41,5 +41,9 @@ vite.config.timestamp_*
 .idea/
 .env*
 
+# ...menos o modelo, que é o único que PRECISA ser versionado: ele é o que diz
+# quais variáveis existem. Sem valor nenhum dentro.
+!.env.example
+
 # Saída de scripts/look-eval.ts — medições locais, não versionadas.
 .eval/
