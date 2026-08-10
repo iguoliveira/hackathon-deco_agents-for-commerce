@@ -86,10 +86,6 @@
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9OZXdzbGV0dGVyL05ld3NsZXR0ZXIudHN4",
           "namespace": "site"
         },
-        "site/sections/Product/PersonalShelf.tsx": {
-          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
-          "namespace": "site"
-        },
         "site/sections/Product/ProductDetails.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
           "namespace": "site"
@@ -154,10 +150,6 @@
         },
         "site/loaders/lookLocal.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==",
-          "namespace": "site"
-        },
-        "site/loaders/personalShelf.ts": {
-          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=",
           "namespace": "site"
         },
         "site/loaders/productByHandle.ts": {
@@ -393,32 +385,6 @@
               "site/loaders/lookLocal.ts"
             ],
             "default": "site/loaders/lookLocal.ts"
-          }
-        }
-      },
-      "c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=": {
-        "title": "site/loaders/personalShelf.ts",
-        "type": "object",
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/loaders/personalShelf.ts"
-            ],
-            "default": "site/loaders/personalShelf.ts"
-          },
-          "lista": {
-            "type": "string",
-            "enum": [
-              "alternativas",
-              "combinam"
-            ],
-            "nullable": true,
-            "title": "Lista",
-            "description": "\"alternativas\" mostra o que substitui a peça esgotada (mesmo tipo). \"combinam\" mostra o que completa o look (outro tipo)."
           }
         }
       },
@@ -3653,7 +3619,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4670,73 +4636,6 @@
           }
         }
       },
-      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props": {
-        "type": "object",
-        "properties": {
-          "vitrine": {
-            "anyOf": [
-              {
-                "$ref": "#/definitions/Resolvable"
-              },
-              {
-                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
-              },
-              {
-                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw=="
-              }
-            ],
-            "title": "Vitrine pessoal",
-            "nullable": true,
-            "description": "Resolve com `site/loaders/personalShelf.ts`. Escolha ali qual lista aparece."
-          },
-          "maxItens": {
-            "type": "number",
-            "nullable": true,
-            "title": "Quantos mostrar",
-            "description": "Vazio mostra todos. Na home vale limitar e apontar o \"ver mais\" para a página inteira."
-          },
-          "verMais": {
-            "type": "string",
-            "nullable": true,
-            "title": "Link do \"ver mais\"",
-            "description": "Ex.: \"/minha-vitrine\". Só aparece quando há mais itens do que os exibidos."
-          },
-          "formato": {
-            "type": "string",
-            "enum": [
-              "carrossel",
-              "grade"
-            ],
-            "nullable": true,
-            "title": "Formato",
-            "description": "Carrossel para a home; grade para uma página dedicada."
-          }
-        },
-        "required": [
-          "vitrine"
-        ]
-      },
-      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4": {
-        "title": "site/sections/Product/PersonalShelf.tsx",
-        "type": "object",
-        "allOf": [
-          {
-            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
-          }
-        ],
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/sections/Product/PersonalShelf.tsx"
-            ],
-            "default": "site/sections/Product/PersonalShelf.tsx"
-          }
-        }
-      },
       "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props": {
         "type": "object",
         "properties": {
@@ -4952,7 +4851,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -5206,9 +5105,6 @@
                 "$ref": "#/definitions/Resolvable"
               },
               {
-                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
-              },
-              {
                 "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw=="
               }
             ],
@@ -5220,7 +5116,7 @@
             "type": "string",
             "nullable": true,
             "title": "Título da section",
-            "description": "O nome que aparece na tela. Vazio usa \"Escolhido para você\"."
+            "description": "O nome que aparece na tela. Vazio usa \"Recomendações com a sua cara\"."
           },
           "mostrarProcedencia": {
             "type": "boolean",
@@ -5863,10 +5759,6 @@
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL05ld3NsZXR0ZXIvTmV3c2xldHRlci50c3g=@Props"
           },
           {
-            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
-            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
-          },
-          {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props"
           },
@@ -5930,9 +5822,6 @@
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw=="
-          },
-          {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
