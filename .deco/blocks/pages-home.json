@@ -160,11 +160,10 @@
     {
       "__resolveType": "website/sections/Rendering/Lazy.tsx",
       "section": {
-        "__resolveType": "site/sections/Product/CompleteTheLook.tsx",
+        "__resolveType": "site/sections/Product/VitrineRecomendada.tsx",
         "mostrarProcedencia": true,
-        "look": {
-          "__resolveType": "site/loaders/completeTheLook.ts",
-          "handle": "vintage-wash-tee"
+        "vitrine": {
+          "__resolveType": "site/loaders/vitrineRecomendada.ts"
         }
       }
     },

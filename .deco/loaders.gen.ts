@@ -68,8 +68,6 @@ export const siteLoaders: Record<string, (props: any, request?: Request) => Prom
   "site/loaders/catalogProductList.ts": createLoaderEntry("site/loaders/catalogProductList", () => import("../src/loaders/catalogProductList")),
   "site/loaders/catalogProductListingPage": createLoaderEntry("site/loaders/catalogProductListingPage", () => import("../src/loaders/catalogProductListingPage")),
   "site/loaders/catalogProductListingPage.ts": createLoaderEntry("site/loaders/catalogProductListingPage", () => import("../src/loaders/catalogProductListingPage")),
-  "site/loaders/completeTheLook": createLoaderEntry("site/loaders/completeTheLook", () => import("../src/loaders/completeTheLook")),
-  "site/loaders/completeTheLook.ts": createLoaderEntry("site/loaders/completeTheLook", () => import("../src/loaders/completeTheLook")),
   "site/loaders/lookLocal": createLoaderEntry("site/loaders/lookLocal", () => import("../src/loaders/lookLocal")),
   "site/loaders/lookLocal.ts": createLoaderEntry("site/loaders/lookLocal", () => import("../src/loaders/lookLocal")),
   "site/loaders/personalShelf": createLoaderEntry("site/loaders/personalShelf", () => import("../src/loaders/personalShelf")),
@@ -78,6 +76,8 @@ export const siteLoaders: Record<string, (props: any, request?: Request) => Prom
   "site/loaders/productByHandle.ts": createLoaderEntry("site/loaders/productByHandle", () => import("../src/loaders/productByHandle")),
   "site/loaders/user": createLoaderEntry("site/loaders/user", () => import("../src/loaders/user")),
   "site/loaders/user.ts": createLoaderEntry("site/loaders/user", () => import("../src/loaders/user")),
+  "site/loaders/vitrineRecomendada": createLoaderEntry("site/loaders/vitrineRecomendada", () => import("../src/loaders/vitrineRecomendada")),
+  "site/loaders/vitrineRecomendada.ts": createLoaderEntry("site/loaders/vitrineRecomendada", () => import("../src/loaders/vitrineRecomendada")),
   "site/loaders/wishlist": createLoaderEntry("site/loaders/wishlist", () => import("../src/loaders/wishlist")),
   "site/loaders/wishlist.ts": createLoaderEntry("site/loaders/wishlist", () => import("../src/loaders/wishlist")),
 };

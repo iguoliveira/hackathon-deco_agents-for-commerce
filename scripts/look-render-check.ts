@@ -27,21 +27,35 @@ try {
   // Sem .env: o erro de "DATABASE_URL não definida" que vem depois é o útil.
 }
 
-import completeTheLookLoader from "../src/loaders/completeTheLook";
-import { lookDaPeca } from "../src/platform/look/look.actions";
 import { acharAncora } from "../src/platform/look/look.d1";
-import { montarCandidatos } from "../src/platform/look/look.candidates";
+import { comOGuardaRoupa } from "../src/platform/vitrine/vitrine.candidates";
+import { validar as validarVitrine, MAX_PECAS as VITRINE_MAX } from "../src/platform/vitrine/vitrine.agent";
+import type { Candidato as ProdutoDaVitrine } from "../src/platform/vitrine/vitrine.types";
 import { consolidar, herdarDataReal } from "../src/platform/look/look.seeds";
 import { localEmTexto, mesAtual } from "../src/platform/look/look.local";
 import { lerVistos, serializarVistos, lerLocalEscolhido } from "../src/platform/look/look.cookies";
-import { validar } from "../src/platform/look/look.agent";
 import { validarPersona } from "../src/platform/look/persona.agent";
 import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
 import { hashDosSinais } from "../src/platform/look/look.hash";
-import type { Candidato, Semente } from "../src/platform/look/look.types";
+import type { Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
 const falhas: string[] = [];
+let pulados = 0;
+
+/**
+ * Marca uma secao como nao executada, em vez de derrubar a suite.
+ *
+ * As secoes 3 e 4 dependem de um look AQUECIDO, e o resto do arquivo nao
+ * depende de nada. Antes, cache frio chamava `process.exit(1)` e levava junto
+ * tudo o que vinha depois — inclusive verificacoes puras que nao tocam banco.
+ * Com o provedor sem token, aquecer nem sempre e possivel, e uma suite que so
+ * roda em dia bom nao e suite.
+ */
+const pular = (secao: string, porque: string): void => {
+  pulados++;
+  console.log(`  [33m~[0m ${secao} PULADA — ${porque}`);
+};
 
 const ok = (nome: string, condicao: boolean, detalhe = ""): void => {
   if (condicao) {
@@ -80,6 +94,97 @@ const main = async (): Promise<void> => {
   console.log(`  slug PDP: ${slugDaPdp}   (é este que chega pela URL)`);
 
   // ------------------------------------------------------------------
+  titulo("0. Posse e desejo nao sao a mesma coisa");
+  // ------------------------------------------------------------------
+  //
+  // `comOGuardaRoupa` anexa `combinaComOGuardaRoupa` e `jaTemDesteTipo`, e o
+  // prompt descreve os dois ao modelo como POSSE — "o que a pessoa JA TEM",
+  // "nao e parece com o que ela olha". Das quatro origens de semente, so
+  // `purchased` e posse.
+  //
+  // O defeito e silencioso: nao lanca, nao aparece no typecheck, e so se
+  // manifesta num prompt que ninguem le. Por isso vive aqui.
+  const cand: ProdutoDaVitrine = {
+    handle: "gorro-novo", titulo: "Gorro Novo", tipo: "Beanie", preco: 99,
+    tags: ["winter", "basic"], opcoesDisponiveis: ["U"],
+  };
+  const tagsDoCand = ["winter", "basic"];
+
+  const soOlhou = [{ titulo: "Ribbed Beanie", tipo: "Beanie", tags: ["winter", "basic"], kinds: ["recent"] as const }];
+  const soQuis  = [{ titulo: "Puffer Jacket", tipo: "Beanie", tags: ["winter"], kinds: ["wishlist"] as const }];
+  const comprou = [{ titulo: "Winter Hat", tipo: "Beanie", tags: ["winter"], kinds: ["purchased"] as const }];
+
+  const r1 = comOGuardaRoupa(cand, tagsDoCand, soOlhou);
+  ok("ver numa PDP nao vira \"ja tem deste tipo\"", r1.jaTemDesteTipo === undefined,
+     JSON.stringify(r1.jaTemDesteTipo));
+  ok("ver numa PDP nao vira \"combina com o que ela tem\"", r1.combinaComOGuardaRoupa === undefined,
+     JSON.stringify(r1.combinaComOGuardaRoupa));
+
+  const r2 = comOGuardaRoupa(cand, tagsDoCand, soQuis);
+  ok("favoritar nao vira \"ja tem deste tipo\"", r2.jaTemDesteTipo === undefined,
+     JSON.stringify(r2.jaTemDesteTipo));
+
+  const r3 = comOGuardaRoupa(cand, tagsDoCand, comprou);
+  ok("comprar VIRA \"ja tem deste tipo\"", r3.jaTemDesteTipo?.[0] === "Winter Hat");
+  ok("comprar VIRA \"combina com o que ela tem\"", (r3.combinaComOGuardaRoupa ?? []).includes("winter"));
+
+  // O desejo nao e descartado — ele muda de campo. Sem isto, consertar o bug
+  // teria custado o sinal de quem favorita e nao compra, que e a maioria.
+  ok("favoritar VIRA \"combina com o que ela quer\"", (r2.combinaComOQueQuer ?? []).includes("winter"));
+  ok("e ver numa PDP nao vira nem isso", r1.combinaComOQueQuer === undefined,
+     JSON.stringify(r1.combinaComOQueQuer));
+
+  // Comprada E favoritada conta nos dois: e posse e e desejo declarado.
+  const ambos = comOGuardaRoupa(cand, tagsDoCand, [
+    { titulo: "Winter Hat", tipo: "Beanie", tags: ["winter"], kinds: ["purchased", "wishlist"] as const },
+  ]);
+  ok("comprada E favoritada conta nos dois campos",
+     (ambos.combinaComOGuardaRoupa ?? []).includes("winter") &&
+       (ambos.combinaComOQueQuer ?? []).includes("winter"));
+
+  // ------------------------------------------------------------------
+  titulo("0b. A vitrine nao pode mostrar produto que o modelo inventou");
+  // ------------------------------------------------------------------
+  //
+  // A etapa 3 pesa mais na vitrine que no `look`: la o modelo escolhia entre 18
+  // candidatos ancorados na peca aberta, e a ancora ja restringia. Aqui escolhe
+  // entre 127 sem nada que o obrigue a se relacionar com coisa alguma — esta
+  // funcao e a unica fronteira entre o catalogo e a tela, junto com a persona.
+  const pool: ProdutoDaVitrine[] = [
+    { handle: "a", titulo: "A", tipo: "T", preco: 10, tags: [], opcoesDisponiveis: [] },
+    { handle: "b", titulo: "B", tipo: "T", preco: 20, tags: [], opcoesDisponiveis: [] },
+  ];
+
+  const doModeloVitrine = [
+    { handle: "a", motivo: "combina com o cardiga que voce comprou" },
+    { handle: "inventado", motivo: "parece otimo" },
+    { handle: "b", motivo: "   " },
+    { handle: "a", motivo: "de novo a mesma peca" },
+    "lixo",
+    { motivo: "sem handle" },
+  ];
+
+  const vit = validarVitrine(doModeloVitrine, pool);
+  ok("handle inventado e descartado", !vit.some((p) => p.handle === "inventado"));
+  ok("peca sem motivo e descartada", !vit.some((p) => p.handle === "b"));
+  ok("duplicata nao entra duas vezes", vit.filter((p) => p.handle === "a").length === 1);
+  ok("lixo na lista nao quebra nem entra", vit.length === 1, `${vit.length} peca(s)`);
+  ok("a que sobrou mantem o motivo", vit[0]?.motivo.startsWith("combina com"));
+  ok("e recebe position", vit[0]?.position === 0);
+  ok("lista que nao e lista vira vazia", validarVitrine("nada disso", pool).length === 0);
+
+  // O teto existe porque a home nao e catalogo. Sem ele, um modelo generoso
+  // devolve os 127 e a section vira a loja inteira.
+  const muitos = Array.from({ length: VITRINE_MAX + 5 }, (_, i) => ({
+    handle: `p${i}`,
+    motivo: "motivo valido",
+  }));
+  const poolGrande: ProdutoDaVitrine[] = muitos.map((m) => ({
+    handle: m.handle, titulo: m.handle, tipo: "T", preco: 1, tags: [], opcoesDisponiveis: [],
+  }));
+  ok(`o teto de ${VITRINE_MAX} pecas e respeitado`, validarVitrine(muitos, poolGrande).length === VITRINE_MAX);
+
+  // ------------------------------------------------------------------
   titulo("1. acharAncora aceita o slug que o site realmente gera");
   // ------------------------------------------------------------------
   const porSlug = await acharAncora(slugDaPdp);
@@ -112,108 +217,6 @@ const main = async (): Promise<void> => {
   } else {
     console.log("  \x1b[33m-\x1b[0m  `high-top-canvas-shoes-1` não está neste catálogo, pulando");
   }
-
-  // ------------------------------------------------------------------
-  titulo("3. O loader lê o slug de __pageUrl, não da requisição corrente");
-  // ------------------------------------------------------------------
-  // Este é o teste que encena o caminho diferido: fora de um RequestContext,
-  // a ÚNICA coisa que o loader tem é `__pageUrl`. Se ele dependesse de
-  // `RequestContext.request.url`, tudo abaixo voltaria null.
-  const pelaPagina = await completeTheLookLoader({
-    __pageUrl: `https://loja.exemplo.com/products/${slugDaPdp}`,
-  });
-
-  // Sem o fallback por SQL, `null` aqui tem DUAS causas possíveis, e confundi-las
-  // manda consertar o arquivo errado: ou o slug não resolveu (o bug que este
-  // script existe para pegar), ou o par (peça, contexto) simplesmente não está
-  // no cache. Este script roda do terminal, então o contexto é sempre
-  // "visitante sem histórico em São Paulo" — o mesmo que `look:warm` aquece.
-  if (pelaPagina === null) {
-    console.error(
-      `\n  Não há look gravado para \`${handle}\` no contexto deste terminal.\n` +
-        "  Isso NÃO é falha de renderização — desde que o fallback por SQL caiu, a\n" +
-        "  section só aparece com o cache quente. Aqueça e rode de novo:\n\n" +
-        `      npm run look:warm -- ${handle}\n`,
-    );
-    process.exit(1);
-  }
-
-  ok(
-    "PDP via __pageUrl devolve look",
-    pelaPagina !== null,
-    "o loader não recuperou o slug — voltou ao bug do `_serverFn`",
-  );
-  ok("o look tem blocos", (pelaPagina?.blocos.length ?? 0) > 0);
-  ok(
-    "o look tem pelo menos 4 peças",
-    (pelaPagina?.blocos.reduce((s, b) => s + b.pecas.length, 0) ?? 0) >= 4,
-  );
-  ok(
-    "cada peça carrega um produto renderizável (url + preço)",
-    (pelaPagina?.blocos ?? []).every((bloco) =>
-      bloco.pecas.every((peca) => !!peca.product.url && !!peca.product.offers),
-    ),
-  );
-  ok(
-    "a procedência vem preenchida",
-    !!pelaPagina?.lugar && !!pelaPagina?.mes,
-    `lugar="${pelaPagina?.lugar}" mes="${pelaPagina?.mes}"`,
-  );
-
-  // Uma URL que NÃO é de produto não pode virar look.
-  ok(
-    "URL de PLP não vira look",
-    (await completeTheLookLoader({ __pageUrl: "https://loja.exemplo.com/s?q=tee" })) === null,
-  );
-  ok("sem __pageUrl e sem RequestContext devolve null", (await completeTheLookLoader({})) === null);
-
-  // A prop fixa continua servindo para fixar uma peça fora da PDP.
-  ok(
-    "prop `handle` explícita continua funcionando",
-    (await completeTheLookLoader({ handle })) !== null,
-  );
-
-  // ------------------------------------------------------------------
-  titulo("4. O que a section vai desenhar");
-  // ------------------------------------------------------------------
-  const look = pelaPagina!;
-  console.log(`  "${look.titulo}"   sementes: ${look.sementes}`);
-  console.log(`  procedência: ${look.lugar} em ${look.mes}`);
-  for (const bloco of look.blocos) {
-    console.log(`  ┌─ ${bloco.ocasiao}`);
-    for (const peca of bloco.pecas) {
-      // A MESMA precedência de `ProductCard.tsx:52` (`isVariantOf?.name ??
-      // product.name`). Imprimir `product.name` cru mostraria "XS" e "White",
-      // que são títulos de variante — o script diria que a tela está quebrada
-      // quando ela não está. Mesmo erro que o agrupamento do dry run cometia.
-      console.log(`  │  ${peca.product.isVariantOf?.name ?? peca.product.name}`);
-      if (peca.motivo) console.log(`  │    ${peca.motivo}`);
-    }
-  }
-
-  ok(
-    "nenhum bloco vazio chega à tela",
-    look.blocos.every((bloco) => bloco.pecas.length > 0),
-  );
-  ok(
-    "as ocasiões não se repetem entre blocos",
-    new Set(look.blocos.map((b) => b.ocasiao)).size === look.blocos.length,
-    "duas entradas com o mesmo rótulo viram dois cabeçalhos iguais na tela",
-  );
-  ok(
-    "nenhuma peça duplicada no look inteiro",
-    (() => {
-      const ids = look.blocos.flatMap((b) => b.pecas.map((p) => p.product.productID));
-      return new Set(ids).size === ids.length;
-    })(),
-  );
-  // A invariante que substituiu o fallback: se chegou look, TODA peça tem
-  // motivo. Não há mais o estado "look sem texto" — ver look.types.ts → `Look`.
-  ok(
-    "toda peça na tela carrega um motivo",
-    look.blocos.every((bloco) => bloco.pecas.every((peca) => peca.motivo.trim().length > 0)),
-    "peça sem motivo é o carrossel genérico que esta feature existe para não ser",
-  );
 
   // ------------------------------------------------------------------
   titulo("5. O cookie de vistos guarda handle, não slug");
@@ -273,26 +276,8 @@ const main = async (): Promise<void> => {
   ok("mês sai por extenso, em português", /^[a-zç]+$/.test(mesAtual()), mesAtual());
 
   // ------------------------------------------------------------------
-  titulo("7. Invariantes que a renderização não pode quebrar");
+  titulo("7. As sementes: consolidação e herança de data");
   // ------------------------------------------------------------------
-  const candidatos = await montarCandidatos(ancora.variantId);
-  ok("o pool tem candidatos", candidatos.length > 0, `${candidatos.length}`);
-  ok(
-    "nenhum candidato é a própria âncora",
-    candidatos.every((c: Candidato) => c.handle !== handle),
-  );
-
-  // A validação continua descartando, nunca corrigindo — o contrato do agente
-  // não pode afrouxar por causa da tela.
-  const forjado = [
-    { handle: candidatos[0]!.handle, motivo: "combina", ocasiao: "para o frio" },
-    { handle: `${candidatos[0]!.handle}x`, motivo: "quase certo", ocasiao: "x" },
-    { handle: candidatos[1]?.handle, motivo: "   ", ocasiao: "y" },
-  ];
-  const validadas = validar(forjado, candidatos);
-  ok("handle inventado é descartado", !validadas.some((p) => p.handle.endsWith("x")));
-  ok("peça sem motivo é descartada", validadas.length === 1);
-
   // As tags participam agora: `consolidar` as une, porque um "avise-me" chega
   // sem tags e a mesma peça vinda de uma compra chega com elas. Ficar com a
   // lista vazia por ordem de chegada empobreceria `combinaComOGuardaRoupa`.
@@ -441,7 +426,12 @@ const main = async (): Promise<void> => {
 
   // ------------------------------------------------------------------
   console.log(
-    `\n\x1b[1m${passaram} asserção(ões) passaram${falhas.length ? `, ${falhas.length} falharam\x1b[0m` : "\x1b[0m"}`,
+    // O contador de pulos entra no total de propósito: sem ele, "47 passaram"
+    // esconde "e duas seções não rodaram", que é a diferença entre verde e
+    // verde-por-omissão.
+    `\n\x1b[1m${passaram} asserção(ões) passaram` +
+      `${falhas.length ? `, ${falhas.length} falharam` : ""}` +
+      `${pulados ? `, ${pulados} seção(ões) pulada(s)` : ""}\x1b[0m`,
   );
   if (falhas.length) {
     for (const falha of falhas) console.log(`  \x1b[31m✗\x1b[0m ${falha}`);
