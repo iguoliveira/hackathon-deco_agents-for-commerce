@@ -40,7 +40,9 @@ if (!email) {
 const inicio = Date.now();
 console.log(`\n  recompondo a vitrine de ${email}…`);
 
-const vitrine = await gerarVitrine(email);
+// `forcar`: sem ele o `gerarVitrine` devolveria a vitrine de hoje que já
+// existe, e o comando que existe para refazer não refaria nada.
+const vitrine = await gerarVitrine(email, undefined, true);
 const segundos = ((Date.now() - inicio) / 1000).toFixed(1);
 
 if (!vitrine) {

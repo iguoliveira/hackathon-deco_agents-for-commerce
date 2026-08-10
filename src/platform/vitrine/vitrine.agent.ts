@@ -100,6 +100,8 @@ export interface Recomendacao {
 export const recomendar = async (
   persona: Persona,
   candidatos: readonly Candidato[],
+  /** Quantos sinais a pessoa tinha. Vai para a linha de procedência na tela. */
+  sinais = 0,
 ): Promise<Recomendacao> => {
   const desistir = (porque: string): Recomendacao => {
     console.warn(`[vitrine] sem recomendação — ${porque}`);
@@ -139,6 +141,7 @@ export const recomendar = async (
           : TITULO_PADRAO,
       confianca,
       pecas,
+      sinais,
     },
     porque: null,
   };

@@ -198,7 +198,7 @@ export const vitrineDaPessoa = async (email: string | null): Promise<VitrinePers
       console.warn(`[vitrine] caiu para ${pecas.length} peça(s) disponíveis — section não renderiza`);
       return null;
     }
-    return { titulo: cacheada.titulo, pecas, sementes: cacheada.pecas.length };
+    return { titulo: cacheada.titulo, pecas, sementes: cacheada.sinais };
   }
 
   // MISS. A reserva vem ANTES de qualquer `await`, e essa ordem é o guarda
@@ -251,6 +251,18 @@ export const vitrineDaPessoa = async (email: string | null): Promise<VitrinePers
 export const gerarVitrine = async (
   email: string,
   dia = diaDeHoje(),
+  /**
+   * Ignora o cache e a quarentena e compõe de novo.
+   *
+   * Existe porque sem isto o `vitrine:refresh` não refresca nada: `gerarVitrine`
+   * lê o cache antes de qualquer outra coisa — que é o certo para o disparo da
+   * home, e o oposto do que a válvula de demo precisa. Medido: o refresh voltava
+   * em 2,9s com a vitrine de antes.
+   *
+   * **Só o refresh passa `true`.** O disparo da home nunca deve, ou a chave
+   * diária perde o sentido.
+   */
+  forcar = false,
 ): Promise<Vitrine | null> => {
   const chave = chaveDoDia(email, dia);
   const sementes = await colherSementes(email);
@@ -269,12 +281,14 @@ export const gerarVitrine = async (
     return null;
   }
 
-  const cacheada = await lerVitrine(chave);
-  if (cacheada) return cacheada;
+  if (!forcar) {
+    const cacheada = await lerVitrine(chave);
+    if (cacheada) return cacheada;
 
-  if (await vitrineFalhouRecentemente(chave, TTL_FALHA_MINUTOS)) {
-    console.warn(`[vitrine] ${email} em quarentena — pulando`);
-    return null;
+    if (await vitrineFalhouRecentemente(chave, TTL_FALHA_MINUTOS)) {
+      console.warn(`[vitrine] ${email} em quarentena — pulando`);
+      return null;
+    }
   }
 
   // O portão. `obterPersona` já tem cache e quarentena próprios, então duas
@@ -287,7 +301,7 @@ export const gerarVitrine = async (
     .map((s: Semente) => s.productGroupId);
 
   const candidatos = await montarCandidatos(sementes, jaComprados);
-  const { vitrine, porque } = await recomendar(persona, candidatos);
+  const { vitrine, porque } = await recomendar(persona, candidatos, sementes.length);
   if (!vitrine) return desistir(porque ?? "motivo não registrado");
 
   await gravarVitrine(chave, vitrine);

@@ -9,11 +9,14 @@
  * recebe `Vitrine`, que já passou pela validação — nenhum handle dela pode ter
  * vindo de fora dos candidatos.
  *
- * **`Persona` e `Semente` são importadas de `look`**, e a direção está
- * invertida de propósito e por pouco tempo: a vitrine substitui o look (passo 8
- * do §8 do doc), e é lá que os dois tipos mudam de casa. Duplicá-los agora, para
- * a seta apontar bonito durante a convivência, criaria duas verdades sobre o que
- * é uma persona — que é o preço que nenhum dos dois lados vale.
+ * **`Persona` e `Semente` são importadas de `look`**, e ficaram lá mesmo depois
+ * de o look ser aposentado. Não é resíduo: as sementes e a persona nunca foram
+ * do agente de composição — só moravam no diretório dele. O que saiu foi a
+ * composição; o que ficou alimenta qualquer agente.
+ *
+ * Renomear `look/` para o que ele virou seria um diff de centenas de linhas em
+ * imports, sem mudar comportamento nenhum. Fica como dívida, escrita também no
+ * barrel do domínio.
  */
 
 import type { Persona, Semente } from "../look/look.types";
@@ -123,6 +126,16 @@ export interface Vitrine {
   confianca: number;
   /** Na ordem em que o agente acredita nelas. Sem agrupamento. */
   pecas: PecaRecomendada[];
+  /**
+   * Quantos sinais a pessoa tinha **quando esta vitrine foi composta**.
+   *
+   * Vira a linha de procedência na tela, que é a única coisa ali provando que o
+   * histórico dela entrou na decisão. Guardado, e não recontado na leitura, por
+   * dois motivos: recontar custaria as quatro consultas de `colherSementes` em
+   * toda exibição da home, e devolveria a contagem de AGORA — não a de quando a
+   * vitrine foi composta, que é o que a frase afirma.
+   */
+  sinais: number;
 }
 
 /** O que o modelo devolve, antes de qualquer validação. Nada aqui é confiável. */

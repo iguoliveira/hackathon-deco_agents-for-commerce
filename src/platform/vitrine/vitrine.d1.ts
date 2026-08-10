@@ -104,6 +104,7 @@ interface VitrineRow {
   titulo: string;
   confianca: number;
   pecas: string;
+  sinais: number;
   origem: string;
 }
 
@@ -121,7 +122,7 @@ export const lerVitrine = async (sinaisHash: string): Promise<Vitrine | null> =>
 
   try {
     const linha = await db
-      .prepare(`SELECT titulo, confianca, pecas, origem FROM vitrines WHERE sinais_hash = ?`)
+      .prepare(`SELECT titulo, confianca, pecas, sinais, origem FROM vitrines WHERE sinais_hash = ?`)
       .bind(sinaisHash)
       .first<VitrineRow>();
 
@@ -130,7 +131,7 @@ export const lerVitrine = async (sinaisHash: string): Promise<Vitrine | null> =>
     const pecas = JSON.parse(linha.pecas) as PecaRecomendada[];
     if (!Array.isArray(pecas) || pecas.length === 0) return null;
 
-    return { titulo: linha.titulo, confianca: linha.confianca, pecas };
+    return { titulo: linha.titulo, confianca: linha.confianca, pecas, sinais: linha.sinais ?? 0 };
   } catch (erro) {
     console.error("[vitrine] lerVitrine falhou", erro);
     return null;
@@ -150,18 +151,19 @@ export const gravarVitrine = async (sinaisHash: string, vitrine: Vitrine): Promi
   try {
     await db
       .prepare(
-        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, origem, motivo, generated_at)
-              VALUES (?, ?, ?, ?, 'agente', NULL,
+        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, sinais, origem, motivo, generated_at)
+              VALUES (?, ?, ?, ?, ?, 'agente', NULL,
                       to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
          ON CONFLICT (sinais_hash) DO UPDATE
                  SET titulo = EXCLUDED.titulo,
                      confianca = EXCLUDED.confianca,
                      pecas = EXCLUDED.pecas,
+                     sinais = EXCLUDED.sinais,
                      origem = EXCLUDED.origem,
                      motivo = EXCLUDED.motivo,
                      generated_at = EXCLUDED.generated_at`,
       )
-      .bind(sinaisHash, vitrine.titulo, vitrine.confianca, JSON.stringify(vitrine.pecas))
+      .bind(sinaisHash, vitrine.titulo, vitrine.confianca, JSON.stringify(vitrine.pecas), vitrine.sinais)
       .run();
 
     return true;
@@ -192,8 +194,8 @@ export const gravarFalhaDaVitrine = async (
   try {
     await db
       .prepare(
-        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, origem, motivo, generated_at)
-              VALUES (?, '', 0, '[]', 'falha', ?,
+        `INSERT INTO vitrines (sinais_hash, titulo, confianca, pecas, sinais, origem, motivo, generated_at)
+              VALUES (?, '', 0, '[]', 0, 'falha', ?,
                       to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
          ON CONFLICT (sinais_hash) DO UPDATE
                  SET origem = 'falha',
