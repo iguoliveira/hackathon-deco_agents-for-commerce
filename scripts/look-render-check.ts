@@ -39,6 +39,7 @@ import { validar } from "../src/platform/look/look.agent";
 import { validarPersona } from "../src/platform/look/persona.agent";
 import { montarMensagemDaPersona } from "../src/platform/look/persona.prompt";
 import { hashDosSinais } from "../src/platform/look/look.hash";
+import { getDb } from "../src/platform/db";
 import type { Candidato, Local, Semente } from "../src/platform/look/look.types";
 
 let passaram = 0;
@@ -55,6 +56,14 @@ const ok = (nome: string, condicao: boolean, detalhe = ""): void => {
 };
 
 const titulo = (texto: string): void => console.log(`\n\x1b[1m${texto}\x1b[0m`);
+
+/** Quantas linhas há em `looks`. É como o bloco 7c mede "não gerou nada". */
+const contarLooks = async (): Promise<number> => {
+  const db = getDb();
+  if (!db) return -1;
+  const { results } = await db.prepare(`SELECT count(*)::int AS n FROM looks`).all<{ n: number }>();
+  return results[0]?.n ?? -1;
+};
 
 /** O sufixo que `catalog.mapper.ts:productPath` anexa em TODO link do site. */
 const numeroDaVariante = (variantId: string): string => variantId.split("/").pop() ?? variantId;
@@ -434,6 +443,43 @@ const main = async (): Promise<void> => {
   ok(
     "sem sessão todo mundo cai na mesma chave",
     chaveDoDia(null, sp, hoje) === chaveDoDia(null, sp, hoje),
+  );
+
+  // ------------------------------------------------------------------
+  titulo("7c. Sem sessão, o agente não é acionado");
+  // ------------------------------------------------------------------
+  //
+  // A regra 10 do §7: o público é o usuário logado. Sem identidade não há
+  // armário, e o que sairia é o carrossel de relacionados que esta feature
+  // existe para contradizer.
+  //
+  // O custo de não ter o guarda era o pior possível porque a section vive na
+  // HOME: toda visita anônima disparava ~80s de modelo — bot, preview de link,
+  // health check, aba esquecida aberta. O teto diário não protege disso, porque
+  // o visitante anônimo é sempre outro.
+  //
+  // Este script roda fora de um RequestContext, então `donoDaVitrine()` devolve
+  // `null` — é exatamente o caso anônimo, sem precisar forjar sessão.
+  const antesDoAnonimo = await contarLooks();
+  const semSessao = await lookDaPeca(handle);
+  // Dá tempo de um disparo em background chegar ao banco, se houver. Sem esta
+  // espera o teste passaria por medir cedo demais, que é a forma mais fácil de
+  // um teste de "não aconteceu" mentir.
+  await new Promise((r) => setTimeout(r, 1500));
+  const depoisDoAnonimo = await contarLooks();
+
+  ok(
+    "visitante anônimo não dispara composição",
+    depoisDoAnonimo === antesDoAnonimo,
+    `looks foram de ${antesDoAnonimo} para ${depoisDoAnonimo} — o guarda de sessão caiu`,
+  );
+  ok(
+    "e recebe o look aquecido quando existe, em vez de nada",
+    // A assimetria é deliberada: ler é livre, gerar exige sessão. A home pública
+    // mostra a feature sem que ninguém anônimo pague por ela.
+    semSessao !== null,
+    "não havia look aquecido para o par anônimo — rode `npm run look:refresh -- " +
+      `${handle}\` e repita`,
   );
 
   // ------------------------------------------------------------------

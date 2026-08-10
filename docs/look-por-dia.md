@@ -70,6 +70,33 @@ ela distingue "o geo adivinhou" de "a pessoa escolheu no seletor", que é
 procedência para a tela e não parte de onde ela está — se entrasse, reescolher a
 **mesma** cidade no seletor recomporia o look.
 
+## 2b. Sem sessão, o agente não é acionado
+
+Achado abrindo a home deslogado durante o teste: **toda visita anônima disparava
+uma composição.** Duas chaves novas apareceram no banco em 33 segundos, uma antes
+de a sessão completar e outra depois.
+
+A chave diária não protege disso. Ela garante uma composição por pessoa por dia —
+e o visitante anônimo é **sempre outro**. Numa section que vive na home, isso é
+bot, preview de link, health check e aba esquecida aberta, cada um custando ~80s
+de modelo.
+
+O guarda é uma linha em `lookDaPeca`, depois do cache miss:
+
+```ts
+if (!email) return null;
+```
+
+Não é economia de token: é a **regra 10 do §7** — o público é o usuário logado, e
+sem identidade não há armário. O que sairia é um look montado a partir de nada,
+que é o carrossel de relacionados que esta feature existe para contradizer.
+
+**A leitura continua livre, e a assimetria é deliberada.** O `lerLook` roda
+antes: um look aquecido aparece para quem não entrou — a home pública mostra a
+feature — e ninguém anônimo paga por gerá-lo. Quem aquece é o `look:refresh`, que
+é sempre gesto explícito de quem sabe o que está pedindo, e por isso continua
+funcionando sem sessão.
+
 ### O que se ganha
 
 | | antes | agora |

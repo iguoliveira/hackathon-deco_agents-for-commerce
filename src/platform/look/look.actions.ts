@@ -227,7 +227,26 @@ export const lookDaPeca = async (handle: string): Promise<LookPersonalizado | nu
   const cacheado = await lerLook(alvo.ancora.productGroupId, hash);
   if (cacheado) return montar(cacheado, contexto);
 
-  // MISS. A reserva vem ANTES de qualquer `await`, e essa ordem é a correção
+  // MISS, e aqui vem a primeira pergunta: **há alguém para compor?**
+  //
+  // Sem sessão o agente não é acionado. Não é economia de token: é a regra 10 do
+  // §7 — o público desta feature é o usuário logado, e sem identidade não há
+  // armário. O que sairia é um look montado a partir de nada, que é exatamente o
+  // carrossel de relacionados que esta feature existe para contradizer.
+  //
+  // O custo de não ter esse guarda era o pior possível, porque a section vive na
+  // **home**: toda visita anônima disparava uma composição de ~80s — bot, preview
+  // de link, health check e a aba que alguém deixou aberta. Um por peça por dia,
+  // mas o "por dia" não protege quando o visitante é sempre outro.
+  //
+  // **A leitura continua livre**, e a assimetria é deliberada: o `lerLook` acima
+  // já respondeu. Um look aquecido aparece para quem não entrou — a home pública
+  // mostra a feature — e ninguém anônimo paga por gerá-lo. Quem aquece é o
+  // `look:refresh`, que é sempre um gesto explícito de quem sabe o que está
+  // pedindo.
+  if (!email) return null;
+
+  // A reserva vem ANTES de qualquer `await`, e essa ordem é a correção
   // inteira: `has` e `add` separados por I/O não são um guarda.
   //
   // O JavaScript não tem corrida de memória aqui, mas tem ponto de suspensão.
