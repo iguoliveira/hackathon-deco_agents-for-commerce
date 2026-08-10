@@ -63,6 +63,10 @@ A vitrine é composta **uma vez por pessoa por dia**. Refresh, navegação e vol
 à mesma página não disparam nada; à meia-noite **UTC** (21h de Brasília) a chave
 vira sozinha, sem cron nem job de limpeza.
 
+Quem dispara é o **próprio loader da home**, ao ler: no miss ele chama
+`gerarVitrine` sem esperar e devolve `null`. Por isso a primeira visita do dia
+nunca mostra a vitrine — ela aparece no carregamento seguinte, 60-150s depois.
+
 Isso tem um preço, e ele aparece na demo: favoritar às 14h não muda a vitrine até
 amanhã. `npm run vitrine:refresh` é a válvula.
 
@@ -70,9 +74,25 @@ amanhã. `npm run vitrine:refresh` é a válvula.
 
 ## Rodando localmente
 
+### 0. Pré-requisitos
+
+| | Por quê |
+|---|---|
+| **Node ≥ 20.12** | os scripts usam `process.loadEnvFile`, que não existe antes disso |
+| **bun** — [instalar](https://bun.sh) | cinco geradores o chamam direto, e `npm run build` encadeia quatro deles |
+
+O `bun` é fácil de subestimar porque `npm run dev` funciona sem ele — o plugin
+do deco cai para `npx tsx`. O `build` não cai: `generate:blocks`,
+`generate:sections`, `generate:loaders` e `generate:schema` invocam `bun` na
+linha de comando e morrem com `bun: command not found`.
+
 ### 1. `.env` — tudo num arquivo só
 
-O banco:
+```bash
+cp .env.example .env
+```
+
+O modelo está versionado e comenta variável a variável. O banco:
 
 ```bash
 DATABASE_URL=postgresql://postgres.<ref>:<senha>@aws-0-<regiao>.pooler.supabase.com:6543/postgres
@@ -80,6 +100,9 @@ DATABASE_URL=postgresql://postgres.<ref>:<senha>@aws-0-<regiao>.pooler.supabase.
 
 > Supabase → Connect → Connection string → **Transaction pooler** (porta 6543).
 > Não use a "Direct connection" na 5432.
+
+> ⚠️ **Numa demo em equipe esta instância costuma ser compartilhada.**
+> `npm run db:reset -- --confirm` apaga o banco de todo mundo, não o seu.
 
 E o modelo. Sem estas o site sobe e funciona; os agentes é que não compõem.
 
@@ -139,6 +162,54 @@ npm run build && npm run preview   # http://localhost:3000
 
 ---
 
+## Vendo o agente funcionar
+
+Subir o projeto **não** faz a vitrine aparecer, e isso é desenho, não defeito:
+ela exige **identidade** e **cache quente**, e a primeira visita não tem nenhum
+dos dois. Sem este roteiro a conclusão natural é "está quebrado".
+
+`donoDaVitrine()` resolve **sessão primeiro, cookie assinado depois** — e são
+dois caminhos diferentes para chegar lá.
+
+### Caminho A — logado, com `3211@gmail.com`
+
+É a conta real, com senha, e a `0023_seed_pedidos_3211.sql` existe para que os
+pedidos dela sobrevivam a um `db:reset`.
+
+```bash
+npm run vitrine:refresh -- 3211@gmail.com    # 60-150s, 2 chamadas de modelo
+```
+
+Faça login, recarregue a home, e a vitrine aparece dentro da caixa verde.
+
+### Caminho B — sem login, pelos armários de demonstração
+
+```bash
+npm run look:armarios          # semeia; --listar e --limpar também existem
+```
+
+Quatro pessoas com 5 a 7 sinais cada:
+
+| | |
+|---|---|
+| `ana.escura@demo.local` | armário coeso, tons escuros |
+| `bruno.solto@demo.local` | modelagem larga |
+| `carla.tecnica@demo.local` | peças técnicas |
+| `diego.disperso@demo.local` | **controle** — peças sem relação entre si |
+
+O `diego` é o que mais importa: o esperado é `confiança < 0.5` e **nenhuma
+vitrine**. Se ele receber um retrato confiante, a premissa da feature caiu.
+
+Esses e-mails **não têm conta de autenticação** — ninguém loga como eles. Para
+ser reconhecido mesmo assim, use o cookie: clique em **"avise-me"** em qualquer
+produto esgotado informando o mesmo e-mail. Isso emite o cookie de identidade, e
+exige `SHELF_COOKIE_SECRET` no `.env` — sem ele o cookie não é emitido nem
+aceito, em silêncio.
+
+Depois, `npm run vitrine:refresh -- ana.escura@demo.local` e recarregue.
+
+---
+
 ## Comandos
 
 ### Banco
@@ -151,7 +222,7 @@ npm run build && npm run preview   # http://localhost:3000
 | `npm run db:audit` | confere se as migrations refletem o banco |
 | `npm run db:query -- "SELECT ..."` | SQL avulso |
 | `npm run db:alerts` | `stock_alerts` cruzados com o catálogo |
-| `npm run db:reset -- --confirm` | **apaga tudo**, inclusive histórico de alertas |
+| `npm run db:reset -- --confirm` | **apaga tudo** — e o banco costuma ser compartilhado |
 
 ### Agentes
 
@@ -160,7 +231,7 @@ npm run build && npm run preview   # http://localhost:3000
 | `npm run vitrine:refresh -- <email>` | recompõe a vitrine de hoje (UPSERT) | 60-150s, 2 chamadas |
 | `npm run look:check` | caminho de renderização e invariantes | **zero** — não chama o modelo |
 | `npm run look:wishlist [email]` | a wishlist do banco virando semente | zero |
-| `npm run look:armarios` | semeia 4 armários `@demo.local` para testar personas | zero |
+| `npm run look:armarios` | semeia 4 armários `@demo.local` (`--listar`, `--limpar`) | zero |
 | `npm run shelf:dryrun -- <email>` | o agente dormente do shelf — único caminho que ainda o alcança | chama o modelo |
 
 ### Build e qualidade
@@ -188,6 +259,11 @@ scripts/                     migrate, query, snapshot, dry runs, verificações
 Cada domínio segue o mesmo formato: `types` · `d1` (SQL) · `actions` ·
 `agent`/`prompt` quando fala com o modelo.
 
+> `src/platform/look/` **não é** o agente de look, que foi aposentado. O nome
+> sobreviveu ao dono: ali moram os sinais, a persona, os cookies e o hash — o
+> que alimenta qualquer agente. Renomear seria um diff de centenas de linhas de
+> import sem mudar comportamento; está registrado como dívida no `index.ts`.
+
 ### Docs que valem a leitura
 
 | Arquivo | Sobre |
@@ -207,6 +283,21 @@ Cada domínio segue o mesmo formato: `types` · `d1` (SQL) · `actions` ·
 (`Rendering/Lazy.tsx`): o HTML do SSR é esqueleto, e um loader que falha vira
 section vazia com a página respondendo 200. **Valide no navegador, não no
 `curl`** — e `curl` não dispara loader diferido nenhum.
+
+**O patch de imagens não está aplicando.** O `patchedDependencies` fixa
+`@decocms/blocks@7.20.7`, mas `dependencies` pede `^7.20.7` e o instalado é
+`7.26.0` — o patch não alcança essa versão. Como é ele quem adiciona
+`quality?: number | "original"` ao `ImageProps`, o resultado é o **único erro de
+`npm run typecheck` do repositório**:
+
+```
+src/components/ui/Image.tsx(61,36): error TS2339:
+  Property 'quality' does not exist on type 'ImageProps'.
+```
+
+Não é erro de ambiente e não é da sua branch: aparece igual na `main`. Vale
+saber ao revisar um delta de typecheck — e é por isso que `bun install` não
+resolve sozinho, ao contrário do que o passo 2 sugere.
 
 **HMR não recarrega código de servidor.** Depois de mexer em `src/platform/**`,
 reinicie o dev server. Um script rodando via `tsx` lê o fonte novo enquanto o
