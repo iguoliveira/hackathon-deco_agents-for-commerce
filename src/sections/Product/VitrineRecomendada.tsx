@@ -8,7 +8,7 @@ import { useSendEvent } from "~/sdk/useSendEvent";
 import { type LoadingFallbackProps } from "~/types/deco";
 
 /** O nome da section na tela. Ver `Props.titulo` e o `LoadingFallback`. */
-export const TITULO_PADRAO = "Escolhido para você";
+export const TITULO_PADRAO = "Recomendações com a sua cara";
 
 /**
  * A caixa que envolve a vitrine inteira.
@@ -35,7 +35,7 @@ export interface Props {
   vitrine: VitrinePersonalizada | null;
   /**
    * @title Título da section
-   * @description O nome que aparece na tela. Vazio usa "Escolhido para você".
+   * @description O nome que aparece na tela. Vazio usa "Recomendações com a sua cara".
    */
   titulo?: string;
   /**

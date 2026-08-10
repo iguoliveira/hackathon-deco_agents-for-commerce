@@ -5116,7 +5116,7 @@
             "type": "string",
             "nullable": true,
             "title": "Título da section",
-            "description": "O nome que aparece na tela. Vazio usa \"Escolhido para você\"."
+            "description": "O nome que aparece na tela. Vazio usa \"Recomendações com a sua cara\"."
           },
           "mostrarProcedencia": {
             "type": "boolean",
