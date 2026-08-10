@@ -14,10 +14,14 @@ export const TITULO_PADRAO = "Recomendações com a sua cara";
  * A caixa que envolve a vitrine inteira.
  *
  * Borda e véu no verde da marca: é o que separa visualmente o que o **agente
- * recomendou** do que é prateleira comum. A home tem quatro vitrines seguidas —
- * duas `PersonalShelf`, uma `ProductShelf` e esta — e sem marcação nenhuma esta
- * era só mais uma fileira de produtos, o que apaga justamente a coisa que ela
- * tem a provar.
+ * recomendou** do que é prateleira comum.
+ *
+ * O argumento ficou mais forte depois da #35, não mais fraco. Antes a home tinha
+ * quatro vitrines seguidas e esta se perdia no meio; agora sobrou uma prateleira
+ * comum (`ProductShelf`) e esta — e são visualmente idênticas. Sem marcação, a
+ * única diferença que a pessoa percebe é o texto sob cada card, e ela teria de
+ * ler para descobrir que uma foi composta para ela. A caixa diz isso antes da
+ * leitura.
  *
  * **Caixa contida, não faixa sangrando.** Uma primeira versão usava `-mx-3` para
  * ocupar a largura toda e encostava o texto na borda da tela — o título ficava
