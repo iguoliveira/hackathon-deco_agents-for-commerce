@@ -3619,7 +3619,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -4851,7 +4851,7 @@
             ],
             "nullable": true,
             "title": "Exibir em",
-            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\r\nconteúdo diferente no celular e no computador.",
+            "description": "Em quais dispositivos esta seção aparece. Útil para mostrar\nconteúdo diferente no celular e no computador.",
             "default": "all"
           }
         },
@@ -5116,7 +5116,7 @@
             "type": "string",
             "nullable": true,
             "title": "Título da section",
-            "description": "O nome que aparece na tela. Vazio usa \"Escolhido para você\"."
+            "description": "O nome que aparece na tela. Vazio usa \"Recomendações com a sua cara\"."
           },
           "mostrarProcedencia": {
             "type": "boolean",

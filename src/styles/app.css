@@ -51,6 +51,22 @@
   --color-muted: #737373;
   --color-muted-soft: rgb(64 64 64 / 60%);
 
+  /*
+   * Agente — o verde-limão da marca, usado para marcar o que a IA compôs.
+   *
+   * `agente-veu` é o fundo (12%) e `agente-linha` é a borda (55%). A opacidade é
+   * baixa de propósito: o limão puro atrás de cards de produto briga com as
+   * fotos, e a marcação serve para dizer "isto aqui é do agente", não para virar
+   * o assunto da página.
+   *
+   * `--color-agente` é a cor cheia. Nenhum componente a usa hoje — ela existe
+   * como a referência de onde as outras duas saem, para quem for criar uma
+   * terceira variação não ter que descobrir o hex de novo.
+   */
+  --color-agente: #d0ec1a;
+  --color-agente-veu: rgb(208 236 26 / 12%);
+  --color-agente-linha: rgb(208 236 26 / 55%);
+
   /* Glass — the frosted-blur surface used across nav, tags, PDP panel, banners */
   --color-glass: rgb(240 240 240 / 60%);
   --color-glass-strong: rgb(245 245 245 / 60%);
