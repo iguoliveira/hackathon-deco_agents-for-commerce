@@ -1,6 +1,5 @@
 import { RequestContext } from "@decocms/blocks/sdk/requestContext";
 import { createStockAlert, readShopperIdentity } from "../../platform/alerts";
-import { gerarVitrine } from "../../platform/shelf/shelf.agent";
 import { marcarDonoDaVitrine } from "../../platform/shelf/shelf.identity";
 
 export interface NotifyMeProps {
@@ -61,40 +60,45 @@ async function action(props: NotifyMeProps, req?: Request): Promise<NotifyMeResu
   // pendurar o Set-Cookie.
   marcarDonoDaVitrine(email);
 
-  dispararGeracaoDaVitrine(email);
+  // **A vitrine do "avise-me" não é mais montada aqui.** O cookie continua:
+  // `donoDaVitrine()` é a identidade que a vitrine recomendada usa quando não há
+  // sessão do Shopify, então marcá-la segue valendo — e vale mais agora, porque
+  // é o único jeito de um visitante que só clicou em "avise-me" ser reconhecido.
+  //
+  // O que saiu foi o disparo do agente `shelf`. Ver o comentário de
+  // `dispararGeracaoDaVitrine`, logo abaixo.
 
   return { success: true };
 }
 
-/**
- * Dispara a montagem da vitrine sem segurar a resposta.
+/*
+ * `dispararGeracaoDaVitrine` foi removida daqui.
  *
- * Este é o pico de intenção: a pessoa acabou de declarar que quer aquela peça.
- * Esperar o cron de 3 dias significaria a vitrine dela nascer muito depois de o
- * interesse esfriar.
+ * Ela chamava `gerarVitrine` do domínio `shelf` — o agente que compunha duas
+ * vitrines por comprador ancoradas no item esgotado: o que substitui o que
+ * faltou, e o que se veste junto.
  *
- * **Deliberadamente sem `await`.** O agente leva ~33s e às vezes 120s (o
- * Decopilot entra em `waiting-capacity`); segurar o clique por isso é
- * inaceitável, e a pessoa não está esperando por vitrine nenhuma — ela está
- * esperando "recebemos seu pedido".
+ * **Saiu porque não havia mais onde exibi-las.** As duas sections da home e as
+ * páginas `/minha-vitrine` e `/minha-vitrine/combina` foram retiradas: a
+ * recomendação por IA passou a viver numa vitrine só, montada a partir de TODOS
+ * os sinais da pessoa e não apenas do que ela pediu para ser avisada.
  *
- * Isso é **melhor esforço**, e é honesto dizer por quê: sem `waitUntil` a
- * plataforma pode congelar a invocação assim que a resposta sai, matando a
- * geração no meio. Não é problema porque o cron é a rede: `acharVitrinesVencidas`
- * inclui, por LEFT JOIN, quem tem alerta e **nenhuma** vitrine — exatamente o
- * caso de uma geração interrompida. Pior cenário: a vitrine aparece na próxima
- * passada em vez de agora.
+ * Mantê-la seria pior que inútil. Cada clique em "avise-me" gastava ~33s de
+ * modelo — às vezes 120s — para gravar em `shelves` uma vitrine que ninguém
+ * abriria. Custo invisível é o que menos aparece numa revisão.
  *
- * Instalar `@vercel/functions` e envolver em `waitUntil` tornaria isto
- * garantido, e é o próximo passo se a taxa de interrupção incomodar. Vale medir
- * antes de trazer dependência.
+ * O domínio `src/platform/shelf/` continua no repositório e agora está **sem
+ * consumidor**: `shelf.agent`, `shelf.candidates`, `shelf.prompt` e a tabela
+ * `shelves` não são mais alcançados por caminho nenhum. Não apaguei porque é
+ * uma feature inteira, documentada em `docs/agente-vitrine.md` e
+ * `feature-back-in-stock-shelf.md`, e a decisão de aposentá-la de vez é de quem
+ * a construiu — não de quem está tirando ela da tela.
+ *
+ * Exceções que SOBREVIVEM e não são do agente:
+ *   `shelf.identity`  `donoDaVitrine()`, a identidade que a vitrine recomendada usa
+ *   `shelf.cookie`    o cookie assinado que a sustenta
+ *   `shelf.decopilot` `perguntar()`, o cliente do modelo que todos os agentes usam
+ *   `shelf.agent`     `extrairJson()`, idem
  */
-function dispararGeracaoDaVitrine(email: string): void {
-  void gerarVitrine(email).catch((erro) => {
-    // Telemetria nunca derruba o caminho do usuário: neste ponto o alerta já
-    // está gravado e a pessoa já recebeu o sucesso dela.
-    console.error(`[shelf] falha ao gerar vitrine de ${email}:`, erro);
-  });
-}
 
 export default action;
