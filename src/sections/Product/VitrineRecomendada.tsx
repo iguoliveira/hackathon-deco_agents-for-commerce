@@ -3,6 +3,7 @@ import { useOffer } from "@decocms/apps-commerce/sdk/useOffer";
 import type { VitrinePersonalizada } from "~/platform/vitrine/vitrine.actions";
 import ProductCard from "~/components/product/card/ProductCard";
 import Section from "~/components/ui/Section";
+import { clx } from "~/sdk/clx";
 import { useSendEvent } from "~/sdk/useSendEvent";
 import { type LoadingFallbackProps } from "~/types/deco";
 
@@ -88,7 +89,31 @@ export default function VitrineRecomendada({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+      {/* A grade segue a CONTAGEM, não um número fixo.
+
+          `MAX_PECAS` é 5 e `MIN_PECAS` é 4 — o prompt manda escolher entre os
+          dois e diz que "escolher menos e explicar bem vale mais que preencher".
+          Então a vitrine sai com 4 ou com 5, e nenhuma grade fixa acerta os dois:
+          em quatro colunas, cinco peças viram 4+1 com três vãos, que lê como
+          erro de layout; em cinco, quatro peças deixam um vão no fim.
+
+          Uma classe por caso resolve, e é a apresentação concordando com a
+          decisão que o prompt já tomou — não uma decisão nova.
+
+          As duas literais aparecem inteiras no código de propósito: o Tailwind
+          só gera a classe que consegue ver, e um template `lg:grid-cols-${n}`
+          não produziria CSS nenhum.
+
+          Nos breakpoints menores não perseguimos o mesmo: em `md` cinco peças
+          dão 3+2 e quatro dão 3+1; no celular, 2+2+1 e 2+2. Sempre haverá uma
+          das contagens com fileira incompleta, e uma órfã ao lado de UM vão não
+          se parece com defeito — a de `lg`, com três, sim. */}
+      <div
+        className={clx(
+          "grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3",
+          pecas.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4",
+        )}
+      >
         {pecas.map((peca, index) => (
           <div
             key={peca.product.productID ?? peca.product.url ?? index}
