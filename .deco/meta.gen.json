@@ -86,14 +86,6 @@
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9OZXdzbGV0dGVyL05ld3NsZXR0ZXIudHN4",
           "namespace": "site"
         },
-        "site/sections/Product/CompleteTheLook.tsx": {
-          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
-          "namespace": "site"
-        },
-        "site/sections/Product/PersonalShelf.tsx": {
-          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
-          "namespace": "site"
-        },
         "site/sections/Product/ProductDetails.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
           "namespace": "site"
@@ -112,6 +104,10 @@
         },
         "site/sections/Product/ShelfWithImage.tsx": {
           "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1NoZWxmV2l0aEltYWdlLnRzeA==",
+          "namespace": "site"
+        },
+        "site/sections/Product/VitrineRecomendada.tsx": {
+          "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1ZpdHJpbmVSZWNvbWVuZGFkYS50c3g=",
           "namespace": "site"
         },
         "site/sections/Product/Wishlist.tsx": {
@@ -152,16 +148,8 @@
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM=",
           "namespace": "site"
         },
-        "site/loaders/completeTheLook.ts": {
-          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==",
-          "namespace": "site"
-        },
         "site/loaders/lookLocal.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==",
-          "namespace": "site"
-        },
-        "site/loaders/personalShelf.ts": {
-          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=",
           "namespace": "site"
         },
         "site/loaders/productByHandle.ts": {
@@ -170,6 +158,10 @@
         },
         "site/loaders/user.ts": {
           "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3VzZXIudHM=",
+          "namespace": "site"
+        },
+        "site/loaders/vitrineRecomendada.ts": {
+          "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw==",
           "namespace": "site"
         },
         "site/loaders/wishlist.ts": {
@@ -380,28 +372,6 @@
           }
         }
       },
-      "c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw==": {
-        "title": "site/loaders/completeTheLook.ts",
-        "type": "object",
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/loaders/completeTheLook.ts"
-            ],
-            "default": "site/loaders/completeTheLook.ts"
-          },
-          "handle": {
-            "type": "string",
-            "nullable": true,
-            "title": "Handle da peça",
-            "description": "OBRIGATÓRIO. A section só existe na home, e ali não há peça na URL para deduzir — deixar vazio faz a section sumir sem erro."
-          }
-        }
-      },
       "c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw==": {
         "title": "site/loaders/lookLocal.ts",
         "type": "object",
@@ -415,32 +385,6 @@
               "site/loaders/lookLocal.ts"
             ],
             "default": "site/loaders/lookLocal.ts"
-          }
-        }
-      },
-      "c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM=": {
-        "title": "site/loaders/personalShelf.ts",
-        "type": "object",
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/loaders/personalShelf.ts"
-            ],
-            "default": "site/loaders/personalShelf.ts"
-          },
-          "lista": {
-            "type": "string",
-            "enum": [
-              "alternativas",
-              "combinam"
-            ],
-            "nullable": true,
-            "title": "Lista",
-            "description": "\"alternativas\" mostra o que substitui a peça esgotada (mesmo tipo). \"combinam\" mostra o que completa o look (outro tipo)."
           }
         }
       },
@@ -479,6 +423,22 @@
               "site/loaders/user.ts"
             ],
             "default": "site/loaders/user.ts"
+          }
+        }
+      },
+      "c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw==": {
+        "title": "site/loaders/vitrineRecomendada.ts",
+        "type": "object",
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/loaders/vitrineRecomendada.ts"
+            ],
+            "default": "site/loaders/vitrineRecomendada.ts"
           }
         }
       },
@@ -4676,124 +4636,6 @@
           }
         }
       },
-      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props": {
-        "type": "object",
-        "properties": {
-          "look": {
-            "anyOf": [
-              {
-                "$ref": "#/definitions/Resolvable"
-              },
-              {
-                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
-              }
-            ],
-            "title": "O look",
-            "nullable": true,
-            "description": "Resolve com `site/loaders/completeTheLook.ts`. O `handle` lá é OBRIGATÓRIO — a section só vive na home, e sem ele ela some sem erro."
-          },
-          "titulo": {
-            "type": "string",
-            "nullable": true,
-            "title": "Título da section",
-            "description": "O nome que aparece na tela. Vazio usa \"Recomendações Com a sua cara\"."
-          },
-          "mostrarProcedencia": {
-            "type": "boolean",
-            "nullable": true,
-            "title": "Mostrar a procedência",
-            "description": "A linha \"montado para <cidade>, a partir de N sinais\". Deixe ligado na demo — é o que torna a personalização visível."
-          }
-        },
-        "required": [
-          "look"
-        ]
-      },
-      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=": {
-        "title": "site/sections/Product/CompleteTheLook.tsx",
-        "type": "object",
-        "allOf": [
-          {
-            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
-          }
-        ],
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/sections/Product/CompleteTheLook.tsx"
-            ],
-            "default": "site/sections/Product/CompleteTheLook.tsx"
-          }
-        }
-      },
-      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props": {
-        "type": "object",
-        "properties": {
-          "vitrine": {
-            "anyOf": [
-              {
-                "$ref": "#/definitions/Resolvable"
-              },
-              {
-                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
-              }
-            ],
-            "title": "Vitrine pessoal",
-            "nullable": true,
-            "description": "Resolve com `site/loaders/personalShelf.ts`. Escolha ali qual lista aparece."
-          },
-          "maxItens": {
-            "type": "number",
-            "nullable": true,
-            "title": "Quantos mostrar",
-            "description": "Vazio mostra todos. Na home vale limitar e apontar o \"ver mais\" para a página inteira."
-          },
-          "verMais": {
-            "type": "string",
-            "nullable": true,
-            "title": "Link do \"ver mais\"",
-            "description": "Ex.: \"/minha-vitrine\". Só aparece quando há mais itens do que os exibidos."
-          },
-          "formato": {
-            "type": "string",
-            "enum": [
-              "carrossel",
-              "grade"
-            ],
-            "nullable": true,
-            "title": "Formato",
-            "description": "Carrossel para a home; grade para uma página dedicada."
-          }
-        },
-        "required": [
-          "vitrine"
-        ]
-      },
-      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4": {
-        "title": "site/sections/Product/PersonalShelf.tsx",
-        "type": "object",
-        "allOf": [
-          {
-            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
-          }
-        ],
-        "required": [
-          "__resolveType"
-        ],
-        "properties": {
-          "__resolveType": {
-            "type": "string",
-            "enum": [
-              "site/sections/Product/PersonalShelf.tsx"
-            ],
-            "default": "site/sections/Product/PersonalShelf.tsx"
-          }
-        }
-      },
       "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props": {
         "type": "object",
         "properties": {
@@ -5251,6 +5093,60 @@
               "site/sections/Product/ShelfWithImage.tsx"
             ],
             "default": "site/sections/Product/ShelfWithImage.tsx"
+          }
+        }
+      },
+      "c3JjL3NlY3Rpb25zL1Byb2R1Y3QvVml0cmluZVJlY29tZW5kYWRhLnRzeA==@Props": {
+        "type": "object",
+        "properties": {
+          "vitrine": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Resolvable"
+              },
+              {
+                "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw=="
+              }
+            ],
+            "title": "A vitrine",
+            "nullable": true,
+            "description": "Resolve com `site/loaders/vitrineRecomendada.ts`. O loader não tem props — a vitrine é de quem está olhando."
+          },
+          "titulo": {
+            "type": "string",
+            "nullable": true,
+            "title": "Título da section",
+            "description": "O nome que aparece na tela. Vazio usa \"Escolhido para você\"."
+          },
+          "mostrarProcedencia": {
+            "type": "boolean",
+            "nullable": true,
+            "title": "Mostrar a procedência",
+            "description": "A linha \"recomendado pelo agente a partir de N sinais seus\". É o que torna a personalização visível."
+          }
+        },
+        "required": [
+          "vitrine"
+        ]
+      },
+      "c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1ZpdHJpbmVSZWNvbWVuZGFkYS50c3g=": {
+        "title": "site/sections/Product/VitrineRecomendada.tsx",
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvVml0cmluZVJlY29tZW5kYWRhLnRzeA==@Props"
+          }
+        ],
+        "required": [
+          "__resolveType"
+        ],
+        "properties": {
+          "__resolveType": {
+            "type": "string",
+            "enum": [
+              "site/sections/Product/VitrineRecomendada.tsx"
+            ],
+            "default": "site/sections/Product/VitrineRecomendada.tsx"
           }
         }
       },
@@ -5863,14 +5759,6 @@
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL05ld3NsZXR0ZXIvTmV3c2xldHRlci50c3g=@Props"
           },
           {
-            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L0NvbXBsZXRlVGhlTG9vay50c3g=",
-            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvQ29tcGxldGVUaGVMb29rLnRzeA==@Props"
-          },
-          {
-            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1BlcnNvbmFsU2hlbGYudHN4",
-            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUGVyc29uYWxTaGVsZi50c3g=@Props"
-          },
-          {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1Byb2R1Y3REZXRhaWxzLnRzeA==",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvUHJvZHVjdERldGFpbHMudHN4@Props"
           },
@@ -5889,6 +5777,10 @@
           {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1NoZWxmV2l0aEltYWdlLnRzeA==",
             "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvU2hlbGZXaXRoSW1hZ2UudHN4@Props"
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1ZpdHJpbmVSZWNvbWVuZGFkYS50c3g=",
+            "inputSchema": "#/definitions/c3JjL3NlY3Rpb25zL1Byb2R1Y3QvVml0cmluZVJlY29tZW5kYWRhLnRzeA==@Props"
           },
           {
             "$ref": "#/definitions/c2l0ZS9zZWN0aW9ucy9Qcm9kdWN0L1dpc2hsaXN0LnRzeA==",
@@ -5929,19 +5821,16 @@
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NhdGFsb2dQcm9kdWN0TGlzdGluZ1BhZ2UudHM="
           },
           {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2NvbXBsZXRlVGhlTG9vay50cw=="
-          },
-          {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL2xvb2tMb2NhbC50cw=="
-          },
-          {
-            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3BlcnNvbmFsU2hlbGYudHM="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3Byb2R1Y3RCeUhhbmRsZS50cw=="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3VzZXIudHM="
+          },
+          {
+            "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3ZpdHJpbmVSZWNvbWVuZGFkYS50cw=="
           },
           {
             "$ref": "#/definitions/c2l0ZS9sb2FkZXJzL3dpc2hsaXN0LnRz"
