@@ -328,8 +328,63 @@ e a unica coisa entre o catalogo e a tela.
 volta de uma âncora. Sem âncora, as condições mudam de forma e a comparação com
 as medições antigas deixa de valer — inclusive a de `medicao-baseline-cor.md`.
 
-**Nada disto foi medido com modelo.** O provedor está sem token desde ontem. O
-desenho é derivado do que já roda, não de observação nova.
+---
+
+## 9. O controle, medido
+
+A premissa da feature é que a persona segura a vitrine: sem retrato confiável,
+nada aparece. `diego.disperso` existe para testá-la — uma pilha sem relação
+nenhuma entre si (infantil, praia, festa, trilha, um chapéu de programador),
+montada de propósito para o modelo não ter o que dizer.
+
+**A separação existe, e é clara:**
+
+| | confiança da persona |
+|---|---|
+| `ana.escura` — armário coerente, 7 sinais | **0,82** |
+| `diego.disperso` — pilha aleatória, 6 sinais | **0,50** e, na repetição, **0,45** |
+
+O piso de 0,5 cai exatamente no vão entre os dois. Na segunda execução o
+resultado foi o desenhado:
+
+```
+[persona] sem retrato — confiança 0.45 abaixo do piso
+[vitrine] sem vitrine — sem persona confiável
+```
+
+### O que isso confirma, e o que não
+
+**Confirma que a persona fica no fato observado.** Mesmo com a pilha aleatória, os
+quatro eixos que ela produziu tinham evidência real — `cor: vermelho ← Trail
+Sneakers · Flowing Maxi Dress`, e os dois têm a tag `red` de fato. Zero invenção,
+inclusive no caso desenhado para provocá-la.
+
+**Não confirma que o modelo "se recusa".** Ele não devolveu 0,1: achou padrões
+verdadeiros, só que finos, e disse isso pelo número. Quem recusa é o **piso**,
+não o modelo — e essa distinção importa, porque significa que a proteção da
+feature é uma constante nossa, não uma virtude dele.
+
+**E o controle é limítrofe**, não folgado: 0,50 passa, 0,45 não. Diego cairia dos
+dois lados dependendo da execução. Subir o piso para 0,6 o excluiria sempre — mas
+seria escolher um número com duas amostras, que é exatamente o que a regra 11
+proíbe. Fica registrado como pendência de medição, não como ajuste.
+
+---
+
+## 10. O que ainda não foi medido
+
+**Duas das quatro personas.** `bruno.solto` e `carla.tecnica` nunca geraram
+vitrine. Uma amostra coerente (a `ana.escura`) não diz se o resultado é
+consistente entre armários diferentes.
+
+**A vitrine na tela, com conteúdo.** A section foi verificada no navegador só no
+estado vazio — o caminho de leitura resolve, o loader responde, e ela some quando
+não há vitrine. Com produtos de verdade, nunca.
+
+**Se a lista única sai monótona.** Tirei as regras de composição de propósito, e
+nada na estrutura impede oito camisetas. Nas duas execuções da `ana.escura` a
+variedade veio sozinha (camiseta, cardigã, camisa, moletom, jaqueta), mas duas
+execuções não são medida.
 
 ---
 
