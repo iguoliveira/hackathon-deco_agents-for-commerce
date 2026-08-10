@@ -338,7 +338,19 @@ saber se a troca melhorou alguma coisa antes de não haver mais volta.
 
 ### O que o cron precisa de nós
 
-O dev do cron não precisa esperar nada disto: a interface que ele consome é
-`SELECT sinais_hash FROM personas WHERE origem = 'agente'` e uma função que
-recebe esse hash. Nenhum dos passos acima muda esse contrato — vale registrar
-para que os dois trabalhos não se travem.
+```ts
+import { gerarVitrine } from "~/platform/vitrine/vitrine.actions";
+await gerarVitrine(email);   // 60-120s, grava, nunca lança
+```
+
+O cron varre **identidades** — de `orders`, `stock_alerts`, `wishlist_items` — e
+passa o e-mail. Tudo o mais é derivado lá dentro: sementes, hash, persona,
+candidatos, recomendação, gravação. `gerarVitrine` já traz cache e quarentena, e
+devolve `null` em todo caminho de falha, então o laço pode ser um `for` simples.
+
+> **Correção.** Uma versão anterior desta seção dizia para varrer
+> `SELECT sinais_hash FROM personas` e passar o hash. **Não funciona:** o hash é
+> via única, e as sementes que o geraram não estão guardadas em lugar nenhum —
+> sem elas não há como calcular `combinaComOGuardaRoupa`, que é o eixo da
+> recomendação. Se alguém começou contra aquele contrato, é aqui que a mudança
+> mora.
